@@ -188,11 +188,15 @@ public final class LiveSmoke implements ClientModInitializer {
                 }
                 case 19 -> {
                     if (age < 2) return;
-                    startDistance = Neon.CAMERA.distanceFactor(); Neon.freelook.setDown(true); next();
+                    // Sample on the same frame as the input edge. A previous render's distance
+                    // can be stale when several simulation ticks run between rendered frames.
+                    Neon.CAMERA.frame(mc); startDistance = Neon.CAMERA.distanceFactor();
+                    Neon.freelook.setDown(true); Neon.CAMERA.frame(mc);
+                    check(Math.abs(Neon.CAMERA.distanceFactor() - startDistance) < .05,
+                        "rapid repress continues smoothly from return pose");
+                    next();
                 }
                 case 20 -> {
-                    if (age == 1) check(Neon.CAMERA.distanceFactor() >= startDistance && Neon.CAMERA.distanceFactor() < 1,
-                        "rapid repress continues smoothly from return pose");
                     if (age < 10) return;
                     Neon.freelook.setDown(false);
                     mc.getSingleplayerServer().execute(() -> {
