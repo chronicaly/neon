@@ -18,6 +18,17 @@ public record HudBounds(int x, int y, int width, int height) {
         return new HudBounds(Math.clamp(x, 0, Math.max(0, screenWidth - width)),
             Math.clamp(y, 0, Math.max(0, screenHeight - height)), width, height);
     }
+    public HudBounds snapped(double x, double y, int screenWidth, int screenHeight, int threshold) {
+        return at(snapAxis(x, screenWidth - width, threshold), snapAxis(y, screenHeight - height, threshold), screenWidth, screenHeight);
+    }
+    private static int snapAxis(double value, int available, int threshold) {
+        double result = value, nearest = threshold + 1;
+        for (double anchor : new double[]{0, available / 2.0, available}) {
+            double distance = Math.abs(value - anchor);
+            if (distance <= threshold && distance < nearest) { result = anchor; nearest = distance; }
+        }
+        return (int) Math.round(result);
+    }
     public void move(Widget widget, double x, double y, int screenWidth, int screenHeight) {
         widget.x = Math.clamp(x / Math.max(1, screenWidth - width), 0, 1);
         widget.y = Math.clamp(y / Math.max(1, screenHeight - height), 0, 1);

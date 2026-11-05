@@ -10,6 +10,64 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class BehaviorTest {
     @TempDir Path directory;
+    @Test void exactValuesValidateRangeWithoutRoundingToSliderSteps() {
+        assertEquals(4.125, NumberValue.parse("4.125", 1, 16, false).orElseThrow());
+        assertEquals(53, NumberValue.parse("53", 0, 500, true).orElseThrow());
+        assertTrue(NumberValue.parse("NaN", 1, 16, false).isEmpty());
+        assertTrue(NumberValue.parse("Infinity", 1, 16, false).isEmpty());
+        assertTrue(NumberValue.parse("1e999", 1, 16, false).isEmpty());
+        assertTrue(NumberValue.parse("17", 1, 16, false).isEmpty());
+        assertTrue(NumberValue.parse("2.5", 0, 60, true).isEmpty());
+        assertTrue(NumberValue.parse("", 0, 60, true).isEmpty());
+        assertEquals(0, NumberValue.parse("0", 0, 0, true).orElseThrow());
+        assertEquals("4.125", NumberValue.format(4.125));
+    }
+    @Test void sectionResetsLeaveOtherSectionsAndSnapshotsUntouched() {
+        NeonConfig config = new NeonConfig();
+        config.zoomFactor = 7; config.zoomToggle = true; config.zoomScrollStep = 1.25;
+        config.leftIntervalTicks = 43; config.clickerProtectTools = true; config.armor.x = .37;
+        NeonConfig snapshot = ConfigStore.copy(config);
+        config.resetCamera(); assertEquals(4, config.zoomFactor); assertFalse(config.zoomToggle);
+        assertEquals(43, config.leftIntervalTicks); assertEquals(.37, config.armor.x);
+        assertEquals(7, snapshot.zoomFactor); assertTrue(snapshot.zoomToggle); assertEquals(1.25, snapshot.zoomScrollStep);
+        config.resetClicker(); assertEquals(0, config.leftIntervalTicks); assertFalse(config.clickerProtectTools);
+        assertEquals(.37, config.armor.x);
+        config.resetHud(); assertEquals(1, config.armor.x); assertEquals(7, snapshot.zoomFactor);
+    }
+    @Test void profilesPersistIndependentCopiesAndKeepVisualBaseline() throws Exception {
+        Path path = directory.resolve("neon-profiles.json");
+        NeonConfig baseline = new NeonConfig(); baseline.zoomFactor = 7; baseline.armor.x = .23;
+        ProfileStore store = new ProfileStore(path); store.initialize(baseline);
+        assertEquals(java.util.List.of("Combat", "Mining", "Building"), store.names());
+        assertEquals(7, store.get("Combat").zoomFactor); assertEquals(.23, store.get("Mining").armor.x);
+        assertTrue(store.get("Combat").clickerEntitiesOnly); assertTrue(store.get("Combat").clickerProtectTools);
+        assertEquals(NeonConfig.LeftAction.HOLD, store.get("Mining").leftAction);
+        assertTrue(store.get("Building").rightClick); assertFalse(store.get("Building").leftClick);
+        store.put("My setup", baseline); baseline.armor.x = .99;
+        NeonConfig loaded = store.get("My setup"); loaded.zoomFactor = 12;
+        assertEquals(7, store.get("My setup").zoomFactor); assertEquals(.23, store.get("My setup").armor.x);
+        ProfileStore reopened = new ProfileStore(path); reopened.initialize(new NeonConfig());
+        assertEquals(7, reopened.get("My setup").zoomFactor);
+        for (String name : reopened.names()) reopened.delete(name);
+        reopened.initialize(baseline); assertTrue(reopened.names().isEmpty());
+        assertThrows(IllegalArgumentException.class, () -> reopened.put(" \n ", baseline));
+        try (var files = Files.list(directory)) { assertEquals(1, files.count()); }
+    }
+    @Test void invalidProfilesAreBackedUpBeforeRecovery() throws Exception {
+        Path path = directory.resolve("neon-profiles.json"); Files.writeString(path, "{bad");
+        ProfileStore store = new ProfileStore(path); store.initialize(new NeonConfig());
+        assertEquals(3, store.names().size());
+        try (var files = Files.list(directory)) { assertEquals(2, files.count()); }
+    }
+    @Test void hudSnapsToEdgesAndCenterOnlyWithinThreshold() {
+        var b = new HudBounds(40, 40, 80, 20);
+        assertEquals(0, b.snapped(3, 90, 320, 240, 4).x());
+        assertEquals(240, b.snapped(237, 90, 320, 240, 4).x());
+        assertEquals(120, b.snapped(122, 90, 320, 240, 4).x());
+        assertEquals(110, b.snapped(50, 107, 320, 240, 4).y());
+        assertEquals(126, b.snapped(126, 90, 320, 240, 4).x());
+        assertEquals(0, b.snapped(-100, -100, 320, 240, 4).y());
+    }
     @Test void animationIsFiniteAndFrameRateIndependent() {
         Tween motion = new Tween(); motion.to(1, 0, 250);
         assertEquals(0, motion.value(0)); assertEquals(.5, motion.value(125_000_000), 1e-8);

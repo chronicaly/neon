@@ -8,6 +8,7 @@ import net.minecraft.client.*;
 import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.item.ItemStack;
 
 public final class AutoClicker {
     private final Activation activation = new Activation();
@@ -15,7 +16,26 @@ public final class AutoClicker {
     private boolean active, holdingAttack;
     private long tick;
     private Object level, player;
+    private String lastStopReason = "";
     public boolean active() { return active; }
+    public String lastStopReason() { return lastStopReason; }
+    public void cancel(Minecraft mc) {
+        if (holdingAttack && mc.gameMode != null && !mc.options.keyAttack.isDown()) mc.gameMode.stopDestroyBlock();
+        active = false; activation.reset(); resetTiming();
+    }
+    private boolean protectTool(Minecraft mc) {
+        if (!Neon.config.clickerProtectTools || mc.player == null) return false;
+        ItemStack main = mc.player.getMainHandItem(), off = mc.player.getOffhandItem();
+        ItemStack endangered = (Neon.config.leftClick || Neon.config.rightClick) && needsRepair(main) ? main
+            : Neon.config.rightClick && needsRepair(off) ? off : ItemStack.EMPTY;
+        if (endangered.isEmpty()) return false;
+        lastStopReason = "Autoclicker stopped: " + endangered.getHoverName().getString() + " has "
+            + (endangered.getMaxDamage() - endangered.getDamageValue()) + " durability";
+        cancel(mc); mc.gui.hud.setOverlayMessage(Component.literal(lastStopReason), false); return true;
+    }
+    private boolean needsRepair(ItemStack item) {
+        return item.isDamageableItem() && item.getMaxDamage() - item.getDamageValue() <= Neon.config.clickerMinDurability;
+    }
     private boolean allowed(Minecraft mc) {
         return Neon.config.clickerEnabled && mc.player != null && mc.level != null && mc.player.isAlive()
             && !mc.player.isSpectator() && !mc.player.isSleeping() && mc.getCameraEntity() == mc.player
@@ -39,8 +59,10 @@ public final class AutoClicker {
         boolean next;
         if (safe && !interactive && active && Neon.config.toggleClicker) next = true;
         else next = activation.update(safe && interactive, Neon.autoclicker.isDown(), Neon.config.toggleClicker);
+        if (next && !active) lastStopReason = "";
         if (next != active && mc.player != null) mc.gui.hud.setOverlayMessage(Component.literal("Autoclicker: " + (next ? "on" : "off")), false);
         active = next;
+        if (active && protectTool(mc)) return;
         if (!active) {
             if (holdingAttack && mc.gameMode != null && !mc.options.keyAttack.isDown()) mc.gameMode.stopDestroyBlock();
             resetTiming();
@@ -52,6 +74,7 @@ public final class AutoClicker {
     }
     public Clicks clicks(Minecraft mc, boolean attackReady, boolean useReady) {
         if (!active || !allowed(mc)) { resetTiming(); return Clicks.NONE; }
+        if (protectTool(mc)) return Clicks.NONE;
         boolean block = mc.hitResult != null && mc.hitResult.getType() == HitResult.Type.BLOCK;
         boolean attackDown = false, attackPress = false, use = false;
         if (Neon.config.leftClick && !mc.player.isUsingItem()) {
@@ -61,7 +84,8 @@ public final class AutoClicker {
                 holdingAttack = false;
                 // Click is attack-only: neither a queued click nor held input may touch a block.
                 // Keep the attack key released even on a click so vanilla cannot continue mining.
-                if (!block) attackPress = left.press(tick, Neon.config.leftIntervalTicks,
+                boolean targetAllowed = !Neon.config.clickerEntitiesOnly || mc.hitResult != null && mc.hitResult.getType() == HitResult.Type.ENTITY;
+                if (!block && targetAllowed) attackPress = left.press(tick, Neon.config.leftIntervalTicks,
                     attackReady && mc.player.getAttackStrengthScale(0) >= 1);
             }
         } else { holdingAttack = false; left.reset(); }

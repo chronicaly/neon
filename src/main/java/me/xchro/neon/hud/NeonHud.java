@@ -21,8 +21,11 @@ public final class NeonHud {
         List<ItemStack> result = new ArrayList<>();
         for (int i = 0; i < SLOTS.length; i++) {
             ItemStack stack = mc.player == null ? ItemStack.EMPTY : mc.player.getItemBySlot(SLOTS[i]);
+            if (stack.isEmpty() && preview) stack = new ItemStack(PREVIEW[i]);
+            if (preview && mc.gui.screen() instanceof HudEditor editor && editor.damagePreview() && stack.isDamageableItem()) {
+                stack = stack.copy(); stack.setDamageValue(stack.getMaxDamage() - 1);
+            }
             if (!stack.isEmpty()) result.add(stack);
-            else if (preview) result.add(new ItemStack(PREVIEW[i]));
         }
         if (Neon.config.armorReverse) Collections.reverse(result);
         return result;

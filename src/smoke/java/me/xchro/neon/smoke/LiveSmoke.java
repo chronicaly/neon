@@ -36,6 +36,7 @@ public final class LiveSmoke implements ClientModInitializer {
     private boolean blockBroken, blockIntact;
     private boolean initialized, failed;
     private Minecraft mc;
+    private FeatureSmoke features;
     @Override public void onInitializeClient() {
         if (!Boolean.getBoolean("neon.smoke")) throw new IllegalStateException("Test mod outside verification run");
         Neon.config = new me.xchro.neon.config.NeonConfig();
@@ -465,11 +466,16 @@ public final class LiveSmoke implements ClientModInitializer {
                     if (age < 8) return;
                     check(blockBroken, "switching to Hold mines the same block continuously");
                     focused = true; trackClicks = false; Neon.config.clickerEnabled = false; mc.gui.setScreen(null);
+                    features = new FeatureSmoke(mc, checks); next();
+                }
+                case 48 -> {
+                    if (!features.run()) return;
+                    checks = features.checks();
                     Files.writeString(mc.gameDirectory.toPath().resolve("neon-verification.txt"), "PASS " + checks + " live checks\n");
                     System.out.println("NEON_LIVE_PASS checks=" + checks);
                     next();
                 }
-                case 48 -> { if (age >= 20) mc.stop(); }
+                case 49 -> { if (age >= 20) mc.stop(); }
             }
         } catch (Throwable error) {
             failed = true; System.err.println("NEON_LIVE_FAIL stage=" + stage); error.printStackTrace();

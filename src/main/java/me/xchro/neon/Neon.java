@@ -23,9 +23,12 @@ public final class Neon implements ClientModInitializer {
     public static final AutoClicker CLICKER = new AutoClicker();
     public static KeyMapping settings, freelook, zoom, autoclicker;
     private static ConfigStore store;
+    public static ProfileStore profiles;
     @Override public void onInitializeClient() {
         store = new ConfigStore(FabricLoader.getInstance().getConfigDir().resolve("neon.json"));
         try { config = store.load(); } catch (Exception e) { LOG.error("Could not load Neon settings", e); }
+        profiles = new ProfileStore(FabricLoader.getInstance().getConfigDir().resolve("neon-profiles.json"));
+        try { profiles.initialize(config); } catch (Exception e) { LOG.error("Could not load Neon profiles", e); }
         var category = KeyMapping.Category.register(Identifier.fromNamespaceAndPath("neon", "controls"));
         settings = key("settings", category); freelook = key("freelook", category);
         zoom = key("zoom", category); autoclicker = key("autoclicker", category);
@@ -48,5 +51,9 @@ public final class Neon implements ClientModInitializer {
     public static boolean save() {
         try { store.save(config); return true; }
         catch (Exception e) { LOG.error("Could not save Neon settings", e); return false; }
+    }
+    public static boolean applyConfig(NeonConfig settings) {
+        Minecraft mc = Minecraft.getInstance(); CAMERA.reset(mc, true); CLICKER.cancel(mc);
+        config = ConfigStore.copy(settings); return save();
     }
 }

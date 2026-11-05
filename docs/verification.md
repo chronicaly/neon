@@ -1,14 +1,14 @@
-# Neon 0.1.2 verification
+# Neon 0.2.0 verification
 
 Verified on 5 November 2026 with Minecraft 26.2, Java 25, Fabric Loader 0.19.5 and Fabric API 0.161.0+26.2.
 
 ## Automated regression tests
 
-The Gradle build passed 14 JUnit tests covering zoom interpolation/reversal and FOV math, hold/toggle rearming, every custom interval from 1 to 60 ticks, vanilla-readiness timing at 0, no duplicate clicks within a tick or replay of missed intervals, configuration persistence/recovery, migration from CPS settings, exact screen-edge placement, and fitting vertical armor at large scales.
+The Gradle build passed 19 JUnit tests covering zoom interpolation/reversal and FOV math, hold/toggle rearming, every custom interval from 1 to 60 ticks, vanilla-readiness timing at 0, no duplicate clicks within a tick or replay of missed intervals, configuration persistence/recovery, migration from CPS settings, exact screen-edge placement, and fitting vertical armor at large scales. New tests cover precise numeric validation, independent section resets, profile copy/persistence/recovery, preserving the initial visual baseline in presets, and snapping thresholds.
 
 ## Live verification
 
-The packaged production JAR passed **72 live assertions** in an isolated singleplayer client on Vulkan with the Vanilla Prism instance's mod set, including Sodium 0.9.2 and Iris 1.11.4. No external shader pack was selected in the test client.
+The packaged production JAR passed **110 live assertions** in an isolated singleplayer client on Vulkan with the Vanilla Prism instance's mod set, including Sodium 0.9.2 and Iris 1.11.4. No external shader pack was selected in the test client.
 
 The checks cover immediate freelook entry/return, unchanged player aim while orbiting, simultaneous zoom, wheel ownership, front-view preservation, manual perspective override, camera focus/menu cancellation, nearby wall collision, and rapid release/repress. HUD checks cover inventory/offhand totals without main-hand double counting, offhand-only count decoration, vertical armor, flush edge placement, durability warnings, hotbar/offhand spacing, and configuration saving. UI checks cover a 320x240 viewport, reaching the final setting by scrolling, direct key assignment, cancellation, and unbinding.
 
@@ -18,9 +18,15 @@ Click mode left a targeted dirt block intact without entering mining, even at a 
 
 Active Toggle mode was verified while typing an unsent chat message, with focus lost in chat, and while tabbed out without chat. Focus-loss auto-pausing was enabled during those checks. A real server block was also mined with chat open and focus lost. Disabling chat continuation stops clicking; typing cannot activate it.
 
+The 0.2.0 checks cover exact decimal entry between slider steps, rejection of invalid values, undoing numeric changes and a complete slider drag, immediate Undo-button availability, isolated Camera resets, and restoring key bindings through Undo. Profiles were saved, loaded, updated, and deleted through their native screens; loading preserved bindings, was undoable, and stopped active automation without restarting it.
+
+HUD checks verified exact X/Y placement at the top-left edge, independent coordinate undo, snapping to an edge and screen center, undoing a complete drag, wheel-scale undo, and low-durability preview without modifying actual equipment. Zoom Toggle persisted after key release, toggled off on a second press, used a configured 1.25x wheel step, and canceled/rearmed correctly on focus changes.
+
+Entities-only mode suppressed air swings and attacked a real targeted armor stand in the isolated world. Tool protection stopped a shovel with five durability remaining before it could mine a dirt block or take further wear. Its action-bar message named the item and remaining durability. Replacing the tool while holding the activation key did not restart automation; a fresh activation did.
+
 The harness simulates Minecraft/window focus changes through test-only mixins and drives feature key mappings on the client thread. It does not establish every operating system's physical input behavior or every multiplayer server's acceptance of automation. Test-only classes and mixins are excluded from both the runnable and main-source release JARs. Cooldown measurements use a tick-start counter so normal input and the chat tick-tail path share the same clock.
 
-Camera, autoclicker and HUD settings, the HUD editor, and the in-game HUD were captured at 854x480 / GUI scale 2. The updated autoclicker controls were visually inspected, including Left action and Vanilla (0) interval labels. Prior 0.1.1 visual checks confirmed native tabs and widgets, vertical armor against the bottom/right edges, and the total count on the existing offhand totem. The interface uses native Minecraft widgets and rendering.
+Camera, autoclicker and HUD settings, the HUD editor, and the in-game HUD were captured at 854x480 / GUI scale 2. Visual inspection covered the profile library, invalid exact-value entry, guides and low-durability preview, Zoom Toggle, and the tool-protection action-bar notice. Prior checks confirmed native tabs and widgets, vertical armor against the bottom/right edges, and the total count on the existing offhand totem. The interface uses native Minecraft widgets and rendering.
 
 ## Reproduce
 
@@ -35,4 +41,4 @@ The development launcher encountered Minecraft's `Missing uniform Globals` rende
 
 ## Installation
 
-The successful build was installed as `neon.jar` into PrismLauncher Vanilla's mods directory and checked byte-for-byte against `build/libs/neon-0.1.2.jar`. Installing a JAR does not reload code into an already-running game.
+The successful build was installed as `neon.jar` into PrismLauncher Vanilla's mods directory and checked byte-for-byte against `build/libs/neon-0.2.0.jar`. Installing a JAR does not reload code into an already-running game.
