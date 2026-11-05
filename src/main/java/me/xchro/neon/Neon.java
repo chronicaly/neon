@@ -35,7 +35,7 @@ public final class Neon implements ClientModInitializer {
             CLICKER.tick(mc);
         });
         HudElementRegistry.addLast(Identifier.fromNamespaceAndPath("neon", "equipment"), (graphics, delta) -> NeonHud.draw(graphics, false));
-        LOG.info("Neon 0.1.0 ready");
+        LOG.info("Neon {} ready", FabricLoader.getInstance().getModContainer("neon").orElseThrow().getMetadata().getVersion());
     }
     private static KeyMapping key(String name, KeyMapping.Category category) {
         return KeyMappingHelper.registerKeyMapping(new KeyMapping("key.neon." + name, InputConstants.Type.KEYSYM, -1, category));

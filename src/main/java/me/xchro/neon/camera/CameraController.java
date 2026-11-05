@@ -7,16 +7,14 @@ import net.minecraft.client.*;
 /** Only owns render-camera rotation and temporary perspective, never the player rotation. */
 public final class CameraController {
     private final Activation lookKey = new Activation(), zoomKey = new Activation();
-    private final Tween distance = new Tween(), returning = new Tween(), magnification = new Tween();
+    private final Tween magnification = new Tween();
     private Object level, player;
     private CameraType original, owned;
     private boolean looking, zooming;
-    private double yaw, pitch, exitYaw, exitPitch, inputFactor = 1;
-    private double distanceFactor;
+    private double yaw, pitch, inputFactor = 1;
     public CameraController() { magnification.set(1); }
     public boolean ownsCamera() { return original != null; }
     public boolean looking() { return looking; }
-    public double distanceFactor() { return distanceFactor; }
     public void checkContext(Minecraft mc) {
         boolean contextChanged = level != mc.level || player != mc.player;
         if (contextChanged || !Neon.ready(mc)) reset(mc, true);
@@ -31,28 +29,13 @@ public final class CameraController {
         boolean nextLook = lookKey.update(safe, Neon.freelook.isDown(), false);
         zooming = zoomKey.update(safe, Neon.zoom.isDown(), false);
         if (nextLook && !looking) {
-            if (!ownsCamera()) {
-                original = mc.options.getCameraType();
-                owned = original.isFirstPerson() ? CameraType.THIRD_PERSON_BACK : original;
-                yaw = mc.player.getYRot(); pitch = mc.player.getXRot();
-                distance.set(original.isFirstPerson() ? 0 : 1);
-                mc.options.setCameraType(owned);
-            }
-            distance.to(1, now, Neon.config.freelookMillis);
-            returning.set(0); looking = true;
+            original = mc.options.getCameraType();
+            owned = original.isFirstPerson() ? CameraType.THIRD_PERSON_BACK : original;
+            yaw = mc.player.getYRot(); pitch = mc.player.getXRot();
+            mc.options.setCameraType(owned);
+            looking = true;
         } else if (!nextLook && looking) {
-            looking = false; exitYaw = yaw; exitPitch = pitch;
-            returning.set(0); returning.to(1, now, Neon.config.freelookMillis);
-            distance.to(original.isFirstPerson() ? 0 : 1, now, Neon.config.freelookMillis);
-        }
-        if (ownsCamera()) {
-            distanceFactor = distance.value(now);
-            if (!looking) {
-                double blend = returning.value(now);
-                yaw = Tween.angle(exitYaw, mc.player.getYRot(), blend);
-                pitch = exitPitch + (mc.player.getXRot() - exitPitch) * blend;
-                if (blend >= 1) releasePerspective(mc, true);
-            }
+            releasePerspective(mc, true);
         }
         magnification.to(zooming ? Neon.config.zoomFactor : 1, now, Neon.config.zoomMillis);
         inputFactor = 1 / magnification.value(now);
@@ -76,7 +59,7 @@ public final class CameraController {
     }
     private void releasePerspective(Minecraft mc, boolean restore) {
         if (original != null && restore && mc.options.getCameraType() == owned) mc.options.setCameraType(original);
-        original = owned = null; looking = false; distanceFactor = 0;
+        original = owned = null; looking = false;
     }
     public boolean hidePlayer(Minecraft mc) {
         return ownsCamera() && mc.player != null

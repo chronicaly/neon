@@ -3,6 +3,11 @@ Unity (https://github.com/chronicaly/unity) was inspected as a behavior and
 Minecraft 26.2 API reference. No Unity module infrastructure or third-party
 source ports are included.
 
+Armor HUD's vanilla presentation and configuration were used as a design reference:
+https://github.com/uku3lig/armor-hud (BerdinskiyBear and contributors / uku3lig).
+No source code or assets were copied from that project. Slot frames are drawn
+from Minecraft's own hotbar sprite, honoring the active resource pack.
+
 The Gradle wrapper is Copyright the Gradle original authors and licensed
 under the Apache License, Version 2.0: https://www.apache.org/licenses/LICENSE-2.0
 Fabric API and Fabric Loader are external dependencies, not repackaged source.

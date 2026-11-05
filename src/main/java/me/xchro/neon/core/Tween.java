@@ -14,10 +14,6 @@ public final class Tween {
         from = value(now); target = value; started = now; duration = millis * 1_000_000L;
     }
     public void set(double value) { from = target = value; duration = 0; }
-    public static double angle(double from, double to, double blend) {
-        double delta = ((to - from) % 360 + 540) % 360 - 180;
-        return from + delta * blend;
-    }
     public static double zoomFov(double degrees, double factor) {
         return Math.toDegrees(2 * Math.atan(Math.tan(Math.toRadians(degrees) / 2) / factor));
     }
