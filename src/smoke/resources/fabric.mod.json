@@ -1,0 +1,1 @@
+{"schemaVersion":1,"id":"neonsmoke","version":"1.0.0","name":"Neon verification only","environment":"client","entrypoints":{"client":["me.xchro.neon.smoke.LiveSmoke"]},"mixins":["neonsmoke.mixins.json"],"depends":{"neon":"*"}}

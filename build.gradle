@@ -1,0 +1,101 @@
+plugins {
+    id 'net.fabricmc.fabric-loom' version "${loom_version}"
+    id 'maven-publish'
+}
+version = project.mod_version
+group = 'me.xchro.neon'
+base { archivesName = 'neon' }
+repositories {
+    mavenCentral()
+    maven { url = 'https://maven.terraformersmc.com/releases/' }
+}
+dependencies {
+    minecraft "com.mojang:minecraft:${minecraft_version}"
+    implementation "net.fabricmc:fabric-loader:${loader_version}"
+    implementation "net.fabricmc.fabric-api:fabric-api:${fabric_api_version}"
+    compileOnly 'com.terraformersmc:modmenu:20.0.3'
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.12.2'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+java { toolchain.languageVersion = JavaLanguageVersion.of(25); withSourcesJar() }
+tasks.withType(JavaCompile).configureEach { options.release = 25 }
+processResources {
+    inputs.property 'version', project.version
+    filesMatching('fabric.mod.json') { expand(version: project.version) }
+}
+tasks.withType(Test).configureEach { useJUnitPlatform() }
+tasks.named('jar') { from('LICENSE'); from('NOTICE') }
+tasks.named('sourcesJar') { from('LICENSE'); from('NOTICE') }
+tasks.register('installNeon') {
+    dependsOn tasks.named('assemble'), tasks.named('check')
+    onlyIf { !providers.gradleProperty('skipInstall').isPresent() }
+    doLast {
+        def source = tasks.named('jar').get().archiveFile.get().asFile.toPath()
+        def destination = file(providers.gradleProperty('neonInstallDir').getOrElse(
+            'C:/Users/Martin Krisch/AppData/Roaming/PrismLauncher/instances/Vanilla/minecraft/mods')).toPath()
+        java.nio.file.Files.createDirectories(destination)
+        // Stable installed name prevents duplicate versions; metadata retains the release version.
+        def target = destination.resolve('neon.jar')
+        if (System.getProperty('os.name').toLowerCase().contains('windows')) {
+            def quote = { String s -> "'" + s.replace("'", "''") + "'" }
+            def process = new ProcessBuilder('powershell.exe', '-NoProfile', '-NonInteractive', '-Command',
+                "\$ErrorActionPreference='Stop'; Copy-Item -LiteralPath ${quote(source.toString())} -Destination ${quote(target.toString())} -Force").redirectErrorStream(true).start()
+            def output = process.inputStream.getText('UTF-8')
+            if (process.waitFor() != 0) throw new GradleException(output)
+        } else {
+            java.nio.file.Files.copy(source, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+        }
+        if (java.nio.file.Files.mismatch(source, target) != -1L) throw new GradleException('Installed JAR differs from build output')
+        logger.lifecycle("Installed verified Neon JAR: ${target}")
+    }
+}
+tasks.named('build') { dependsOn tasks.named('installNeon') }
+
+// Test-only client entrypoint and mixins never enter the distributed JAR.
+sourceSets {
+    smoke {
+        compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
+        runtimeClasspath += sourceSets.main.output + sourceSets.main.runtimeClasspath
+    }
+}
+configurations {
+    smokeImplementation.extendsFrom implementation
+    smokeRuntimeOnly.extendsFrom runtimeOnly
+}
+loom {
+    mods {
+        neon { sourceSet sourceSets.main }
+        neonsmoke { sourceSet sourceSets.smoke }
+    }
+    runs {
+        smoke {
+            client()
+            name = 'Neon verification'
+            source sourceSets.smoke
+            runDir = 'runtime/smoke/game'
+            vmArgs '-Dneon.smoke=true'
+            programArgs '--quickPlaySingleplayer', 'Neon Verification'
+        }
+    }
+}
+tasks.named('check') { dependsOn tasks.named('smokeClasses') }
+tasks.register('smokeJar', Jar) {
+    dependsOn tasks.named('smokeClasses')
+    archiveFileName = 'neon-verification-only.jar'
+    destinationDirectory = layout.buildDirectory.dir('smoke')
+    from sourceSets.smoke.output
+}
+tasks.register('prodSmoke', net.fabricmc.loom.task.prod.ClientProductionRunTask) {
+    dependsOn tasks.named('jar'), tasks.named('smokeJar')
+    mods.from tasks.named('jar'), tasks.named('smokeJar')
+    mods.from configurations.runtimeClasspath.filter { it.name == "fabric-api-${fabric_api_version}.jar" }
+    runDir = file('runtime/smoke/game')
+    jvmArgs.add('-Dneon.smoke=true')
+    programArgs.addAll('--quickPlaySingleplayer', 'Neon Verification')
+    doFirst { file('runtime/smoke/game/neon-verification.txt').delete() }
+    doLast {
+        def result = file('runtime/smoke/game/neon-verification.txt')
+        if (!result.exists() || !result.text.startsWith('PASS ')) throw new GradleException('Live verification did not pass; inspect runtime/smoke/game/logs/latest.log')
+        logger.lifecycle(result.text.trim())
+    }
+}

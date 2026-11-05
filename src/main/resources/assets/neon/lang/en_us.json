@@ -1,0 +1,8 @@
+{
+  "key.category.neon.controls": "Neon",
+  "key.neon.settings": "Neon settings",
+  "key.neon.freelook": "Freelook (hold)",
+  "key.neon.zoom": "Zoom (hold)",
+  "key.neon.autoclicker": "Autoclicker activation",
+  "modmenu.descriptionTranslation.neon": "Smooth freelook, zoom, autoclicker, and a vanilla armor and totem HUD. Configure bindings in Options > Controls > Key Binds > Neon."
+}

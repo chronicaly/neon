@@ -1,0 +1,9 @@
+Neon is an independent implementation by chronicaly.
+Unity (https://github.com/chronicaly/unity) was inspected as a behavior and
+Minecraft 26.2 API reference. No Unity module infrastructure or third-party
+source ports are included.
+
+The Gradle wrapper is Copyright the Gradle original authors and licensed
+under the Apache License, Version 2.0: https://www.apache.org/licenses/LICENSE-2.0
+Fabric API and Fabric Loader are external dependencies, not repackaged source.
+Mod Menu is an optional integration, not bundled.

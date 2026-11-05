@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "neon",
+  "version": "${version}",
+  "name": "Neon",
+  "description": "Smooth freelook, zoom, autoclicker, and a vanilla armor and totem HUD.",
+  "authors": ["chronicaly"],
+  "license": "MIT",
+  "environment": "client",
+  "contact": {"sources": "https://github.com/chronicaly/neon", "issues": "https://github.com/chronicaly/neon/issues"},
+  "entrypoints": {"client": ["me.xchro.neon.Neon"], "modmenu": ["me.xchro.neon.ui.NeonModMenu"]},
+  "mixins": ["neon.mixins.json"],
+  "depends": {"fabricloader": ">=0.19.5", "minecraft": "~26.2", "java": ">=25", "fabric-api": ">=0.158.0"},
+  "suggests": {"modmenu": "*"}
+}
