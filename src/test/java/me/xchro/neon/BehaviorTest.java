@@ -43,21 +43,34 @@ class BehaviorTest {
         assertFalse(action.update(true, true, true));
         action.update(false, false, true); assertFalse(action.update(true, true, true));
     }
-    @Test void clickTimingHonorsCpsOnTickBoundariesAndNeverBursts() {
-        ClickClock clock = new ClickClock(); int clicks = 0;
-        for (long now = 0; now < 1_000_000_000; now += 50_000_000) if (clock.press(now, 8)) clicks++;
-        assertEquals(8, clicks);
-        assertTrue(clock.press(10_000_000_000L, 8));
-        assertFalse(clock.press(10_000_000_000L, 8));
-        assertFalse(clock.press(10_050_000_000L, 8));
-        clock.reset(); assertTrue(clock.press(10_050_000_000L, 8));
+    @Test void everyCustomIntervalUsesExactTicksWithoutWaitingForVanilla() {
+        for (int interval = 1; interval <= 60; interval++) {
+            ClickClock clock = new ClickClock();
+            for (long tick = 0; tick < 600; tick++) {
+                assertEquals(tick % interval == 0, clock.press(tick, interval, false), "interval=" + interval + ", tick=" + tick);
+                assertFalse(clock.press(tick, interval, true), "Never click twice in one tick");
+            }
+        }
+    }
+    @Test void zeroUsesVanillaReadinessAndNeverClicksTwiceInOneTick() {
+        ClickClock clock = new ClickClock();
+        assertFalse(clock.press(0, 0, false)); assertTrue(clock.press(0, 0, true));
+        assertFalse(clock.press(0, 0, true)); assertFalse(clock.press(1, 0, false));
+        assertTrue(clock.press(2, 0, true)); assertTrue(clock.press(3, 0, true));
+    }
+    @Test void missedTicksNeverCreateCatchUpBurstsAndResetStartsFresh() {
+        ClickClock clock = new ClickClock();
+        assertTrue(clock.press(0, 60, true)); assertFalse(clock.press(59, 60, true));
+        assertTrue(clock.press(1000, 60, true)); assertFalse(clock.press(1000, 60, true));
+        assertFalse(clock.press(1001, 60, true)); assertTrue(clock.press(1060, 60, true));
+        clock.reset(); assertTrue(clock.press(1061, 60, true));
     }
     @Test void configRoundTripAndBounds() throws Exception {
         var store = new ConfigStore(directory.resolve("neon.json"));
-        NeonConfig config = new NeonConfig(); config.zoomFactor = 8; config.leftCps = 100;
+        NeonConfig config = new NeonConfig(); config.zoomFactor = 8; config.leftIntervalTicks = 100; config.rightIntervalTicks = -1;
         config.armor.scale = Double.NaN; config.totems.x = 2; store.save(config);
         NeonConfig loaded = store.load();
-        assertEquals(8, loaded.zoomFactor); assertEquals(20, loaded.leftCps);
+        assertEquals(8, loaded.zoomFactor); assertEquals(60, loaded.leftIntervalTicks); assertEquals(0, loaded.rightIntervalTicks);
         assertEquals(1, loaded.armor.scale); assertEquals(1, loaded.totems.x);
         try (var files = Files.list(directory)) { assertEquals(1, files.count()); }
     }
@@ -99,5 +112,16 @@ class BehaviorTest {
         assertFalse(Files.readString(path).contains("freelookMillis"));
         assertTrue(store.load().armorVertical);
         assertEquals(NeonConfig.ArmorAnchor.HOTBAR_LEFT, store.load().armorAnchor);
+    }
+    @Test void cpsConfigUpgradesToVanillaAttackOnlyWithoutChangingOtherPreferences() throws Exception {
+        Path path = directory.resolve("neon.json");
+        Files.writeString(path, "{\"version\":1,\"leftCps\":1,\"rightCps\":20,\"continuousMining\":true,\"toggleClicker\":true,\"clickerEnabled\":true}");
+        ConfigStore store = new ConfigStore(path); NeonConfig config = store.load();
+        assertEquals(2, config.version); assertEquals(0, config.leftIntervalTicks); assertEquals(0, config.rightIntervalTicks);
+        assertEquals(NeonConfig.LeftAction.CLICK, config.leftAction);
+        assertTrue(config.toggleClicker); assertTrue(config.clickerEnabled);
+        config.leftAction = NeonConfig.LeftAction.HOLD; config.leftIntervalTicks = 60; store.save(config);
+        assertEquals(NeonConfig.LeftAction.HOLD, store.load().leftAction); assertEquals(60, store.load().leftIntervalTicks);
+        assertFalse(Files.readString(path).contains("Cps")); assertFalse(Files.readString(path).contains("continuousMining"));
     }
 }

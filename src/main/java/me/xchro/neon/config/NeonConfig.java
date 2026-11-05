@@ -1,12 +1,14 @@
 package me.xchro.neon.config;
 
 public final class NeonConfig {
-    public int version = 1;
+    public int version = 2;
     public int zoomMillis = 150;
     public double zoomFactor = 4;
     public boolean zoomWheel = true, zoomSensitivity = true;
-    public boolean clickerEnabled = false, leftClick = true, rightClick = false, toggleClicker = false, continuousMining = true;
-    public int leftCps = 8, rightCps = 8;
+    public boolean clickerEnabled = false, leftClick = true, rightClick = false, toggleClicker = false;
+    public int leftIntervalTicks = 0, rightIntervalTicks = 0;
+    public LeftAction leftAction = LeftAction.CLICK;
+    public enum LeftAction { CLICK, HOLD }
     public boolean clickerInChat = true, clickerInBackground = true;
     public Widget armor = new Widget(1, 0.90);
     // Retained for compatibility with 0.1.0: only visibility applies to the offhand count.
@@ -33,9 +35,11 @@ public final class NeonConfig {
         public void sanitize() { x = finite(x, 1, 0, 1); y = finite(y, 1, 0, 1); scale = finite(scale, 1, .5, 3); }
     }
     public void sanitize() {
+        version = 2;
         zoomMillis = Math.clamp(zoomMillis, 0, 500);
         zoomFactor = finite(zoomFactor, 4, 1, 16);
-        leftCps = Math.clamp(leftCps, 1, 20); rightCps = Math.clamp(rightCps, 1, 20);
+        leftIntervalTicks = Math.clamp(leftIntervalTicks, 0, 60); rightIntervalTicks = Math.clamp(rightIntervalTicks, 0, 60);
+        if (leftAction == null) leftAction = LeftAction.CLICK;
         if (armor == null) armor = new Widget(1, .90);
         if (totems == null) totems = new Widget(1, 1);
         armor.sanitize(); totems.sanitize();

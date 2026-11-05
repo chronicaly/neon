@@ -13,6 +13,7 @@ import net.minecraft.client.gui.components.*;
 import net.minecraft.client.gui.components.events.*;
 import net.minecraft.client.input.*;
 import me.xchro.neon.config.NeonConfig.ArmorAnchor;
+import me.xchro.neon.config.NeonConfig.LeftAction;
 import org.lwjgl.glfw.GLFW;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.EquipmentSlot;
@@ -32,7 +33,7 @@ public final class LiveSmoke implements ClientModInitializer {
     private int lastAttacks, lastUses;
     private int tick, stageTick, stage, checks;
     private float yaw, pitch;
-    private boolean blockBroken;
+    private boolean blockBroken, blockIntact;
     private boolean initialized, failed;
     private Minecraft mc;
     @Override public void onInitializeClient() {
@@ -56,6 +57,19 @@ public final class LiveSmoke implements ClientModInitializer {
     }
     private Button button(String label) {
         return widgets(mc.gui.screen()).stream().filter(w -> w instanceof Button && w.getMessage().getString().equals(label)).map(w -> (Button) w).findFirst().orElseThrow();
+    }
+    private boolean intervalIs(List<Integer> values, int interval, int minimum) {
+        if (values.size() < minimum) return false;
+        for (int i = 1; i < values.size(); i++) if (values.get(i) - values.get(i - 1) != interval) return false;
+        return true;
+    }
+    private void clearClicks() { attacks.clear(); uses.clear(); strengths.clear(); useDelays.clear(); }
+    private void inspectBlock() {
+        mc.getSingleplayerServer().execute(() -> {
+            var state = mc.getSingleplayerServer().overworld().getBlockState(new BlockPos(0, 100, 0));
+            boolean intact = state.is(Blocks.DIRT), broken = state.isAir();
+            mc.execute(() -> { blockIntact = intact; blockBroken = broken; });
+        });
     }
     private void tick(Minecraft client) {
         mc = client; tick++;
@@ -242,7 +256,7 @@ public final class LiveSmoke implements ClientModInitializer {
                         world.setBlockAndUpdate(new BlockPos(0, 100, 0), Blocks.DIRT.defaultBlockState());
                         world.setBlockAndUpdate(new BlockPos(0, 99, 0), Blocks.BEDROCK.defaultBlockState());
                     });
-                    mc.player.setXRot(90); Neon.config.clickerEnabled = true; next();
+                    mc.player.setXRot(90); Neon.config.leftAction = LeftAction.HOLD; Neon.config.clickerEnabled = true; next();
                 }
                 case 21 -> { if (age >= 15) { Neon.autoclicker.setDown(true); next(); } }
                 case 22 -> {
@@ -270,11 +284,28 @@ public final class LiveSmoke implements ClientModInitializer {
                 case 25 -> {
                     if (age < 8) return;
                     shot("camera-settings"); mc.gui.setScreen(new SettingsScreen(null));
+                    Neon.config.leftAction = LeftAction.CLICK;
                     ((net.minecraft.client.gui.components.Button)mc.gui.screen().children().get(1)).onPress(null); next();
                 }
                 case 26 -> {
+                    if (age == 1) {
+                        var scroll = (AbstractScrollArea) widgets(mc.gui.screen()).stream().filter(w -> w instanceof AbstractScrollArea).findFirst().orElseThrow();
+                        scroll.setScrollAmount(scroll.maxScrollAmount());
+                    }
                     if (age < 8) return;
-                    shot("autoclicker-settings"); button("HUD").onPress(null); next();
+                    shot("autoclicker-settings");
+                    var interval = (AbstractSliderButton) widgets(mc.gui.screen()).stream()
+                        .filter(w -> w instanceof AbstractSliderButton && w.getMessage().getString().equals("Vanilla (0)")).findFirst().orElseThrow();
+                    Button leftAction = button("Click");
+                    leftAction.onPress(null);
+                    check(Neon.config.leftAction == LeftAction.HOLD && !interval.active, "Hold action disables the click interval slider");
+                    leftAction.onPress(null);
+                    check(Neon.config.leftAction == LeftAction.CLICK && interval.active, "Click action enables the click interval slider");
+                    interval.mouseClicked(new MouseButtonEvent(interval.getRight() - 4, interval.getY() + 10, new MouseButtonInfo(0, 0)), false);
+                    check(Neon.config.leftIntervalTicks == 60 && interval.getMessage().getString().equals("60 ticks"), "slider right end selects 60 ticks");
+                    interval.mouseClicked(new MouseButtonEvent(interval.getX() + 4, interval.getY() + 10, new MouseButtonInfo(0, 0)), false);
+                    check(Neon.config.leftIntervalTicks == 0 && interval.getMessage().getString().equals("Vanilla (0)"), "slider left end selects vanilla timing");
+                    button("HUD").onPress(null); next();
                 }
                 case 27 -> {
                     if (age < 8) return;
@@ -301,7 +332,7 @@ public final class LiveSmoke implements ClientModInitializer {
                     var b = NeonHud.bounds(mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight(), false);
                     check(b.x() + b.width() <= mc.getWindow().getGuiScaledWidth() / 2 - 122, "hotbar armor makes room for offhand slot");
                     Neon.config.toggleClicker = true; Neon.config.clickerEnabled = true;
-                    Neon.config.continuousMining = false; Neon.config.leftCps = Neon.config.rightCps = 20;
+                    Neon.config.leftAction = LeftAction.CLICK; Neon.config.leftIntervalTicks = Neon.config.rightIntervalTicks = 0;
                     Neon.config.rightClick = true; mc.player.setXRot(-90);
                     mc.options.pauseOnLostFocus = true;
                     next();
@@ -344,7 +375,7 @@ public final class LiveSmoke implements ClientModInitializer {
                     if (!useDelay) System.out.println("NEON_USE_TIMING ticks=" + uses + " delays=" + useDelays);
                     check(useDelay, "right click always respects vanilla four-tick use delay");
                     focused = true; trackClicks = false;
-                    Neon.config.leftClick = Neon.config.rightClick = false; Neon.config.continuousMining = true;
+                    Neon.config.leftClick = Neon.config.rightClick = false; Neon.config.leftAction = LeftAction.HOLD;
                     mc.player.setXRot(90); blockBroken = false;
                     mc.getSingleplayerServer().execute(() -> {
                         var server = mc.getSingleplayerServer();
@@ -380,12 +411,65 @@ public final class LiveSmoke implements ClientModInitializer {
                     if (age < 5) return;
                     check(!Neon.CLICKER.active(), "typing an activation key in chat cannot start autoclicker");
                     Neon.autoclicker.setDown(false); mc.gui.setScreen(null);
-                    Neon.config.clickerEnabled = false; Neon.config.clickerInChat = true;
+                    Neon.config.clickerInChat = true; Neon.config.clickerEnabled = true;
+                    Neon.config.leftAction = LeftAction.CLICK; Neon.config.leftIntervalTicks = 2; Neon.config.rightIntervalTicks = 3;
+                    Neon.config.rightClick = true; mc.player.setXRot(-90); next();
+                }
+                case 38 -> {
+                    if (age < 6) return;
+                    clearClicks(); trackClicks = true; Neon.autoclicker.setDown(true); next();
+                }
+                case 39 -> {
+                    if (age == 1) Neon.autoclicker.setDown(false);
+                    if (age < 40) return;
+                    check(intervalIs(attacks, 2, 10), "custom attacks occur every two ticks");
+                    check(strengths.stream().anyMatch(v -> v < 1), "custom attack timing does not wait for full weapon recharge");
+                    check(intervalIs(uses, 3, 10), "custom use occurs every three ticks independently of left timing");
+                    clearClicks(); mc.gui.setScreen(new ChatScreen("tick-timing test - unsent", false)); focused = false; next();
+                }
+                case 40 -> {
+                    if (age < 40) return;
+                    check(intervalIs(attacks, 2, 10), "custom attacks keep exact two-tick timing in background chat");
+                    check(intervalIs(uses, 3, 10), "custom use keeps exact three-tick timing in background chat");
+                    focused = true; mc.gui.setScreen(null);
+                    Neon.config.leftIntervalTicks = 60; Neon.config.rightIntervalTicks = 7;
+                    Neon.CLICKER.resetTiming(); clearClicks(); next();
+                }
+                case 41 -> {
+                    if (age < 190) return;
+                    check(intervalIs(attacks, 60, 4), "maximum interval attacks exactly once every sixty ticks");
+                    check(intervalIs(uses, 7, 20), "right interval stays independent over a long left delay");
+                    trackClicks = false; Neon.config.rightClick = false; Neon.config.leftIntervalTicks = 1;
+                    Neon.CLICKER.resetTiming(); mc.player.setXRot(90); blockIntact = false;
+                    mc.getSingleplayerServer().execute(() -> {
+                        var server = mc.getSingleplayerServer();
+                        server.getPlayerList().getPlayers().getFirst().teleportTo(.5, 101, .5);
+                        server.overworld().setBlockAndUpdate(new BlockPos(0, 100, 0), Blocks.DIRT.defaultBlockState());
+                    });
+                    next();
+                }
+                case 42 -> { if (age >= 30) { inspectBlock(); next(); } }
+                case 43 -> {
+                    if (age < 8) return;
+                    check(blockIntact && !mc.gameMode.isDestroying(), "Click action never mines a targeted block even at one tick");
+                    mc.gui.setScreen(new ChatScreen("attack-only test - unsent", false)); focused = false; blockIntact = false; next();
+                }
+                case 44 -> { if (age >= 30) { inspectBlock(); next(); } }
+                case 45 -> {
+                    if (age < 8) return;
+                    check(blockIntact && Neon.CLICKER.active() && !mc.gameMode.isDestroying(), "attack-only also protects blocks in background chat");
+                    Neon.config.leftAction = LeftAction.HOLD; next();
+                }
+                case 46 -> { if (age >= 30) { inspectBlock(); next(); } }
+                case 47 -> {
+                    if (age < 8) return;
+                    check(blockBroken, "switching to Hold mines the same block continuously");
+                    focused = true; trackClicks = false; Neon.config.clickerEnabled = false; mc.gui.setScreen(null);
                     Files.writeString(mc.gameDirectory.toPath().resolve("neon-verification.txt"), "PASS " + checks + " live checks\n");
                     System.out.println("NEON_LIVE_PASS checks=" + checks);
                     next();
                 }
-                case 38 -> { if (age >= 20) mc.stop(); }
+                case 48 -> { if (age >= 20) mc.stop(); }
             }
         } catch (Throwable error) {
             failed = true; System.err.println("NEON_LIVE_FAIL stage=" + stage); error.printStackTrace();

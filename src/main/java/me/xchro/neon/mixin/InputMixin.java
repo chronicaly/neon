@@ -40,7 +40,7 @@ public abstract class InputMixin {
             if (clicks.use()) startUseItem();
         } else if (!clicks.use() && !mc.options.keyUse.isDown()) mc.gameMode.releaseUsingItem(mc.player);
         if (clicks.attackDown()) continueAttack(true);
-        else if (!mc.options.keyAttack.isDown() && mc.gameMode.isDestroying()) mc.gameMode.stopDestroyBlock();
+        else if (!mc.options.keyAttack.isDown()) continueAttack(false);
         if (missTime > 0) missTime--;
     }
     @WrapMethod(method = "handleKeybinds")

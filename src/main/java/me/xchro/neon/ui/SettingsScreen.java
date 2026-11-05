@@ -5,6 +5,7 @@ import java.util.*;
 import java.util.function.*;
 import me.xchro.neon.Neon;
 import me.xchro.neon.config.NeonConfig.ArmorAnchor;
+import me.xchro.neon.config.NeonConfig.LeftAction;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -58,11 +59,15 @@ public final class SettingsScreen extends Screen {
                 enabled(toggle("Continue in chat", () -> c.clickerInChat, v -> c.clickerInChat = v, "In Toggle mode, keep clicking while typing in chat. Start it before opening chat."), () -> c.toggleClicker);
                 enabled(toggle("Run in background", () -> c.clickerInBackground, v -> c.clickerInBackground = v, "In Toggle mode, keep clicking while tabbed out. Prevents automatic focus-loss pausing only while the autoclicker is running."), () -> c.toggleClicker);
                 section("Mouse buttons");
-                toggle("Left click", () -> c.leftClick, v -> c.leftClick = v, "Repeat normal Minecraft attack input. Attacks wait for the vanilla weapon cooldown.");
-                enabled(slider("Left speed limit", c.leftCps, 1, 20, 1, " CPS", v -> c.leftCps = (int) v, "Maximum clicks per second. Vanilla weapon and miss cooldowns can make attacks slower."), () -> c.leftClick);
-                toggle("Right click", () -> c.rightClick, v -> c.rightClick = v, "Repeat normal Minecraft use input, respecting vanilla's use delay.");
-                enabled(slider("Right speed limit", c.rightCps, 1, 20, 1, " CPS", v -> c.rightCps = (int) v, "Maximum clicks per second. Vanilla use-item cooldowns still apply."), () -> c.rightClick);
-                enabled(toggle("Continuous mining", () -> c.continuousMining, v -> c.continuousMining = v, "Keep breaking a targeted block as if the attack button were held. Combat cooldowns do not interrupt mining."), () -> c.leftClick);
+                toggle("Left button", () -> c.leftClick, v -> c.leftClick = v, "Enable automatic attacks or held mining, depending on Left action.");
+                enabled(choice("Left action", () -> c.leftAction == LeftAction.CLICK ? "Click" : "Hold",
+                    () -> c.leftAction = c.leftAction == LeftAction.CLICK ? LeftAction.HOLD : LeftAction.CLICK,
+                    "Click: repeat attacks and ignore blocks entirely. Hold: keep the attack button down for continuous mining, like physically holding it. This is separate from the activation key's Hold/Toggle mode."), () -> c.leftClick);
+                enabled(interval("Left interval", c.leftIntervalTicks, v -> c.leftIntervalTicks = v,
+                    "0 = vanilla weapon recharge timing. 1-60 = attempt an attack every chosen number of game ticks, without waiting for full recharge. Click mode ignores blocks. Hold mode does not use this timer. At normal speed, 20 ticks = 1 second."), () -> c.leftClick && c.leftAction == LeftAction.CLICK);
+                toggle("Right click", () -> c.rightClick, v -> c.rightClick = v, "Repeat normal Minecraft use input with the interval below.");
+                enabled(interval("Right interval", c.rightIntervalTicks, v -> c.rightIntervalTicks = v,
+                    "0 = vanilla use timing. 1-60 = attempt a use every chosen number of game ticks. Item and server interaction rules still apply. At normal speed, 20 ticks = 1 second."), () -> c.rightClick);
             }
             case 2 -> {
                 section("Armor");
@@ -127,12 +132,17 @@ public final class SettingsScreen extends Screen {
         });
     }
     private AbstractSliderButton slider(String label, double current, double min, double max, double step, String suffix, DoubleConsumer set, String tip) {
+        return slider(label, current, min, max, step, n -> (n == Math.rint(n) ? Integer.toString((int) n) : String.format(Locale.ROOT, "%.2f", n)) + suffix, set, tip);
+    }
+    private AbstractSliderButton interval(String label, int current, IntConsumer set, String tip) {
+        return slider(label, current, 0, 60, 1, n -> n == 0 ? "Vanilla (0)" : (int) n + (n == 1 ? " tick" : " ticks"), v -> set.accept((int) v), tip);
+    }
+    private AbstractSliderButton slider(String label, double current, double min, double max, double step, DoubleFunction<String> format, DoubleConsumer set, String tip) {
         return row(label, new AbstractSliderButton(0, 0, controlWidth, 20, Component.empty(), (current - min) / (max - min)) {
             { updateMessage(); }
             private double number() { return Math.clamp(Math.round((min + value * (max - min)) / step) * step, min, max); }
             @Override protected void updateMessage() {
-                double n = number();
-                setMessage(Component.literal((n == Math.rint(n) ? Integer.toString((int) n) : String.format(Locale.ROOT, "%.2f", n)) + suffix));
+                setMessage(Component.literal(format.apply(number())));
             }
             @Override protected void applyValue() { set.accept(number()); }
         }, tip);

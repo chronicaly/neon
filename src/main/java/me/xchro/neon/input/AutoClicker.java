@@ -2,6 +2,7 @@ package me.xchro.neon.input;
 
 import me.xchro.neon.Neon;
 import me.xchro.neon.core.*;
+import me.xchro.neon.config.NeonConfig.LeftAction;
 import me.xchro.neon.mixin.KeyAccessor;
 import net.minecraft.client.*;
 import net.minecraft.client.gui.screens.ChatScreen;
@@ -11,7 +12,8 @@ import net.minecraft.world.phys.HitResult;
 public final class AutoClicker {
     private final Activation activation = new Activation();
     private final ClickClock left = new ClickClock(), right = new ClickClock();
-    private boolean active, mining;
+    private boolean active, holdingAttack;
+    private long tick;
     private Object level, player;
     public boolean active() { return active; }
     private boolean allowed(Minecraft mc) {
@@ -26,6 +28,7 @@ public final class AutoClicker {
         return active && Neon.config.toggleClicker && Neon.config.clickerInBackground && allowed(mc);
     }
     public void tick(Minecraft mc) {
+        tick++;
         if (Neon.autoclicker == null) return;
         boolean safe = allowed(mc);
         if (level != mc.level || player != mc.player) { activation.reset(); safe = false; }
@@ -39,30 +42,31 @@ public final class AutoClicker {
         if (next != active && mc.player != null) mc.gui.hud.setOverlayMessage(Component.literal("Autoclicker: " + (next ? "on" : "off")), false);
         active = next;
         if (!active) {
-            if (mining && mc.gameMode != null && !mc.options.keyAttack.isDown()) mc.gameMode.stopDestroyBlock();
+            if (holdingAttack && mc.gameMode != null && !mc.options.keyAttack.isDown()) mc.gameMode.stopDestroyBlock();
             resetTiming();
         }
     }
-    public void resetTiming() { left.reset(); right.reset(); mining = false; }
+    public void resetTiming() { left.reset(); right.reset(); holdingAttack = false; }
     public record Clicks(boolean attackDown, boolean attackPress, boolean use) {
         private static final Clicks NONE = new Clicks(false, false, false);
     }
     public Clicks clicks(Minecraft mc, boolean attackReady, boolean useReady) {
         if (!active || !allowed(mc)) { resetTiming(); return Clicks.NONE; }
-        long now = System.nanoTime();
         boolean block = mc.hitResult != null && mc.hitResult.getType() == HitResult.Type.BLOCK;
         boolean attackDown = false, attackPress = false, use = false;
         if (Neon.config.leftClick && !mc.player.isUsingItem()) {
-            if (Neon.config.continuousMining && block) {
-                attackDown = true; attackPress = attackReady && !mining; mining = true; left.reset();
+            if (Neon.config.leftAction == LeftAction.HOLD) {
+                attackDown = true; attackPress = attackReady && !holdingAttack; holdingAttack = true; left.reset();
             } else {
-                mining = false;
-                boolean charged = block || mc.player.getAttackStrengthScale(0) >= 1;
-                attackDown = attackPress = attackReady && charged && left.press(now, Neon.config.leftCps);
+                holdingAttack = false;
+                // Click is attack-only: neither a queued click nor held input may touch a block.
+                // Keep the attack key released even on a click so vanilla cannot continue mining.
+                if (!block) attackPress = left.press(tick, Neon.config.leftIntervalTicks,
+                    attackReady && mc.player.getAttackStrengthScale(0) >= 1);
             }
-        } else { mining = false; left.reset(); }
+        } else { holdingAttack = false; left.reset(); }
         if (Neon.config.rightClick) {
-            use = useReady && right.press(now, Neon.config.rightCps);
+            use = right.press(tick, Neon.config.rightIntervalTicks, useReady);
         } else right.reset();
         return new Clicks(attackDown, attackPress, use);
     }
