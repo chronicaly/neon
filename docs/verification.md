@@ -1,6 +1,26 @@
-# Neon 0.2.0 verification
+# Neon verification
 
-Verified on 5 November 2026 with Minecraft 26.2, Java 25, Fabric Loader 0.19.5 and Fabric API 0.161.0+26.2.
+Verified on 5 and 9 November 2026 with Minecraft 26.2, Java 25, Fabric Loader 0.19.5 and Fabric API 0.161.0+26.2. The latest 0.3.0 results are recorded below; earlier sections retain the historical checks.
+
+## Motion blur and combined 0.3.0 verification — 9 November 2026
+
+The Gradle build passed **24 JUnit tests**. Five new tests cover Unity's elapsed-time strength curve at 30/60/120/240 FPS, first frames, history resets and long stalls, finite strength endpoints, old-config defaults, persistence, clamping, profiles, and Camera-page resets.
+
+The production harness ran with Vanilla's current mod set, including Sodium 0.9.2, Iris 1.11.4, ImmediatelyFast 1.16.5, and ShulkerBoxTooltip 5.4.3:
+
+| Backend | External shader pack | Result |
+| --- | --- | --- |
+| Vulkan | None | 178 combined live checks passed |
+| OpenGL | None | 45 motion-blur live checks passed |
+| OpenGL | Complementary Reimagined r5.9.3, copied with the user's shader options | 178 combined live checks passed on the final runnable JAR |
+
+Motion-blur checks read actual GPU output for asymmetric color patterns, proving texture orientation and the temporal blend at both render boundaries. They verify fresh history after Include UI changes, closing settings, regaining focus, perspective changes, resizing, re-enabling, and resource reload. Tests confirm disabled/zero-strength/disconnected states free textures, vertices, and uniform storage; normal rendering works together with freelook and zoom.
+
+The native controls were exercised for enable/disable, dependent control availability, exact strength entry, Include UI, and Undo. Settings, number entry, profiles, and the HUD editor were verified to exclude the effect. Motion-blur settings and moving gameplay screenshots were visually inspected. The combined runs also cover the earlier camera, autoclicker, armor/totem, profile, and menu checks.
+
+Logs are retained locally as `runtime/smoke/neon-030-full.log`, `neon-030-opengl.log`, and `neon-030-shaders.log`. To run only the motion-blur portion, add `-PmotionOnly` to `prodSmoke`. Choose `opengl` or `vulkan` in the isolated client's `preferredGraphicsBackend` setting; external shader packs are supplied only to that isolated client. The harness is never run against the user's gameplay world.
+
+The final runnable JAR's SHA-256 is `db1d6d271a89ade9aa61ce436a78e7b48a67d0a6a958463e98bd4d670e25de18`. It contains both shaders and the attribution notice, excludes all test-only classes/mixins, and matches Vanilla's installed `neon.jar` byte-for-byte. Existing gameplay clients were kept open; the new code requires a subsequent launch.
 
 ## Automated regression tests
 
@@ -41,4 +61,12 @@ The development launcher encountered Minecraft's `Missing uniform Globals` rende
 
 ## Installation
 
-The successful build was installed as `neon.jar` into PrismLauncher Vanilla's mods directory and checked byte-for-byte against `build/libs/neon-0.2.0.jar`. Installing a JAR does not reload code into an already-running game.
+The successful build was installed as `neon.jar` into PrismLauncher Vanilla's mods directory and checked byte-for-byte against `build/libs/neon-0.3.0.jar`. Installing a JAR does not reload code into an already-running game.
+
+## Menu update — 9 November 2026
+
+The current Gradle build passed all 24 JUnit tests. The packaged JAR then passed **133 live assertions** in the isolated production client with the existing Sodium/Iris mod set, using OpenGL with no external shader pack. This includes the previous 110 checks and 23 menu checks.
+
+Menu checks cover the P default with vanilla Social Interactions still bound to P, opening the overview from gameplay, access to every section and Profiles, keyboard focus and Enter navigation, and the overview fitting a 320×240 GUI viewport without scrolling. They also cover returning from Profiles and exact-value entry without losing scroll position, preserving each section's scroll position, rebinding the menu, capture cancellation, resetting to P, undoing that reset, reopening with a custom key, Escape returning to gameplay, and preventing a shortcut pressed in chat from opening the menu later. Feature bindings remain unassigned by default.
+
+The overview and Controls screenshots were visually inspected at 854×480 / GUI scale 2. The menu uses native Minecraft widgets, background rendering, and tooltips; setting controls include their labels in narrator output. Armor and offhand totem rendering remain the only Neon HUD widgets. The installed `neon.jar` matched the checked build byte-for-byte, and the existing multiplayer client was left running.

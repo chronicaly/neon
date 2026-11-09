@@ -1,7 +1,12 @@
-Neon is an independent implementation by chronicaly.
-Unity (https://github.com/chronicaly/unity) was inspected as a behavior and
-Minecraft 26.2 API reference. No Unity module infrastructure or third-party
-source ports are included.
+Neon is developed by chronicaly.
+The motion blur renderer, render hooks, strength curve and shaders are adapted
+from chronicaly's Unity client (https://github.com/chronicaly/unity), revision
+4ba0d6e: MotionBlurModule.java, MotionBlurRenderer.java, MixinMotionBlur.java,
+and assets/unity/shaders/core/motion_blur.{vsh,fsh}. These are Unity-owned
+implementations, ported at the author's request. They contain no MotionBlur
+Plus runtime code. Neon adds its own settings integration and resource cleanup.
+Other Unity components were inspected as behavior and Minecraft 26.2 API
+references. Unity's module infrastructure and third-party ports are not bundled.
 
 Armor HUD's vanilla presentation and configuration were used as a design reference:
 https://github.com/uku3lig/armor-hud (BerdinskiyBear and contributors / uku3lig).

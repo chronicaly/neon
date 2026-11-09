@@ -7,6 +7,7 @@ import net.minecraft.client.gui.components.AbstractSliderButton;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.*;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import org.lwjgl.glfw.GLFW;
 
 public final class ExactSlider extends AbstractSliderButton {
@@ -38,6 +39,9 @@ public final class ExactSlider extends AbstractSliderButton {
         session.begin(); try { return super.keyPressed(event); } finally { session.end(); }
     }
     @Override protected void updateMessage() { if (format != null) setMessage(Component.literal(format.apply(number))); }
+    @Override protected MutableComponent createNarrationMessage() {
+        return Component.literal(name + ": ").append(super.createNarrationMessage());
+    }
     @Override protected void applyValue() {
         number = Math.clamp(Math.round((min + value * (max - min)) / step) * step, min, max);
         number = Double.parseDouble(NumberValue.format(number));

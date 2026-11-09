@@ -3,7 +3,7 @@
   "id": "neon",
   "version": "${version}",
   "name": "Neon",
-  "description": "Freelook, smooth zoom, autoclicker, a customizable armor HUD, and offhand totem totals.",
+  "description": "Freelook, smooth zoom, Unity motion blur, autoclicker, a customizable armor HUD, and offhand totem totals.",
   "authors": ["chronicaly"],
   "license": "MIT",
   "environment": "client",

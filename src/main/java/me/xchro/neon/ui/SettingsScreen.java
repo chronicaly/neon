@@ -25,25 +25,32 @@ public final class SettingsScreen extends Screen {
     private final SettingsSession session = new SettingsSession();
     SettingsSession session() { return session; }
     private final List<Runnable> refreshers = new ArrayList<>();
-    private int page, panelWidth, controlWidth;
+    private int page = -1, renderedPage = -1, panelWidth, controlWidth;
+    private final double[] scrollPositions = new double[TABS.length];
+    private AbstractScrollArea scrollArea;
     private LinearLayout rows;
     private KeyMapping capturing;
     private String error = "";
     public SettingsScreen(Screen parent) { super(Component.literal("Neon Settings")); this.parent = parent; }
     @Override protected void init() {
+        rememberScroll(); scrollArea = null; renderedPage = page;
         refreshers.clear(); capturing = null;
         panelWidth = Math.min(440, width - 36); controlWidth = (panelWidth - 12) / 2;
         int tabWidth = (panelWidth - 12) / 4, left = (width - panelWidth) / 2;
-        for (int i = 0; i < TABS.length; i++) {
+        if (page >= 0) {
+            addRenderableWidget(Button.builder(Component.literal("Overview"), b -> navigate(-1))
+                .bounds(left, 7, 64, 20).build());
+        }
+        for (int i = 0; page >= 0 && i < TABS.length; i++) {
             int tab = i;
-            Button button = addRenderableWidget(Button.builder(Component.literal(TABS[i]), b -> {
-                page = tab; error = ""; rebuildWidgets();
-            }).bounds(left + i * (tabWidth + 4), 31, tabWidth, 20).build());
+            Button button = addRenderableWidget(Button.builder(Component.literal(TABS[i]), b -> navigate(tab))
+                .bounds(left + i * (tabWidth + 4), 31, tabWidth, 20).build());
             button.active = page != i;
         }
         rows = LinearLayout.vertical().spacing(4);
         var c = Neon.config;
         switch (page) {
+            case -1 -> overview();
             case 0 -> {
                 section("Freelook");
                 binding("Hold to freelook", Neon.freelook, "Look around without changing aim or movement. Starts and stops immediately; restores your previous perspective.");
@@ -55,6 +62,12 @@ public final class SettingsScreen extends Screen {
                 toggle("Scroll adjustment", () -> c.zoomWheel, v -> c.zoomWheel = v, "Use the wheel to change magnification while zoom is active. Scrolling works normally otherwise.");
                 enabled(slider("Scroll step", c.zoomScrollStep, .1, 4, .1, "x", v -> c.zoomScrollStep = v, "How much each wheel step changes magnification. Click the number to enter an exact value."), () -> c.zoomWheel);
                 toggle("Scale sensitivity", () -> c.zoomSensitivity, v -> c.zoomSensitivity = v, "Reduce mouse sensitivity in proportion to zoom, without changing Minecraft's saved sensitivity.");
+                section("Motion blur");
+                toggle("Motion blur", () -> c.motionBlurEnabled, v -> c.motionBlurEnabled = v, "Blend recent frames while playing, using Unity's motion blur. Disabled by default. Neon settings and the HUD editor always stay clear.");
+                enabled(slider("Blur strength", c.motionBlurStrength, 0, 100, 1, "%", v -> c.motionBlurStrength = (int) v,
+                    "75% matches Unity's default. Higher values leave longer trails; 0 disables the effect. Strength adjusts to your frame rate."), () -> c.motionBlurEnabled);
+                enabled(toggle("Include UI", () -> c.motionBlurIncludeUi, v -> c.motionBlurIncludeUi = v,
+                    "ON: blend the whole frame, including the HUD and in-game screens. OFF: blur the world and hand while keeping the HUD and menus sharp."), () -> c.motionBlurEnabled);
             }
             case 1 -> {
                 section("Activation");
@@ -99,7 +112,7 @@ public final class SettingsScreen extends Screen {
             }
             case 3 -> {
                 section("Click a binding to change it");
-                binding("Neon settings", Neon.settings, "Open this menu from the game. All Neon bindings start unassigned to avoid conflicts.");
+                binding("Neon menu", Neon.settings, "Open this menu from the game. Default: P. Your custom binding is kept when updating Neon.");
                 binding("Freelook", Neon.freelook, "Hold to look around without changing aim.");
                 binding("Zoom", Neon.zoom, "Hold or toggle zoom, depending on Camera settings.");
                 binding("Autoclicker", Neon.autoclicker, "Hold or toggle, depending on your Autoclicker settings.");
@@ -110,16 +123,60 @@ public final class SettingsScreen extends Screen {
         ScrollableLayout scroll = new ScrollableLayout(minecraft, rows, Math.max(40, height - 104));
         scroll.setMinHeight(Math.max(40, height - 104)); scroll.setScrollbarSpacing(4);
         scroll.arrangeElements(); scroll.setX((width - scroll.getWidth()) / 2); scroll.setY(59);
-        scroll.visitWidgets(this::addRenderableWidget);
-        int footerWidth = (panelWidth - 12) / 4;
+        scroll.visitWidgets(widget -> {
+            addRenderableWidget(widget);
+            if (widget instanceof AbstractScrollArea area) scrollArea = area;
+        });
+        if (scrollArea != null && page >= 0) scrollArea.setScrollAmount(scrollPositions[page]);
+        int footerCount = page < 0 ? 3 : 4;
+        int footerWidth = (panelWidth - (footerCount - 1) * 4) / footerCount;
         Button undo = addRenderableWidget(Button.builder(Component.literal("Undo"), b -> { if (session.undo()) rebuildWidgets(); }).bounds(left, height - 26, footerWidth, 20).build());
         undo.setTooltip(Tooltip.create(Component.literal("Undo the last settings change, including a complete slider drag, HUD edit, profile load, or binding change. Ctrl+Z also works.")));
         refreshers.add(() -> undo.active = session.canUndo());
-        Button reset = addRenderableWidget(Button.builder(Component.literal("Reset page"), b -> { session.resetPage(page); rebuildWidgets(); }).bounds(left + footerWidth + 4, height - 26, footerWidth, 20).build());
-        reset.setTooltip(Tooltip.create(Component.literal("Reset only " + TABS[page] + " to defaults. Undo restores your previous settings. Key bindings reset on the Controls page.")));
-        addRenderableWidget(Button.builder(Component.literal("Profiles..."), b -> minecraft.gui.setScreen(new ProfilesScreen(this, session))).bounds(left + 2 * (footerWidth + 4), height - 26, footerWidth, 20).build());
-        addRenderableWidget(Button.builder(Component.literal("Done"), b -> onClose()).bounds(left + 3 * (footerWidth + 4), height - 26, footerWidth, 20).build());
+        if (page >= 0) {
+            Button reset = addRenderableWidget(Button.builder(Component.literal("Reset page"), b -> { session.resetPage(page); rebuildWidgets(); }).bounds(left + footerWidth + 4, height - 26, footerWidth, 20).build());
+            reset.setTooltip(Tooltip.create(Component.literal("Reset only " + TABS[page] + " to defaults. Undo restores your previous settings. Key bindings reset on the Controls page.")));
+        }
+        addRenderableWidget(Button.builder(Component.literal("Profiles..."), b -> minecraft.gui.setScreen(new ProfilesScreen(this, session)))
+            .tooltip(Tooltip.create(Component.literal("Save a named setup or load Combat, Mining and Building presets. Keeps your key bindings.")))
+            .bounds(left + (footerCount - 2) * (footerWidth + 4), height - 26, footerWidth, 20).build());
+        addRenderableWidget(Button.builder(Component.literal("Done"), b -> onClose()).bounds(left + (footerCount - 1) * (footerWidth + 4), height - 26, footerWidth, 20).build());
         refresh();
+    }
+    private void navigate(int destination) {
+        page = destination; rebuildWidgets();
+    }
+    private void rememberScroll() {
+        if (scrollArea != null && renderedPage >= 0) scrollPositions[renderedPage] = scrollArea.scrollAmount();
+    }
+    private void overview() {
+        rows.spacing(16);
+        LinearLayout top = LinearLayout.horizontal().spacing(12);
+        top.addChild(category(0, "Freelook, zoom and blur", () ->
+            (Neon.config.zoomToggle ? "Toggle" : "Hold") + " / " + NumberValue.format(Neon.config.zoomFactor) + "x zoom"));
+        top.addChild(category(1, "Attack, mine and use", () -> !Neon.config.clickerEnabled ? "Disabled"
+            : Neon.autoclicker.isUnbound() ? "Enabled / assign a key" : "Enabled / " + (Neon.config.toggleClicker ? "Toggle" : "Hold")));
+        rows.addChild(top);
+        LinearLayout bottom = LinearLayout.horizontal().spacing(12);
+        bottom.addChild(category(2, "Armor and totems", () ->
+            "Armor " + (Neon.config.armor.visible ? "ON" : "OFF") + " / Totems " + (Neon.config.totems.visible ? "ON" : "OFF")));
+        bottom.addChild(category(3, "Keys and mouse buttons", () -> "Menu: " + bindingName(Neon.settings).getString()));
+        rows.addChild(bottom);
+    }
+    private LinearLayout category(int tab, String description, Supplier<String> status) {
+        LinearLayout card = LinearLayout.vertical().spacing(4);
+        card.addChild(Button.builder(Component.literal(TABS[tab]), b -> navigate(tab))
+            .bounds(0, 0, controlWidth, 20)
+            .tooltip(Tooltip.create(Component.literal(description + ". Open settings.")))
+            .createNarration(defaultMessage -> defaultMessage.get().append(". " + description + ". " + status.get()))
+            .build());
+        card.addChild(new StringWidget(controlWidth, 12, Component.literal(description).withStyle(ChatFormatting.GRAY), font));
+        StringWidget summary = card.addChild(new StringWidget(controlWidth, 12, Component.empty(), font));
+        refreshers.add(() -> summary.setMessage(Component.literal(status.get())));
+        return card;
+    }
+    private static Component bindingName(KeyMapping key) {
+        return key.isUnbound() ? Component.literal("Unassigned") : key.getTranslatedKeyMessage();
     }
     private void section(String label) {
         rows.addChild(new StringWidget(panelWidth, 16, Component.literal(label).withStyle(ChatFormatting.GRAY), font));
@@ -131,7 +188,9 @@ public final class SettingsScreen extends Screen {
         line.addChild(control); rows.addChild(line); return control;
     }
     private Button action(String label, String value, Runnable action, String tip) {
-        return row(label, Button.builder(Component.literal(value), b -> { session.change(action); refresh(); }).bounds(0, 0, controlWidth, 20).build(), tip);
+        return row(label, Button.builder(Component.literal(value), b -> { session.change(action); refresh(); })
+            .createNarration(defaultMessage -> Component.literal(label + ": ").append(defaultMessage.get()))
+            .bounds(0, 0, controlWidth, 20).build(), tip);
     }
     private Button choice(String label, Supplier<String> value, Runnable action, String tip) {
         Button button = action(label, value.get(), action, tip);
@@ -145,7 +204,7 @@ public final class SettingsScreen extends Screen {
         Button button = action(label, "", () -> capturing = key, tip + " Click, then press a key or mouse button. Esc cancels; Backspace or Delete clears.");
         refreshers.add(() -> {
             boolean conflict = !key.isUnbound() && Arrays.stream(minecraft.options.keyMappings).anyMatch(other -> other != key && key.same(other));
-            Component name = key.isUnbound() ? Component.literal("Unassigned") : key.getTranslatedKeyMessage();
+            Component name = bindingName(key);
             button.setMessage(capturing == key ? Component.literal("> Press a key <").withStyle(ChatFormatting.YELLOW)
                 : name.copy().withStyle(conflict ? ChatFormatting.RED : ChatFormatting.WHITE));
         });
@@ -182,13 +241,15 @@ public final class SettingsScreen extends Screen {
     @Override public void extractRenderState(GuiGraphicsExtractor g, int mx, int my, float delta) {
         refresh();
         super.extractRenderState(g, mx, my, delta);
-        g.centeredText(font, title, width / 2, 12, 0xffffffff);
-        String status = !error.isEmpty() ? error : capturing != null ? "Press a key / Esc cancels / Backspace clears" : "Hover over a setting for details";
+        g.centeredText(font, page < 0 ? "Neon" : "Neon / " + TABS[page], width / 2, 12, 0xffffffff);
+        if (page < 0) g.centeredText(font, "Camera, input and equipment", width / 2, 34, 0xffaaaaaa);
+        String status = !error.isEmpty() ? error : capturing != null ? "Press a key / Esc cancels / Backspace clears"
+            : page < 0 ? "Choose a section / Esc to return" : "Hover over a setting for details";
         g.centeredText(font, status, width / 2, height - 40, error.isEmpty() ? 0xffaaaaaa : 0xffff7777);
     }
     @Override public void onClose() {
         if (Neon.save()) minecraft.gui.setScreen(parent);
         else error = "Could not save settings. Check the game log.";
     }
-    @Override public void removed() { capturing = null; session.end(); Neon.save(); }
+    @Override public void removed() { rememberScroll(); capturing = null; session.end(); Neon.save(); }
 }

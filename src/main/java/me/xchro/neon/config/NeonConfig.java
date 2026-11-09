@@ -7,6 +7,8 @@ public final class NeonConfig {
     public boolean zoomWheel = true, zoomSensitivity = true;
     public boolean zoomToggle = false;
     public double zoomScrollStep = .5;
+    public boolean motionBlurEnabled = false, motionBlurIncludeUi = true;
+    public int motionBlurStrength = 75;
     public boolean clickerEnabled = false, leftClick = true, rightClick = false, toggleClicker = false;
     public int leftIntervalTicks = 0, rightIntervalTicks = 0;
     public LeftAction leftAction = LeftAction.CLICK;
@@ -36,6 +38,7 @@ public final class NeonConfig {
     public void resetCamera() {
         zoomMillis = 150; zoomFactor = 4; zoomWheel = zoomSensitivity = true;
         zoomToggle = false; zoomScrollStep = .5;
+        motionBlurEnabled = false; motionBlurIncludeUi = true; motionBlurStrength = 75;
     }
     public void resetClicker() {
         clickerEnabled = rightClick = toggleClicker = clickerEntitiesOnly = clickerProtectTools = false;
@@ -54,6 +57,7 @@ public final class NeonConfig {
         zoomMillis = Math.clamp(zoomMillis, 0, 500);
         zoomFactor = finite(zoomFactor, 4, 1, 16);
         zoomScrollStep = finite(zoomScrollStep, .5, .1, 4);
+        motionBlurStrength = Math.clamp(motionBlurStrength, 0, 100);
         leftIntervalTicks = Math.clamp(leftIntervalTicks, 0, 60); rightIntervalTicks = Math.clamp(rightIntervalTicks, 0, 60);
         if (leftAction == null) leftAction = LeftAction.CLICK;
         clickerMinDurability = Math.clamp(clickerMinDurability, 2, 100);

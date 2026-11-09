@@ -26,7 +26,10 @@ final class FeatureSmoke {
     private boolean intact;
     private double oldZoom, armorX;
     private int oldInterval;
-    FeatureSmoke(Minecraft mc, int checks) { this.mc = mc; this.checks = checks; mc.gui.setScreen(new SettingsScreen(null)); }
+    FeatureSmoke(Minecraft mc, int checks) {
+        this.mc = mc; this.checks = checks;
+        mc.gui.setScreen(new SettingsScreen(null)); button("Camera").onPress(null);
+    }
     int checks() { return checks; }
     private void check(boolean condition, String name) {
         if (!condition) throw new AssertionError("Feature stage " + stage + ": " + name);

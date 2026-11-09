@@ -37,6 +37,8 @@ public final class LiveSmoke implements ClientModInitializer {
     private boolean initialized, failed;
     private Minecraft mc;
     private FeatureSmoke features;
+    private MotionBlurSmoke motion;
+    private MenuSmoke menu;
     @Override public void onInitializeClient() {
         if (!Boolean.getBoolean("neon.smoke")) throw new IllegalStateException("Test mod outside verification run");
         Neon.config = new me.xchro.neon.config.NeonConfig();
@@ -77,7 +79,7 @@ public final class LiveSmoke implements ClientModInitializer {
         if (failed) return;
         try {
             if (tick > 3600) throw new AssertionError("Timed out at stage " + stage + ", screen=" + mc.gui.screen());
-            if (mc.player == null || mc.level == null) return;
+            if ((mc.player == null || mc.level == null) && motion == null) return;
             if (!initialized) {
                 initialized = true; stageTick = tick;
                 mc.options.pauseOnLostFocus = false;
@@ -113,6 +115,7 @@ public final class LiveSmoke implements ClientModInitializer {
             switch (stage) {
                 case 0 -> {
                     if (age < 80 || mc.gui.screen() != null) return;
+                    if (Boolean.getBoolean("neon.smoke.motionOnly")) { motion = new MotionBlurSmoke(mc, checks); stage = 49; stageTick = tick; return; }
                     check(NeonHud.totems() == 3, "inventory and offhand total, main hand counted once");
                     check("3".equals(NeonHud.offhandCount(mc.player.getOffhandItem())), "offhand renders total count");
                     check(NeonHud.offhandCount(mc.player.getMainHandItem()) == null, "main-hand totem keeps vanilla count");
@@ -276,17 +279,22 @@ public final class LiveSmoke implements ClientModInitializer {
                 }
                 case 24 -> {
                     if (age < 2) return;
-                    check(mc.options.keyAttack.isDown(), "normal held attack input is preserved");
-                    mc.options.keyAttack.setDown(false); Neon.config.clickerEnabled = false;
+                    if (menu == null) {
+                        check(mc.options.keyAttack.isDown(), "normal held attack input is preserved");
+                        mc.options.keyAttack.setDown(false); Neon.config.clickerEnabled = false;
+                        menu = new MenuSmoke(mc, checks); return;
+                    }
+                    if (!menu.run()) return;
+                    checks = menu.checks();
                     mc.gui.setScreen(new SettingsScreen(null));
-                    ((net.minecraft.client.gui.components.Button)mc.gui.screen().children().getFirst()).onPress(null);
+                    button("Camera").onPress(null);
                     next();
                 }
                 case 25 -> {
                     if (age < 8) return;
                     shot("camera-settings"); mc.gui.setScreen(new SettingsScreen(null));
                     Neon.config.leftAction = LeftAction.CLICK;
-                    ((net.minecraft.client.gui.components.Button)mc.gui.screen().children().get(1)).onPress(null); next();
+                    button("Autoclicker").onPress(null); next();
                 }
                 case 26 -> {
                     if (age == 1) {
@@ -471,11 +479,16 @@ public final class LiveSmoke implements ClientModInitializer {
                 case 48 -> {
                     if (!features.run()) return;
                     checks = features.checks();
+                    motion = new MotionBlurSmoke(mc, checks); next();
+                }
+                case 49 -> {
+                    if (!motion.run()) return;
+                    checks = motion.checks();
                     Files.writeString(mc.gameDirectory.toPath().resolve("neon-verification.txt"), "PASS " + checks + " live checks\n");
                     System.out.println("NEON_LIVE_PASS checks=" + checks);
                     next();
                 }
-                case 49 -> { if (age >= 20) mc.stop(); }
+                case 50 -> { if (age >= 20) mc.stop(); }
             }
         } catch (Throwable error) {
             failed = true; System.err.println("NEON_LIVE_FAIL stage=" + stage); error.printStackTrace();

@@ -1,8 +1,8 @@
 {
   "key.category.neon.controls": "Neon",
-  "key.neon.settings": "Neon settings",
+  "key.neon.settings": "Open Neon menu",
   "key.neon.freelook": "Freelook (hold)",
-  "key.neon.zoom": "Zoom (hold)",
+  "key.neon.zoom": "Zoom activation",
   "key.neon.autoclicker": "Autoclicker activation",
-  "modmenu.descriptionTranslation.neon": "Smooth freelook, zoom, autoclicker, and a vanilla armor and totem HUD. Configure bindings in Options > Controls > Key Binds > Neon."
+  "modmenu.descriptionTranslation.neon": "Freelook, zoom, autoclicker, and a vanilla armor and totem HUD. Press P (default) for the Neon menu. Configure bindings in Controls."
 }

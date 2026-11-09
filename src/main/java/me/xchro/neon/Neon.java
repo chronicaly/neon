@@ -5,6 +5,7 @@ import me.xchro.neon.camera.CameraController;
 import me.xchro.neon.config.*;
 import me.xchro.neon.input.AutoClicker;
 import me.xchro.neon.hud.NeonHud;
+import me.xchro.neon.render.MotionBlurRenderer;
 import me.xchro.neon.ui.SettingsScreen;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.loader.api.FabricLoader;
@@ -15,6 +16,7 @@ import net.minecraft.client.*;
 import net.minecraft.resources.Identifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.lwjgl.glfw.GLFW;
 
 public final class Neon implements ClientModInitializer {
     public static final Logger LOG = LoggerFactory.getLogger("Neon");
@@ -30,18 +32,23 @@ public final class Neon implements ClientModInitializer {
         profiles = new ProfileStore(FabricLoader.getInstance().getConfigDir().resolve("neon-profiles.json"));
         try { profiles.initialize(config); } catch (Exception e) { LOG.error("Could not load Neon profiles", e); }
         var category = KeyMapping.Category.register(Identifier.fromNamespaceAndPath("neon", "controls"));
-        settings = key("settings", category); freelook = key("freelook", category);
-        zoom = key("zoom", category); autoclicker = key("autoclicker", category);
+        settings = key("settings", category, GLFW.GLFW_KEY_P);
+        freelook = key("freelook", category, GLFW.GLFW_KEY_UNKNOWN);
+        zoom = key("zoom", category, GLFW.GLFW_KEY_UNKNOWN);
+        autoclicker = key("autoclicker", category, GLFW.GLFW_KEY_UNKNOWN);
         ClientTickEvents.START_CLIENT_TICK.register(mc -> {
-            while (settings.consumeClick()) if (mc.gui.screen() == null) mc.gui.setScreen(new SettingsScreen(null));
+            while (settings.consumeClick()) {
+                if (mc.player != null && mc.gui.screen() == null && mc.gui.overlay() == null)
+                    mc.gui.setScreen(new SettingsScreen(null));
+            }
             CAMERA.checkContext(mc);
             CLICKER.tick(mc);
         });
         HudElementRegistry.addLast(Identifier.fromNamespaceAndPath("neon", "equipment"), (graphics, delta) -> NeonHud.draw(graphics, false));
         LOG.info("Neon {} ready", FabricLoader.getInstance().getModContainer("neon").orElseThrow().getMetadata().getVersion());
     }
-    private static KeyMapping key(String name, KeyMapping.Category category) {
-        return KeyMappingHelper.registerKeyMapping(new KeyMapping("key.neon." + name, InputConstants.Type.KEYSYM, -1, category));
+    private static KeyMapping key(String name, KeyMapping.Category category, int defaultKey) {
+        return KeyMappingHelper.registerKeyMapping(new KeyMapping("key.neon." + name, InputConstants.Type.KEYSYM, defaultKey, category));
     }
     public static boolean ready(Minecraft mc) {
         return mc.player != null && mc.level != null && mc.player.isAlive() && !mc.player.isSpectator()
@@ -54,6 +61,7 @@ public final class Neon implements ClientModInitializer {
     }
     public static boolean applyConfig(NeonConfig settings) {
         Minecraft mc = Minecraft.getInstance(); CAMERA.reset(mc, true); CLICKER.cancel(mc);
+        MotionBlurRenderer.resetHistory();
         config = ConfigStore.copy(settings); return save();
     }
 }

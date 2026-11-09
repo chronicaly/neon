@@ -91,6 +91,8 @@ tasks.register('prodSmoke', net.fabricmc.loom.task.prod.ClientProductionRunTask)
     mods.from configurations.runtimeClasspath.filter { it.name == "fabric-api-${fabric_api_version}.jar" }
     runDir = file('runtime/smoke/game')
     jvmArgs.add('-Dneon.smoke=true')
+    jvmArgs.add('-Xmx1536M')
+    if (providers.gradleProperty('motionOnly').isPresent()) jvmArgs.add('-Dneon.smoke.motionOnly=true')
     programArgs.addAll('--quickPlaySingleplayer', 'Neon Verification')
     doFirst { file('runtime/smoke/game/neon-verification.txt').delete() }
     doLast {
