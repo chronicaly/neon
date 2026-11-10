@@ -17,6 +17,7 @@ import net.minecraft.client.gui.components.events.ContainerEventHandler;
 import net.minecraft.client.gui.screens.TitleScreen;
 import net.minecraft.client.input.*;
 import org.joml.Vector4f;
+import org.lwjgl.glfw.GLFW;
 
 /** Real GPU readback plus lifecycle/UI checks against the packaged mod. Never shipped. */
 public final class MotionBlurSmoke {
@@ -44,6 +45,7 @@ public final class MotionBlurSmoke {
         checks++; System.out.println("NEON_CHECK " + message);
     }
     private void next() { stage++; age = 0; }
+    private void undo() { mc.gui.screen().keyPressed(new KeyEvent(GLFW.GLFW_KEY_Z, 0, GLFW.GLFW_MOD_CONTROL)); }
     private void begin(String name) {
         fixture = name; frame = verified = beforePasses = afterPasses = 0;
         previous = current = null; waitForWidth = 0;
@@ -116,8 +118,8 @@ public final class MotionBlurSmoke {
     private Button button(String name) { return widgets(mc.gui.screen()).stream().filter(w -> w instanceof Button && w.getMessage().getString().equals(name)).map(w -> (Button) w).findFirst().orElseThrow(); }
     private AbstractWidget row(String label) {
         var widgets = widgets(mc.gui.screen());
-        int y = widgets.stream().filter(w -> w instanceof StringWidget && w.getHeight() == 20 && w.getMessage().getString().equals(label)).findFirst().orElseThrow().getY();
-        return widgets.stream().filter(w -> !(w instanceof StringWidget) && w.getY() == y).findFirst().orElseThrow();
+        int y = widgets.stream().filter(w -> w instanceof StringWidget && w.getMessage().getString().equals(label)).findFirst().orElseThrow().getY();
+        return widgets.stream().filter(w -> w instanceof Button && w.getY() == y).findFirst().orElseThrow();
     }
     private void shot(String name) { Screenshot.grab(mc.gameDirectory, "neon-motion-" + name + ".png", mc.gameRenderer.mainRenderTarget(), 1, message -> {}); }
 
@@ -136,30 +138,30 @@ public final class MotionBlurSmoke {
             case 1 -> { if (finished()) { Neon.config.motionBlurIncludeUi = true; begin("Include UI changed"); next(); } }
             case 2 -> {
                 if (!finished()) return false;
-                mc.gui.setScreen(new SettingsScreen(null)); button("Camera").onPress(null); next();
+                mc.gui.setScreen(new SettingsScreen(null)); button("Visuals").onPress(null); button("Motion blur").onPress(null); next();
             }
             case 3 -> {
                 if (age < 4) return false;
                 check(!ready(), "Neon settings are excluded from motion blur");
-                var slider = row("Blur strength");
-                slider.mouseClicked(new MouseButtonEvent(slider.getX()+slider.getWidth()/2.0, slider.getY()+10, new MouseButtonInfo(0,0)), false);
-                check(mc.gui.screen() instanceof NumberScreen, "blur strength opens exact-value entry"); next();
+                var slider = widgets(mc.gui.screen()).stream().filter(w -> w instanceof ExactSlider).findFirst().orElseThrow();
+                slider.mouseClicked(new MouseButtonEvent(slider.getRight()-8, slider.getY()+8, new MouseButtonInfo(0,0)), false);
+                check(InlineInput.slider(mc.gui.screen()) != null, "blur strength edits inline"); next();
             }
             case 4 -> {
                 if (age < 4) return false;
-                check(!ready(), "exact-value dialog is excluded from motion blur");
-                widgets(mc.gui.screen()).stream().filter(w -> w instanceof EditBox).map(w -> (EditBox) w).findFirst().orElseThrow().setValue("83");
-                button("Apply").onPress(null); check(Neon.config.motionBlurStrength == 83, "motion blur exact strength applies");
-                button("Undo").onPress(null); check(Neon.config.motionBlurStrength == 75, "Undo restores motion blur strength");
-                ((Button) row("Include UI")).onPress(null); check(!Neon.config.motionBlurIncludeUi, "native Include UI toggle works");
-                button("Undo").onPress(null);
-                ((Button) row("Motion blur")).onPress(null); check(!Neon.config.motionBlurEnabled && !row("Blur strength").active, "native module toggle disables dependent settings");
-                button("Undo").onPress(null); check(Neon.config.motionBlurEnabled && Neon.config.motionBlurIncludeUi, "Undo restores module activation and UI mode");
+                check(!ready(), "inline editing remains excluded from motion blur");
+                InlineInput.field(mc.gui.screen()).setValue("83");
+                InlineInput.slider(mc.gui.screen()).finishInline(true); check(Neon.config.motionBlurStrength == 83, "motion blur exact strength applies");
+                undo(); check(Neon.config.motionBlurStrength == 75, "Undo restores motion blur strength");
+                ((Button) row("Blur the UI")).onPress(null); check(!Neon.config.motionBlurIncludeUi, "native Include UI toggle works");
+                undo();
+                ((Button)widgets(mc.gui.screen()).stream().filter(w->w instanceof UiButton b&&b.hint().equals("Enable Motion blur")).findFirst().orElseThrow()).onPress(null); check(!Neon.config.motionBlurEnabled && widgets(mc.gui.screen()).stream().filter(w -> w instanceof ExactSlider).noneMatch(w -> w.active), "native module toggle disables dependent settings");
+                undo(); check(Neon.config.motionBlurEnabled && Neon.config.motionBlurIncludeUi, "Undo restores module activation and UI mode");
                 mc.gui.screen().mouseScrolled(mc.gui.screen().width/2.0, mc.gui.screen().height/2.0, 0, -20); next();
             }
             case 5 -> {
                 if (age < 5) return false;
-                shot("settings"); button("Profiles...").onPress(null); next();
+                shot("settings"); button("Settings").onPress(null); button("Profiles").onPress(null); next();
             }
             case 6 -> {
                 if (age < 4) return false;

@@ -5,10 +5,16 @@ import me.xchro.neon.config.NeonConfig.Widget;
 public record HudBounds(int x, int y, int width, int height) {
     public boolean contains(double mx, double my) { return mx >= x && mx < x + width && my >= y && my < y + height; }
     public static double scale(Widget widget, int contentWidth, int contentHeight, int screenWidth, int screenHeight) {
-        return Math.min(widget.scale, Math.min((double) screenWidth / contentWidth, (double) screenHeight / contentHeight));
+        return scale(widget,contentWidth,contentHeight,screenWidth,screenHeight,1);
+    }
+    public static double scale(Widget widget,int contentWidth,int contentHeight,int screenWidth,int screenHeight,double density){
+        return Math.min(widget.scale*density,Math.min((double)screenWidth/contentWidth,(double)screenHeight/contentHeight));
     }
     public static HudBounds of(Widget widget, int contentWidth, int contentHeight, int screenWidth, int screenHeight) {
-        double scale = scale(widget, contentWidth, contentHeight, screenWidth, screenHeight);
+        return of(widget,contentWidth,contentHeight,screenWidth,screenHeight,1);
+    }
+    public static HudBounds of(Widget widget,int contentWidth,int contentHeight,int screenWidth,int screenHeight,double density){
+        double scale = scale(widget, contentWidth, contentHeight, screenWidth, screenHeight,density);
         int w = Math.min(screenWidth, (int) Math.ceil(contentWidth * scale));
         int h = Math.min(screenHeight, (int) Math.ceil(contentHeight * scale));
         return new HudBounds((int) Math.round(widget.x * (screenWidth - w)),

@@ -26,10 +26,15 @@ public final class Neon implements ClientModInitializer {
     public static KeyMapping settings, freelook, zoom, autoclicker;
     private static ConfigStore store;
     public static ProfileStore profiles;
+    public static final QueuedSave SAVES = new QueuedSave((path, failure) -> {
+        LOG.error("Could not save {}. Unsaved settings retained in memory.", path, failure);
+        Minecraft.getInstance().execute(() -> Minecraft.getInstance().gui.hud.setOverlayMessage(
+            net.minecraft.network.chat.Component.literal("Neon: settings could not be saved. Changes retained; check the game log."), false));
+    });
     @Override public void onInitializeClient() {
         store = new ConfigStore(FabricLoader.getInstance().getConfigDir().resolve("neon.json"));
         try { config = store.load(); } catch (Exception e) { LOG.error("Could not load Neon settings", e); }
-        profiles = new ProfileStore(FabricLoader.getInstance().getConfigDir().resolve("neon-profiles.json"));
+        profiles = new ProfileStore(FabricLoader.getInstance().getConfigDir().resolve("neon-profiles.json"), SAVES);
         try { profiles.initialize(config); } catch (Exception e) { LOG.error("Could not load Neon profiles", e); }
         var category = KeyMapping.Category.register(Identifier.fromNamespaceAndPath("neon", "controls"));
         settings = key("settings", category, GLFW.GLFW_KEY_P);
@@ -45,6 +50,14 @@ public final class Neon implements ClientModInitializer {
             CLICKER.tick(mc);
         });
         HudElementRegistry.addLast(Identifier.fromNamespaceAndPath("neon", "equipment"), (graphics, delta) -> NeonHud.draw(graphics, false));
+        net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents.CLIENT_STARTED.register(mc -> {me.xchro.neon.ui.Ui.warmFonts();me.xchro.neon.ui.UiSounds.warm();});
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register((handler, mc) -> mc.execute(() -> {
+            save(); SAVES.flush(); CAMERA.reset(mc, true); CLICKER.resetTiming(); MotionBlurRenderer.close();
+        }));
+        net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents.CLIENT_STOPPING.register(mc -> {
+            save(); try { SAVES.close(); } catch (java.util.concurrent.CompletionException failure) { LOG.error("Final settings flush failed", failure); }
+            me.xchro.neon.ui.Ui.releaseFonts();me.xchro.neon.ui.UiSounds.close(); MotionBlurRenderer.close();
+        });
         LOG.info("Neon {} ready", FabricLoader.getInstance().getModContainer("neon").orElseThrow().getMetadata().getVersion());
     }
     private static KeyMapping key(String name, KeyMapping.Category category, int defaultKey) {
@@ -56,12 +69,16 @@ public final class Neon implements ClientModInitializer {
             && mc.gui.overlay() == null && mc.isWindowActive() && !mc.isPaused();
     }
     public static boolean save() {
-        try { store.save(config); return true; }
+        try { if (store != null) store.queue(SAVES, config); return true; }
         catch (Exception e) { LOG.error("Could not save Neon settings", e); return false; }
     }
+    public static void flushSaves() { save(); SAVES.flush(); }
     public static boolean applyConfig(NeonConfig settings) {
-        Minecraft mc = Minecraft.getInstance(); CAMERA.reset(mc, true); CLICKER.cancel(mc);
+        Minecraft mc = Minecraft.getInstance(); CAMERA.reset(mc, true);
         MotionBlurRenderer.resetHistory();
-        config = ConfigStore.copy(settings); return save();
+        config = ConfigStore.copy(settings);
+        if (!config.clickerEnabled) CLICKER.cancel(mc);
+        else CLICKER.resetTiming();
+        return save();
     }
 }

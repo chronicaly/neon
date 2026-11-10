@@ -17,16 +17,28 @@ public final class SettingsSession {
     public void end() {
         if (before == null) return;
         State old = before; before = null;
-        if (!old.equals(capture())) { undo.push(old); while (undo.size() > 50) undo.removeLast(); }
+        if (!old.equals(capture())) { undo.push(old); while (undo.size() > 50) undo.removeLast(); Neon.save(); }
     }
     public void change(Runnable change) { begin(); try { change.run(); } finally { end(); } }
     public boolean canUndo() { return !undo.isEmpty(); }
+    /** Discard only the in-progress gesture, leaving earlier undo entries untouched. */
+    public void cancel() {
+        if (before == null) return;
+        State state = before; before = null;
+        if (!state.equals(capture())) restore(state);
+    }
     public boolean undo() {
         end(); if (undo.isEmpty()) return false;
-        State state = undo.pop();
-        for (int i = 0; i < bindings().size(); i++) bindings().get(i).setKey(InputConstants.getKey(state.keys().get(i)));
-        KeyMapping.resetMapping(); Minecraft.getInstance().options.save();
-        Neon.applyConfig(ConfigStore.decode(state.config())); return true;
+        restore(undo.pop()); return true;
+    }
+    private void restore(State state) {
+        boolean keysChanged = false;
+        var keys = bindings();
+        for (int i = 0; i < keys.size(); i++) if (!keys.get(i).saveString().equals(state.keys().get(i))) {
+            keys.get(i).setKey(InputConstants.getKey(state.keys().get(i))); keysChanged = true;
+        }
+        if (keysChanged) { KeyMapping.resetMapping(); Minecraft.getInstance().options.save(); }
+        Neon.applyConfig(ConfigStore.decode(state.config()));
     }
     public void resetPage(int page) {
         change(() -> {

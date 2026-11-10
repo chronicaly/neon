@@ -5,64 +5,52 @@ import me.xchro.neon.core.*;
 import me.xchro.neon.config.NeonConfig.LeftAction;
 import me.xchro.neon.mixin.KeyAccessor;
 import net.minecraft.client.*;
-import net.minecraft.client.gui.screens.ChatScreen;
+import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.phys.HitResult;
-import net.minecraft.world.item.ItemStack;
+import org.lwjgl.glfw.GLFW;
 
 public final class AutoClicker {
-    private final Activation activation = new Activation();
+    private final ClickerActivation activation = new ClickerActivation();
     private final ClickClock left = new ClickClock(), right = new ClickClock();
     private boolean active, holdingAttack;
     private long tick;
     private Object level, player;
-    private String lastStopReason = "";
     public boolean active() { return active; }
-    public String lastStopReason() { return lastStopReason; }
     public void cancel(Minecraft mc) {
         if (holdingAttack && mc.gameMode != null && !mc.options.keyAttack.isDown()) mc.gameMode.stopDestroyBlock();
         active = false; activation.reset(); resetTiming();
     }
-    private boolean protectTool(Minecraft mc) {
-        if (!Neon.config.clickerProtectTools || mc.player == null) return false;
-        ItemStack main = mc.player.getMainHandItem(), off = mc.player.getOffhandItem();
-        ItemStack endangered = (Neon.config.leftClick || Neon.config.rightClick) && needsRepair(main) ? main
-            : Neon.config.rightClick && needsRepair(off) ? off : ItemStack.EMPTY;
-        if (endangered.isEmpty()) return false;
-        lastStopReason = "Autoclicker stopped: " + endangered.getHoverName().getString() + " has "
-            + (endangered.getMaxDamage() - endangered.getDamageValue()) + " durability";
-        cancel(mc); mc.gui.hud.setOverlayMessage(Component.literal(lastStopReason), false); return true;
-    }
-    private boolean needsRepair(ItemStack item) {
-        return item.isDamageableItem() && item.getMaxDamage() - item.getDamageValue() <= Neon.config.clickerMinDurability;
-    }
     private boolean allowed(Minecraft mc) {
         return Neon.config.clickerEnabled && mc.player != null && mc.level != null && mc.player.isAlive()
             && !mc.player.isSpectator() && !mc.player.isSleeping() && mc.getCameraEntity() == mc.player
-            && !mc.isPaused() && mc.gui.overlay() == null
-            && (mc.gui.screen() == null || mc.gui.screen() instanceof ChatScreen && Neon.config.clickerInChat)
-            && (mc.isWindowActive() || Neon.config.clickerInBackground);
+            && mc.gameMode != null && !mc.isPaused() && mc.gui.overlay() == null;
     }
-    public boolean inChat(Minecraft mc) { return active && allowed(mc) && mc.gui.screen() instanceof ChatScreen; }
+    public boolean inScreen(Minecraft mc) { return active && allowed(mc) && mc.gui.screen() != null; }
+    // Deliberately independent of isPaused(): this is what prevents the pause itself.
     public boolean keepRunningInBackground(Minecraft mc) {
-        return active && Neon.config.toggleClicker && Neon.config.clickerInBackground && allowed(mc);
+        return active && Neon.config.clickerEnabled && mc.level != null && mc.player != null;
+    }
+    private boolean activationDown(Minecraft mc) {
+        if (mc.gui.screen() == null && mc.isWindowActive() || Neon.autoclicker.isUnbound()) return Neon.autoclicker.isDown();
+        var key = ((KeyAccessor) Neon.autoclicker).neon$getKey();
+        if (key.getType() == InputConstants.Type.MOUSE)
+            return GLFW.glfwGetMouseButton(mc.getWindow().handle(), key.getValue()) == GLFW.GLFW_PRESS;
+        if (key.getType() == InputConstants.Type.KEYSYM)
+            return InputConstants.isKeyDown(mc.getWindow(), key.getValue());
+        return Neon.autoclicker.isDown();
     }
     public void tick(Minecraft mc) {
         tick++;
         if (Neon.autoclicker == null) return;
-        boolean safe = allowed(mc);
-        if (level != mc.level || player != mc.player) { activation.reset(); safe = false; }
+        if (level != mc.level || player != mc.player) resetTiming();
         level = mc.level; player = mc.player;
-        boolean interactive = mc.gui.screen() == null && mc.isWindowActive();
-        // Only continue an already activated toggle while typing or unfocused. Never read
-        // activation presses in chat, where they may simply be part of the user's message.
-        boolean next;
-        if (safe && !interactive && active && Neon.config.toggleClicker) next = true;
-        else next = activation.update(safe && interactive, Neon.autoclicker.isDown(), Neon.config.toggleClicker);
-        if (next && !active) lastStopReason = "";
+        boolean interactive = mc.player != null && mc.level != null && mc.gui.screen() == null
+            && mc.gui.overlay() == null && mc.isWindowActive();
+        // Menu typing never toggles automation. Existing Toggle sessions survive every context change.
+        boolean next = activation.update(Neon.config.clickerEnabled, interactive, activationDown(mc), Neon.config.toggleClicker);
         if (next != active && mc.player != null) mc.gui.hud.setOverlayMessage(Component.literal("Autoclicker: " + (next ? "on" : "off")), false);
         active = next;
-        if (active && protectTool(mc)) return;
         if (!active) {
             if (holdingAttack && mc.gameMode != null && !mc.options.keyAttack.isDown()) mc.gameMode.stopDestroyBlock();
             resetTiming();
@@ -74,7 +62,6 @@ public final class AutoClicker {
     }
     public Clicks clicks(Minecraft mc, boolean attackReady, boolean useReady) {
         if (!active || !allowed(mc)) { resetTiming(); return Clicks.NONE; }
-        if (protectTool(mc)) return Clicks.NONE;
         boolean block = mc.hitResult != null && mc.hitResult.getType() == HitResult.Type.BLOCK;
         boolean attackDown = false, attackPress = false, use = false;
         if (Neon.config.leftClick && !mc.player.isUsingItem()) {

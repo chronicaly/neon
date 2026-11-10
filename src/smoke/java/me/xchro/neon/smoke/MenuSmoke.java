@@ -25,8 +25,8 @@ final class MenuSmoke {
         check(bindings.stream().skip(1).allMatch(key -> key.getDefaultKey().equals(InputConstants.UNKNOWN)), "feature bindings remain opt-in");
         Neon.settings.setKey(Neon.settings.getDefaultKey());
         mc.options.keySocialInteractions.setKey(mc.options.keySocialInteractions.getDefaultKey());
-        KeyMapping.resetMapping();
-        KeyMapping.click(Neon.settings.getDefaultKey());
+        Neon.freelook.setKey(InputConstants.UNKNOWN);
+        KeyMapping.resetMapping(); KeyMapping.click(Neon.settings.getDefaultKey());
     }
     int checks() { return checks; }
     private void check(boolean condition, String name) {
@@ -43,14 +43,14 @@ final class MenuSmoke {
         return result;
     }
     private List<AbstractWidget> widgets() { return widgets(mc.gui.screen()); }
-    private Button button(String name) {
-        return widgets().stream().filter(w -> w instanceof Button && w.getMessage().getString().equals(name))
-            .map(w -> (Button) w).findFirst().orElseThrow(() -> new AssertionError("No button " + name));
-    }
-    private AbstractScrollArea scroll() {
-        return widgets().stream().filter(w -> w instanceof AbstractScrollArea).map(w -> (AbstractScrollArea) w).findFirst().orElseThrow();
-    }
+    private Button button(String name) { return widgets().stream().filter(w -> w instanceof Button && w.getMessage().getString().equals(name)).map(w -> (Button) w).findFirst().orElseThrow(() -> new AssertionError("No button " + name)); }
+    private AbstractScrollArea scroll() { return widgets().stream().filter(w -> w instanceof AbstractScrollArea).map(w -> (AbstractScrollArea) w).findFirst().orElseThrow(); }
     private KeyEvent key(int key) { return new KeyEvent(key, 0, 0); }
+    private void undo() { mc.gui.screen().keyPressed(new KeyEvent(GLFW.GLFW_KEY_Z, 0, GLFW.GLFW_MOD_CONTROL)); }
+    private void closeScreen() {
+        var before = mc.gui.screen(); before.keyPressed(key(GLFW.GLFW_KEY_ESCAPE));
+        if (mc.gui.screen() == before) before.keyPressed(key(GLFW.GLFW_KEY_ESCAPE));
+    }
     private void shot(String name) { Screenshot.grab(mc.gameDirectory, "neon-" + name + ".png", mc.gameRenderer.mainRenderTarget(), 1, message -> {}); }
     boolean run() {
         age++;
@@ -59,63 +59,49 @@ final class MenuSmoke {
             case 0 -> {
                 check(mc.gui.screen() instanceof SettingsScreen, "P opens the menu from gameplay");
                 check(mc.options.keySocialInteractions.matches(key(GLFW.GLFW_KEY_P)), "menu opens with vanilla Social Interactions still bound to P");
-                check(widgets().stream().noneMatch(w -> w instanceof AbstractSliderButton), "menu opens on overview");
-                check(List.of("Camera", "Autoclicker", "HUD", "Controls", "Profiles...", "Done").stream().allMatch(name -> button(name).active), "overview exposes every section and profiles");
-                shot("menu-overview"); mc.gui.screen().resize(320, 240); next();
+                check(widgets().stream().noneMatch(w -> w instanceof AbstractSliderButton), "menu opens on compact module cards");
+                check(List.of("Combat", "Visuals", "HUD", "Settings", "Freelook", "Zoom", "Motion blur").stream().allMatch(name -> button(name).active), "categories contain module cards");
+                check(widgets().stream().noneMatch(w -> Set.of("Undo", "Done", "×").contains(w.getMessage().getString())), "menu has no close or footer buttons");
+                check(widgets().stream().noneMatch(w -> w.getMessage().getString().contains("Overview")), "Overview is removed");
+                shot("menu-cards"); mc.gui.screen().resize(320 / mc.getWindow().getGuiScale(), 240 / mc.getWindow().getGuiScale()); next();
             }
             case 1 -> {
-                check(widgets().stream().filter(w -> w instanceof Button).allMatch(w -> w.getX() >= 0 && w.getRight() <= 320
-                    && w.getY() >= 0 && w.getBottom() <= 240), "overview actions fit minimum GUI size");
-                check(scroll().maxScrollAmount() == 0, "overview needs no scrolling at minimum GUI size");
-                shot("menu-overview-small");
-                mc.gui.screen().keyPressed(key(GLFW.GLFW_KEY_TAB));
-                check(mc.gui.screen().getFocused() != null, "overview supports keyboard focus navigation");
-                button("Camera").keyPressed(key(GLFW.GLFW_KEY_ENTER));
-                check(widgets().stream().anyMatch(w -> w instanceof AbstractSliderButton), "Enter opens a settings section");
-                scroll().setScrollAmount(scroll().maxScrollAmount()); double position = scroll().scrollAmount();
-                check(position > 0, "small Camera page scrolls");
-                // Child screens return at the actual window size. Keep the same viewport for this check.
+                check(widgets().stream().filter(w -> w instanceof Button).allMatch(w -> w.getX() >= 0 && w.getRight() <= 320 && w.getY() >= 0 && w.getBottom() <= 240), "card actions fit minimum GUI size");
+                check(scroll().maxScrollAmount() == 0, "three module cards fit without scrolling at minimum size");
+                shot("menu-cards-small"); mc.gui.screen().keyPressed(key(GLFW.GLFW_KEY_TAB));
+                check(mc.gui.screen().getFocused() != null, "menu supports keyboard focus navigation");
+                button("Zoom").keyPressed(key(GLFW.GLFW_KEY_ENTER));
+                check(widgets().stream().anyMatch(w -> w instanceof AbstractSliderButton), "Enter opens focused module settings");
+                scroll().setScrollAmount(scroll().maxScrollAmount());
+                check(scroll().scrollAmount() > 0, "small module page scrolls");
                 mc.gui.screen().resize(mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight());
-                scroll().setScrollAmount(scroll().maxScrollAmount()); position = scroll().scrollAmount();
-                button("Profiles...").onPress(null); button("Done").onPress(null);
-                check(scroll().scrollAmount() == position, "returning from profiles preserves page and scroll");
+                scroll().setScrollAmount(scroll().maxScrollAmount()); double position = scroll().scrollAmount();
+                button("Settings").onPress(null); button("Profiles").onPress(null); button("Visuals").onPress(null); button("Zoom").onPress(null);
+                check(scroll().scrollAmount() == position, "returning from profiles preserves module scroll");
                 var slider = widgets().stream().filter(w -> w instanceof ExactSlider).map(w -> (ExactSlider) w).reduce((a, b) -> b).orElseThrow();
-                slider.keyPressed(key(GLFW.GLFW_KEY_ENTER));
-                check(mc.gui.screen() instanceof NumberScreen, "keyboard opens exact value entry");
-                button("Cancel").onPress(null);
-                check(scroll().scrollAmount() == position, "returning from number entry preserves scroll");
-                button("Overview").onPress(null); button("HUD").onPress(null); button("Camera").onPress(null);
-                check(scroll().scrollAmount() == position, "navigation remembers each section's scroll");
-                button("Controls").onPress(null); button("P").onPress(null);
-                mc.gui.screen().keyPressed(key(GLFW.GLFW_KEY_F10));
-                check(Neon.settings.matches(key(GLFW.GLFW_KEY_F10)), "menu key can be rebound");
-                button("F10").onPress(null); mc.gui.screen().keyPressed(key(GLFW.GLFW_KEY_ESCAPE));
-                check(mc.gui.screen() instanceof SettingsScreen && Neon.settings.matches(key(GLFW.GLFW_KEY_F10)), "Escape cancels capture without closing menu");
-                button("Reset page").onPress(null);
-                check(Neon.settings.matches(key(GLFW.GLFW_KEY_P)), "Controls reset restores P");
-                button("Undo").onPress(null);
-                check(Neon.settings.matches(key(GLFW.GLFW_KEY_F10)), "Undo restores custom menu key after reset"); next();
+                slider.keyPressed(key(GLFW.GLFW_KEY_ENTER)); check(slider.isEditing() && mc.gui.screen() instanceof SettingsScreen, "keyboard edits exact values inline");
+                slider.keyPressed(key(GLFW.GLFW_KEY_ESCAPE)); check(scroll().scrollAmount() == position, "canceling inline number entry preserves scroll");
+                button("HUD").onPress(null); mc.gui.screen().onClose(); button("Visuals").onPress(null); button("Zoom").onPress(null);
+                check(scroll().scrollAmount() == position, "navigation remembers module scroll");
+                button("Visuals").onPress(null); button("Freelook").onPress(null); button("[—]").onPress(null); mc.gui.screen().keyPressed(key(GLFW.GLFW_KEY_F9));
+                check(Neon.freelook.matches(key(GLFW.GLFW_KEY_F9)), "inline module bind captures keys");
+                button("[F9]").onPress(null); mc.gui.screen().keyPressed(key(GLFW.GLFW_KEY_ESCAPE));
+                check(mc.gui.screen() instanceof SettingsScreen && Neon.freelook.matches(key(GLFW.GLFW_KEY_F9)), "Escape cancels capture without closing menu");
+                undo(); check(Neon.freelook.isUnbound(), "Undo restores previous module binding");
+                // The global menu key is managed by Minecraft's key bindings, outside Appearance/Profiles.
+                Neon.settings.setKey(InputConstants.Type.KEYSYM.getOrCreate(GLFW.GLFW_KEY_F10)); KeyMapping.resetMapping(); mc.options.save(); next();
             }
-            case 2 -> {
-                shot("menu-controls"); button("Done").onPress(null);
-                KeyMapping.click(InputConstants.Type.KEYSYM.getOrCreate(GLFW.GLFW_KEY_F10)); next();
-            }
+            case 2 -> { closeScreen(); KeyMapping.click(InputConstants.Type.KEYSYM.getOrCreate(GLFW.GLFW_KEY_F10)); next(); }
             case 3 -> {
-                check(mc.gui.screen() instanceof SettingsScreen && Neon.settings.matches(key(GLFW.GLFW_KEY_F10)), "custom binding reopens overview and is preserved");
-                mc.gui.screen().keyPressed(key(GLFW.GLFW_KEY_ESCAPE));
-                check(mc.gui.screen() == null, "Escape returns to gameplay");
-                mc.gui.setScreen(new ChatScreen("menu key test - unsent", false));
-                KeyMapping.click(InputConstants.Type.KEYSYM.getOrCreate(GLFW.GLFW_KEY_F10)); next();
+                check(mc.gui.screen() instanceof SettingsScreen && Neon.settings.matches(key(GLFW.GLFW_KEY_F10)), "custom global binding reopens menu and is preserved");
+                mc.gui.screen().keyPressed(key(GLFW.GLFW_KEY_ESCAPE)); check(mc.gui.screen() == null, "Escape returns to gameplay");
+                mc.gui.setScreen(new ChatScreen("menu key test - unsent", false)); KeyMapping.click(InputConstants.Type.KEYSYM.getOrCreate(GLFW.GLFW_KEY_F10)); next();
             }
-            case 4 -> {
-                check(mc.gui.screen() instanceof ChatScreen, "menu shortcut does not replace chat");
-                mc.gui.setScreen(null); next();
-            }
+            case 4 -> { check(mc.gui.screen() instanceof ChatScreen, "menu shortcut does not replace chat"); mc.gui.setScreen(null); next(); }
             case 5 -> {
                 check(mc.gui.screen() == null, "menu key pressed in chat does not open later");
                 for (int i = 0; i < bindings.size(); i++) bindings.get(i).setKey(InputConstants.getKey(previousKeys.get(i)));
-                mc.options.keySocialInteractions.setKey(InputConstants.getKey(previousSocialKey));
-                KeyMapping.resetMapping(); mc.options.save(); return true;
+                mc.options.keySocialInteractions.setKey(InputConstants.getKey(previousSocialKey)); KeyMapping.resetMapping(); mc.options.save(); return true;
             }
         }
         return false;

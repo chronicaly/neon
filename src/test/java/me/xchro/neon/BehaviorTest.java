@@ -25,12 +25,12 @@ class BehaviorTest {
     @Test void sectionResetsLeaveOtherSectionsAndSnapshotsUntouched() {
         NeonConfig config = new NeonConfig();
         config.zoomFactor = 7; config.zoomToggle = true; config.zoomScrollStep = 1.25;
-        config.leftIntervalTicks = 43; config.clickerProtectTools = true; config.armor.x = .37;
+        config.leftIntervalTicks = 43; config.clickerEntitiesOnly = true; config.armor.x = .37;
         NeonConfig snapshot = ConfigStore.copy(config);
         config.resetCamera(); assertEquals(4, config.zoomFactor); assertFalse(config.zoomToggle);
         assertEquals(43, config.leftIntervalTicks); assertEquals(.37, config.armor.x);
         assertEquals(7, snapshot.zoomFactor); assertTrue(snapshot.zoomToggle); assertEquals(1.25, snapshot.zoomScrollStep);
-        config.resetClicker(); assertEquals(0, config.leftIntervalTicks); assertFalse(config.clickerProtectTools);
+        config.resetClicker(); assertEquals(0, config.leftIntervalTicks); assertFalse(config.clickerEntitiesOnly);
         assertEquals(.37, config.armor.x);
         config.resetHud(); assertEquals(1, config.armor.x); assertEquals(7, snapshot.zoomFactor);
     }
@@ -40,7 +40,7 @@ class BehaviorTest {
         ProfileStore store = new ProfileStore(path); store.initialize(baseline);
         assertEquals(java.util.List.of("Combat", "Mining", "Building"), store.names());
         assertEquals(7, store.get("Combat").zoomFactor); assertEquals(.23, store.get("Mining").armor.x);
-        assertTrue(store.get("Combat").clickerEntitiesOnly); assertTrue(store.get("Combat").clickerProtectTools);
+        assertTrue(store.get("Combat").clickerEntitiesOnly); assertTrue(store.get("Combat").toggleClicker);
         assertEquals(NeonConfig.LeftAction.HOLD, store.get("Mining").leftAction);
         assertTrue(store.get("Building").rightClick); assertFalse(store.get("Building").leftClick);
         store.put("My setup", baseline); baseline.armor.x = .99;

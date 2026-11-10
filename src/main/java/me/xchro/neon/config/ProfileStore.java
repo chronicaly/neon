@@ -10,12 +10,14 @@ import java.util.*;
 public final class ProfileStore {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private final Path file;
+    private final QueuedSave writer;
     private Data data = new Data();
     private static final class Data {
         int version = 1;
         LinkedHashMap<String, NeonConfig> profiles = new LinkedHashMap<>();
     }
-    public ProfileStore(Path file) { this.file = file; }
+    public ProfileStore(Path file) { this(file, null); }
+    public ProfileStore(Path file, QueuedSave writer) { this.file = file; this.writer = writer; }
     public void initialize(NeonConfig baseline) throws IOException {
         if (Files.exists(file)) {
             try {
@@ -33,7 +35,7 @@ public final class ProfileStore {
         Data defaults = new Data();
         for (String name : List.of("Combat", "Mining", "Building")) {
             NeonConfig c = ConfigStore.copy(baseline); c.resetClicker();
-            c.clickerEnabled = c.toggleClicker = c.clickerProtectTools = true;
+            c.clickerEnabled = c.toggleClicker = true;
             if (name.equals("Combat")) c.clickerEntitiesOnly = true;
             if (name.equals("Mining")) c.leftAction = NeonConfig.LeftAction.HOLD;
             if (name.equals("Building")) { c.leftClick = false; c.rightClick = true; }
@@ -56,7 +58,9 @@ public final class ProfileStore {
         Data next = new Data(); next.profiles.putAll(data.profiles); next.profiles.remove(name); persist(next);
     }
     private void persist(Data next) throws IOException {
-        ConfigStore.writeAtomically(file, GSON.toJson(next)); data = next;
+        String snapshot = GSON.toJson(next);
+        if (writer == null) ConfigStore.writeAtomically(file, snapshot); else writer.submit(file, snapshot);
+        data = next;
     }
     public static String validName(String name) {
         String trimmed = name == null ? "" : name.trim();

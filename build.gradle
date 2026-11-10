@@ -36,15 +36,14 @@ tasks.register('installNeon') {
         java.nio.file.Files.createDirectories(destination)
         // Stable installed name prevents duplicate versions; metadata retains the release version.
         def target = destination.resolve('neon.jar')
-        if (System.getProperty('os.name').toLowerCase().contains('windows')) {
-            def quote = { String s -> "'" + s.replace("'", "''") + "'" }
-            def process = new ProcessBuilder('powershell.exe', '-NoProfile', '-NonInteractive', '-Command',
-                "\$ErrorActionPreference='Stop'; Copy-Item -LiteralPath ${quote(source.toString())} -Destination ${quote(target.toString())} -Force").redirectErrorStream(true).start()
-            def output = process.inputStream.getText('UTF-8')
-            if (process.waitFor() != 0) throw new GradleException(output)
-        } else {
-            java.nio.file.Files.copy(source, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING)
-        }
+        // Replace the directory entry, never truncate a JAR an existing client may still have open.
+        def staged = java.nio.file.Files.createTempFile(destination, 'neon-', '.installing')
+        try {
+            java.nio.file.Files.copy(source, staged, java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+            if (java.nio.file.Files.mismatch(source, staged) != -1L) throw new GradleException('Staged JAR differs from checked build output')
+            try { java.nio.file.Files.move(staged, target, java.nio.file.StandardCopyOption.ATOMIC_MOVE, java.nio.file.StandardCopyOption.REPLACE_EXISTING) }
+            catch (java.nio.file.AtomicMoveNotSupportedException ignored) { java.nio.file.Files.move(staged, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING) }
+        } finally { java.nio.file.Files.deleteIfExists(staged) }
         if (java.nio.file.Files.mismatch(source, target) != -1L) throw new GradleException('Installed JAR differs from build output')
         logger.lifecycle("Installed verified Neon JAR: ${target}")
     }
@@ -85,18 +84,38 @@ tasks.register('smokeJar', Jar) {
     destinationDirectory = layout.buildDirectory.dir('smoke')
     from sourceSets.smoke.output
 }
-tasks.register('prodSmoke', net.fabricmc.loom.task.prod.ClientProductionRunTask) {
+tasks.register('prepareProdSmoke') {
     dependsOn tasks.named('jar'), tasks.named('smokeJar')
-    mods.from tasks.named('jar'), tasks.named('smokeJar')
+    doLast {
+        def directory = layout.buildDirectory.dir('smoke/production').get().asFile.toPath()
+        java.nio.file.Files.createDirectories(directory)
+        def source = providers.gradleProperty('perfBaselineJar').isPresent() ? file(providers.gradleProperty('perfBaselineJar').get()).toPath() : providers.gradleProperty('perfBaseline').isPresent() ? file('runtime/neon-quality-baseline.jar').toPath() : tasks.named('jar').get().archiveFile.get().asFile.toPath()
+        java.nio.file.Files.copy(source, directory.resolve('neon-under-test.jar'), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+        java.nio.file.Files.copy(tasks.named('smokeJar').get().archiveFile.get().asFile.toPath(), directory.resolve('verification.jar'), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+    }
+}
+tasks.register('prodSmoke', net.fabricmc.loom.task.prod.ClientProductionRunTask) {
+    def verificationDirectory = file(providers.gradleProperty('smokeDir').getOrElse('runtime/smoke/game'))
+    dependsOn tasks.named('prepareProdSmoke')
+    mods.setFrom(layout.buildDirectory.file('smoke/production/neon-under-test.jar'), layout.buildDirectory.file('smoke/production/verification.jar'))
     mods.from configurations.runtimeClasspath.filter { it.name == "fabric-api-${fabric_api_version}.jar" }
-    runDir = file('runtime/smoke/game')
+    runDir = verificationDirectory
     jvmArgs.add('-Dneon.smoke=true')
     jvmArgs.add('-Xmx1536M')
     if (providers.gradleProperty('motionOnly').isPresent()) jvmArgs.add('-Dneon.smoke.motionOnly=true')
+    if (providers.gradleProperty('clickerOnly').isPresent()) jvmArgs.add('-Dneon.smoke.clickerOnly=true')
+    if (providers.gradleProperty('designOnly').isPresent()) jvmArgs.add('-Dneon.smoke.designOnly=true')
+    if (providers.gradleProperty('rowsOnly').isPresent()) jvmArgs.add('-Dneon.smoke.rowsOnly=true')
+    if (providers.gradleProperty('perfOnly').isPresent()) {
+        jvmArgs.add('-Dneon.smoke.perfOnly=true')
+        jvmArgs.add('-Dneon.perf.label=' + providers.gradleProperty('perfLabel').getOrElse('after'))
+        if (providers.gradleProperty('perfBaseline').isPresent()) jvmArgs.add('-Dneon.perf.baseline=true')
+        if (providers.gradleProperty('perfExpectedHash').isPresent()) jvmArgs.add('-Dneon.perf.expectedHash=' + providers.gradleProperty('perfExpectedHash').get())
+    }
     programArgs.addAll('--quickPlaySingleplayer', 'Neon Verification')
-    doFirst { file('runtime/smoke/game/neon-verification.txt').delete() }
+    doFirst { new File(verificationDirectory, 'neon-verification.txt').delete(); logger.lifecycle("Verification mods: ${mods.files}") }
     doLast {
-        def result = file('runtime/smoke/game/neon-verification.txt')
+        def result = new File(verificationDirectory, 'neon-verification.txt')
         if (!result.exists() || !result.text.startsWith('PASS ')) throw new GradleException('Live verification did not pass; inspect runtime/smoke/game/logs/latest.log')
         logger.lifecycle(result.text.trim())
     }

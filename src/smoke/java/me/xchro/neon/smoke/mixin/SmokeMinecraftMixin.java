@@ -12,6 +12,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 /** Deterministic focus simulation in the isolated verification client only. */
 @Mixin(Minecraft.class)
 public abstract class SmokeMinecraftMixin {
+    @Inject(method = "renderFrame", at = @At("HEAD"))
+    private void frameStart(CallbackInfo ci) { me.xchro.neon.smoke.PerformanceSmoke.frameStart(); }
+    @Inject(method = "renderFrame", at = @At("RETURN"))
+    private void frameEnd(CallbackInfo ci) { me.xchro.neon.smoke.PerformanceSmoke.frameEnd(); }
     @Shadow private int missTime;
     @Shadow private int rightClickDelay;
     @Inject(method = "tick", at = @At("HEAD"))

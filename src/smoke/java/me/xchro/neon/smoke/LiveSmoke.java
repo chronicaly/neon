@@ -39,9 +39,19 @@ public final class LiveSmoke implements ClientModInitializer {
     private FeatureSmoke features;
     private MotionBlurSmoke motion;
     private MenuSmoke menu;
+    private DesignSmoke design;
+    private DensitySmoke density;
+    private PageLayoutSmoke pages;
+    private HudConfigurationSmoke hudConfiguration;
+    private QualitySmoke quality;
+    private RowsSmoke rows;
+    private PolishSmoke polish;
+    public static void optionsWrite() { QualitySmoke.optionsWrites++; }
     @Override public void onInitializeClient() {
         if (!Boolean.getBoolean("neon.smoke")) throw new IllegalStateException("Test mod outside verification run");
         Neon.config = new me.xchro.neon.config.NeonConfig();
+        if (Boolean.getBoolean("neon.smoke.perfOnly")) { new PerformanceSmoke().start(); return; }
+        if (Boolean.getBoolean("neon.smoke.clickerOnly")) { new PersistentClickerSmoke().start(); return; }
         ClientTickEvents.END_CLIENT_TICK.register(this::tick);
     }
     private void check(boolean condition, String name) {
@@ -78,7 +88,7 @@ public final class LiveSmoke implements ClientModInitializer {
         mc = client; tick++;
         if (failed) return;
         try {
-            if (tick > 3600) throw new AssertionError("Timed out at stage " + stage + ", screen=" + mc.gui.screen());
+            if (tick > 6000) throw new AssertionError("Timed out at stage " + stage + ", screen=" + mc.gui.screen());
             if ((mc.player == null || mc.level == null) && motion == null) return;
             if (!initialized) {
                 initialized = true; stageTick = tick;
@@ -116,6 +126,8 @@ public final class LiveSmoke implements ClientModInitializer {
                 case 0 -> {
                     if (age < 80 || mc.gui.screen() != null) return;
                     if (Boolean.getBoolean("neon.smoke.motionOnly")) { motion = new MotionBlurSmoke(mc, checks); stage = 49; stageTick = tick; return; }
+                    if (Boolean.getBoolean("neon.smoke.rowsOnly")) { rows=new RowsSmoke(mc,checks);stage=51;stageTick=tick;return; }
+                    if (Boolean.getBoolean("neon.smoke.designOnly")) { stage = 24; stageTick = tick; mc.options.keyAttack.setDown(true); return; }
                     check(NeonHud.totems() == 3, "inventory and offhand total, main hand counted once");
                     check("3".equals(NeonHud.offhandCount(mc.player.getOffhandItem())), "offhand renders total count");
                     check(NeonHud.offhandCount(mc.player.getMainHandItem()) == null, "main-hand totem keeps vanilla count");
@@ -190,22 +202,28 @@ public final class LiveSmoke implements ClientModInitializer {
                     check(Neon.CLICKER.active(), "autoclicker hold activates");
                     check(!mc.options.keyAttack.isDown(), "synthetic attack does not stick");
                     check(((KeyAccessor)mc.options.keyAttack).neon$getClicks() == 0, "synthetic click queue does not leak");
+                    Neon.config.toggleClicker = true;
                     mc.gui.setScreen(new SettingsScreen(null)); next();
                 }
                 case 13 -> {
                     if (age < 8) return;
-                    check(!Neon.CLICKER.active(), "settings screen stops clicking");
+                    check(Neon.CLICKER.active(), "toggle continues through settings");
                     shot("settings"); mc.gui.setScreen(null); next();
                 }
                 case 14 -> {
                     if (age < 4) return;
-                    check(!Neon.CLICKER.active(), "held activation cannot resume after menu");
+                    check(Neon.CLICKER.active(), "toggle continues after leaving settings");
                     Neon.autoclicker.setDown(false); Neon.config.clickerEnabled = false;
+                    Neon.config.toggleClicker = false;
                     mc.gui.setScreen(new HudEditor(new SettingsScreen(null))); next();
                 }
                 case 15 -> {
                     if (age < 8) return;
                     shot("hud-editor");
+                    Neon.config.armorAnchor = ArmorAnchor.HOTBAR_LEFT; Neon.config.armorVertical = false;
+                    var defaultArmor = NeonHud.bounds(mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight(), true);
+                    check(defaultArmor.y()+defaultArmor.height()==mc.getWindow().getGuiScaledHeight() && defaultArmor.x()+defaultArmor.width()<mc.getWindow().getGuiScaledWidth()/2-110,"default armor is bottom aligned left of the offhand slot");
+                    Neon.config.armorAnchor = ArmorAnchor.CUSTOM;
                     Neon.config.armorVertical = true; Neon.config.armor.x = 1; Neon.config.armor.y = 1;
                     var bounds = NeonHud.bounds(mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight(), true);
                     check(bounds.height() > bounds.width(), "armor can be vertical");
@@ -284,17 +302,43 @@ public final class LiveSmoke implements ClientModInitializer {
                         mc.options.keyAttack.setDown(false); Neon.config.clickerEnabled = false;
                         menu = new MenuSmoke(mc, checks); return;
                     }
-                    if (!menu.run()) return;
-                    checks = menu.checks();
+                    if (design == null) {
+                        if (!menu.run()) return;
+                        design = new DesignSmoke(mc, menu.checks()); return;
+                    }
+                    if (density == null) {
+                        if (!design.run()) return;
+                        density = new DensitySmoke(mc, design.checks()); return;
+                    }
+                    if (pages == null) {
+                        if (!density.run()) return;
+                        pages = new PageLayoutSmoke(mc, density.checks()); return;
+                    }
+                    if (hudConfiguration == null) {
+                        if (!pages.run()) return;
+                        hudConfiguration = new HudConfigurationSmoke(mc, pages.checks()); return;
+                    }
+                    if (quality == null) {
+                        if (!hudConfiguration.run()) return;
+                        quality = new QualitySmoke(mc, hudConfiguration.checks()); return;
+                    }
+                    if(rows==null){if (!quality.run()) return;rows=new RowsSmoke(mc,quality.checks());return;}
+                    if(polish==null){if(!rows.run())return;polish=new PolishSmoke(mc,rows.checks());return;}
+                    if(!polish.run())return;
+                    checks = polish.checks();
+                    if (Boolean.getBoolean("neon.smoke.designOnly")) {
+                        Files.writeString(mc.gameDirectory.toPath().resolve("neon-verification.txt"), "PASS " + checks + " design checks\n");
+                        stage = 50; stageTick = tick; return;
+                    }
                     mc.gui.setScreen(new SettingsScreen(null));
-                    button("Camera").onPress(null);
+                    button("Visuals").onPress(null); button("Zoom").onPress(null);
                     next();
                 }
                 case 25 -> {
                     if (age < 8) return;
                     shot("camera-settings"); mc.gui.setScreen(new SettingsScreen(null));
                     Neon.config.leftAction = LeftAction.CLICK;
-                    button("Autoclicker").onPress(null); next();
+                    button("Combat").onPress(null); button("Autoclicker").onPress(null); next();
                 }
                 case 26 -> {
                     if (age == 1) {
@@ -306,36 +350,37 @@ public final class LiveSmoke implements ClientModInitializer {
                     var interval = (AbstractSliderButton) widgets(mc.gui.screen()).stream()
                         .filter(w -> w instanceof AbstractSliderButton && w.getMessage().getString().equals("Vanilla (0)")).findFirst().orElseThrow();
                     Button leftAction = button("Click");
-                    leftAction.onPress(null);
+                    widgets(mc.gui.screen()).stream().filter(w -> w instanceof Button && w.getMessage().getString().equals("Hold")).map(w -> (Button) w).reduce((a, b) -> b).orElseThrow().onPress(null);
                     check(Neon.config.leftAction == LeftAction.HOLD && !interval.active, "Hold action disables the click interval slider");
                     leftAction.onPress(null);
                     check(Neon.config.leftAction == LeftAction.CLICK && interval.active, "Click action enables the click interval slider");
-                    interval.mouseClicked(new MouseButtonEvent(interval.getRight() - 4, interval.getY() + 10, new MouseButtonInfo(0, 0)), false);
+                    interval.mouseClicked(new MouseButtonEvent(interval.getRight() - 4, interval.getY() + 23, new MouseButtonInfo(0, 0)), false);
                     check(Neon.config.leftIntervalTicks == 60 && interval.getMessage().getString().equals("60 ticks"), "slider right end selects 60 ticks");
-                    interval.mouseClicked(new MouseButtonEvent(interval.getX() + 4, interval.getY() + 10, new MouseButtonInfo(0, 0)), false);
+                    interval.mouseClicked(new MouseButtonEvent(interval.getX() + 4, interval.getY() + 23, new MouseButtonInfo(0, 0)), false);
                     check(Neon.config.leftIntervalTicks == 0 && interval.getMessage().getString().equals("Vanilla (0)"), "slider left end selects vanilla timing");
-                    button("HUD").onPress(null); next();
+                    button("HUD").onPress(null);
+                    var armorEntry = button("Armor"); armorEntry.mouseClicked(new MouseButtonEvent(armorEntry.getX() + 5, armorEntry.getY() + 5, new MouseButtonInfo(1, 0)), false); next();
                 }
                 case 27 -> {
                     if (age < 8) return;
                     shot("hud-settings");
-                    mc.gui.screen().resize(320, 240);
+                    mc.gui.screen().resize(320 / mc.getWindow().getGuiScale(), 240 / mc.getWindow().getGuiScale());
                     check(widgets(mc.gui.screen()).stream().filter(w -> w instanceof AbstractScrollArea)
-                        .allMatch(w -> w.getY() >= 59 && w.getBottom() <= 195 && w.getX() >= 0 && w.getRight() <= 320), "settings viewport fits minimum GUI size");
+                        .allMatch(w -> w.getY() >= 8 && w.getBottom() <= 232 && w.getX() >= 8 && w.getRight() <= 312), "editor viewport fits minimum GUI size");
                     var scroll = (AbstractScrollArea) widgets(mc.gui.screen()).stream().filter(w -> w instanceof AbstractScrollArea).findFirst().orElseThrow();
                     scroll.setScrollAmount(scroll.maxScrollAmount());
-                    check(widgets(mc.gui.screen()).stream().anyMatch(w -> w.getMessage().getString().equals("Offhand total") && w.getY() >= scroll.getY()
+                    check(widgets(mc.gui.screen()).stream().anyMatch(w -> w.getMessage().getString().equals("General") && w.getY() >= scroll.getY()
                         && w.getBottom() <= scroll.getBottom()), "last HUD setting is reachable by scrolling");
-                    button("Controls").onPress(null);
-                    button("Unassigned").onPress(null);
+                    mc.gui.screen().onClose(); button("Visuals").onPress(null); button("Freelook").onPress(null);
+                    button("[—]").onPress(null);
                     mc.gui.screen().keyPressed(new KeyEvent(GLFW.GLFW_KEY_F8, 0, 0));
-                    check(Neon.settings.matches(new KeyEvent(GLFW.GLFW_KEY_F8, 0, 0)), "settings key assigns directly in config");
-                    button("F8").onPress(null);
+                    check(Neon.freelook.matches(new KeyEvent(GLFW.GLFW_KEY_F8, 0, 0)), "module key assigns directly in config");
+                    button("[F8]").onPress(null);
                     mc.gui.screen().keyPressed(new KeyEvent(GLFW.GLFW_KEY_ESCAPE, 0, 0));
-                    check(mc.gui.screen() instanceof SettingsScreen && Neon.settings.matches(new KeyEvent(GLFW.GLFW_KEY_F8, 0, 0)), "escape cancels key capture without closing config");
-                    button("F8").onPress(null);
+                    check(mc.gui.screen() instanceof SettingsScreen && Neon.freelook.matches(new KeyEvent(GLFW.GLFW_KEY_F8, 0, 0)), "escape cancels key capture without closing config");
+                    button("[F8]").onPress(null);
                     mc.gui.screen().keyPressed(new KeyEvent(GLFW.GLFW_KEY_BACKSPACE, 0, 0));
-                    check(Neon.settings.isUnbound(), "backspace clears assigned key");
+                    check(Neon.freelook.isUnbound(), "backspace clears assigned key");
                     mc.gui.setScreen(null);
                     Neon.config.armorAnchor = ArmorAnchor.HOTBAR_LEFT; Neon.config.armorVertical = false;
                     var b = NeonHud.bounds(mc.getWindow().getGuiScaledWidth(), mc.getWindow().getGuiScaledHeight(), false);
@@ -409,18 +454,18 @@ public final class LiveSmoke implements ClientModInitializer {
                 case 35 -> {
                     if (age < 8) return;
                     check(blockBroken && Neon.CLICKER.active(), "continuous mining breaks a real block while typing and unfocused");
-                    focused = true; Neon.config.clickerInChat = false; next();
+                    focused = true; Neon.config.clickerEnabled = false; next();
                 }
                 case 36 -> {
                     if (age < 5) return;
-                    check(!Neon.CLICKER.active(), "disabling chat continuation stops autoclicker in chat");
+                    check(!Neon.CLICKER.active(), "explicit disable stops autoclicker in chat");
                     Neon.autoclicker.setDown(true); next();
                 }
                 case 37 -> {
                     if (age < 5) return;
                     check(!Neon.CLICKER.active(), "typing an activation key in chat cannot start autoclicker");
                     Neon.autoclicker.setDown(false); mc.gui.setScreen(null);
-                    Neon.config.clickerInChat = true; Neon.config.clickerEnabled = true;
+                    Neon.config.clickerEnabled = true;
                     Neon.config.leftAction = LeftAction.CLICK; Neon.config.leftIntervalTicks = 2; Neon.config.rightIntervalTicks = 3;
                     Neon.config.rightClick = true; mc.player.setXRot(-90); next();
                 }
@@ -489,6 +534,11 @@ public final class LiveSmoke implements ClientModInitializer {
                     next();
                 }
                 case 50 -> { if (age >= 20) mc.stop(); }
+                case 51 -> {
+                    if(!rows.run())return;
+                    checks=rows.checks();Files.writeString(mc.gameDirectory.toPath().resolve("neon-verification.txt"),"PASS "+checks+" expandable-row checks\n");
+                    stage=50;stageTick=tick;
+                }
             }
         } catch (Throwable error) {
             failed = true; System.err.println("NEON_LIVE_FAIL stage=" + stage); error.printStackTrace();

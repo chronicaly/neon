@@ -26,8 +26,8 @@ public final class CameraController {
         checkContext(mc);
         long now = System.nanoTime();
         boolean safe = Neon.ready(mc);
-        boolean nextLook = lookKey.update(safe, Neon.freelook.isDown(), false);
-        zooming = zoomKey.update(safe, Neon.zoom.isDown(), Neon.config.zoomToggle);
+        boolean nextLook = lookKey.update(safe && Neon.config.freelookEnabled, Neon.freelook.isDown(), false);
+        zooming = zoomKey.update(safe && Neon.config.zoomEnabled, Neon.zoom.isDown(), Neon.config.zoomToggle);
         if (nextLook && !looking) {
             original = mc.options.getCameraType();
             owned = original.isFirstPerson() ? CameraType.THIRD_PERSON_BACK : original;
@@ -50,7 +50,9 @@ public final class CameraController {
     public double mouse(double input) { return Neon.config.zoomSensitivity ? input * inputFactor : input; }
     public boolean scroll(double amount) {
         if (!zooming || !Neon.ready(Minecraft.getInstance()) || !Neon.config.zoomWheel || amount == 0) return false;
-        Neon.config.zoomFactor = Math.clamp(Neon.config.zoomFactor + amount * Neon.config.zoomScrollStep, 1, 16);
+        double next = Math.clamp(Neon.config.zoomFactor + amount * Neon.config.zoomScrollStep, 1, 16);
+        if (next == Neon.config.zoomFactor) return true;
+        Neon.config.zoomFactor = next;
         Neon.save(); return true;
     }
     public void reset(Minecraft mc, boolean restore) {

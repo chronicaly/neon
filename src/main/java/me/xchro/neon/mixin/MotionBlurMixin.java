@@ -10,6 +10,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(GameRenderer.class)
 public class MotionBlurMixin {
+    @Inject(method = "extract", at = @At("HEAD"))
+    private void neon$hudFrameStart(CallbackInfo ci) { me.xchro.neon.hud.NeonHud.beginFrame(); me.xchro.neon.ui.MenuEffects.frame(); }
+    @Inject(method = "extract", at = @At("RETURN"))
+    private void neon$hudFrameEnd(CallbackInfo ci) { me.xchro.neon.hud.NeonHud.endFrame(); }
     @Inject(method = "render", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/render/GuiRenderer;render()V"))
     private void neon$blurWorld(DeltaTracker tracker, boolean advanceGameTime, CallbackInfo ci) { MotionBlurRenderer.render(true); }
 

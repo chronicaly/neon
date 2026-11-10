@@ -11,11 +11,18 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(Minecraft.class)
 public abstract class InputMixin {
+    @Unique private boolean neon$handledInput;
     @Shadow private int missTime;
     @Shadow private int rightClickDelay;
     @Shadow protected abstract boolean startAttack();
     @Shadow protected abstract void startUseItem();
     @Shadow protected abstract void continueAttack(boolean down);
+    @ModifyExpressionValue(method = "runTick", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/Gui;isPausing()Z"))
+    private boolean neon$keepWorldTicking(boolean pausing) {
+        return pausing && !Neon.CLICKER.keepRunningInBackground((Minecraft) (Object) this);
+    }
+    @Inject(method = "tick", at = @At("HEAD"))
+    private void neon$beginInputTick(CallbackInfo ci) { neon$handledInput = false; }
     @Inject(method = "pauseIfInactive", at = @At("HEAD"), cancellable = true)
     private void neon$background(CallbackInfo ci) {
         if (Neon.CLICKER.keepRunningInBackground((Minecraft) (Object) this)) ci.cancel();
@@ -25,15 +32,15 @@ public abstract class InputMixin {
         return grabbed || Neon.CLICKER.keepRunningInBackground((Minecraft) (Object) this);
     }
     @ModifyConstant(method = "tick", constant = @Constant(intValue = 10000))
-    private int neon$chatScreenCooldown(int original) {
-        return Neon.CLICKER.inChat((Minecraft) (Object) this) ? missTime : original;
+    private int neon$screenCooldown(int original) {
+        return Neon.CLICKER.inScreen((Minecraft) (Object) this) ? Math.min(missTime, 10) : original;
     }
     @Inject(method = "tick", at = @At("TAIL"))
-    private void neon$chatClicks(CallbackInfo ci) {
+    private void neon$screenClicks(CallbackInfo ci) {
         Minecraft mc = (Minecraft) (Object) this;
-        if (!Neon.CLICKER.inChat(mc)) return;
-        // Chat does not run handleKeybinds. Drive only the normal attack/use methods,
-        // leaving the chat field, mouse, key queues, and text input completely alone.
+        if (neon$handledInput || !Neon.CLICKER.inScreen(mc)) return;
+        // Screens do not run handleKeybinds. Drive only normal world attack/use methods;
+        // never synthesize UI clicks, type text, or touch the screen's mouse/key queues.
         var clicks = Neon.CLICKER.clicks(mc, missTime <= 0, rightClickDelay <= 0);
         if (!mc.player.isUsingItem()) {
             if (clicks.attackPress()) startAttack();
@@ -45,6 +52,7 @@ public abstract class InputMixin {
     }
     @WrapMethod(method = "handleKeybinds")
     private void neon$input(Operation<Void> original) {
+        neon$handledInput = true;
         Minecraft mc = (Minecraft) (Object) this;
         KeyMapping attack = mc.options.keyAttack, use = mc.options.keyUse;
         boolean physicalAttack = attack.isDown(), physicalUse = use.isDown();

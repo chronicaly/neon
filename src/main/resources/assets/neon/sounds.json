@@ -1,0 +1,3 @@
+{
+  "ui.enable": {"sounds": [{"name": "neon:ui/enable", "preload": true}]}
+}

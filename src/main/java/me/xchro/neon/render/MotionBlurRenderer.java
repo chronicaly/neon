@@ -70,7 +70,7 @@ public final class MotionBlurRenderer {
         Screen screen = mc.gui.screen();
         if (!mc.isWindowActive() || !mc.player.isAlive() || mc.gui.overlay() != null
             || screen instanceof SettingsScreen || screen instanceof HudEditor
-            || screen instanceof ProfilesScreen || screen instanceof NumberScreen) {
+            || screen instanceof ProfilesScreen || screen instanceof NumberScreen || screen instanceof ConfirmSheet) {
             resetHistory(); return;
         }
         Vec3 camera = mc.gameRenderer.mainCamera().position();
@@ -95,8 +95,8 @@ public final class MotionBlurRenderer {
                 pass.setVertexBuffer(0, vertices.slice());
                 pass.draw(6, 1, 0, 0);
             } finally { uniforms.endFrame(); }
-            encoder.copyTextureToTexture(compose.getColorTexture(), history.getColorTexture(), 0, 0, 0, 0, 0, main.width, main.height);
             encoder.copyTextureToTexture(compose.getColorTexture(), main.getColorTexture(), 0, 0, 0, 0, 0, main.width, main.height);
+            TextureTarget previous = history; history = compose; compose = previous;
             lastLevel = mc.level; lastScreen = screen; lastCamera = camera;
             lastPerspective = perspective; lastIncludeUi = config.motionBlurIncludeUi; lastPaused = mc.isPaused();
         } catch (RuntimeException error) {

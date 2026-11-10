@@ -28,7 +28,7 @@ final class FeatureSmoke {
     private int oldInterval;
     FeatureSmoke(Minecraft mc, int checks) {
         this.mc = mc; this.checks = checks;
-        mc.gui.setScreen(new SettingsScreen(null)); button("Camera").onPress(null);
+        mc.gui.setScreen(new SettingsScreen(null)); button("Visuals").onPress(null); button("Zoom").onPress(null);
     }
     int checks() { return checks; }
     private void check(boolean condition, String name) {
@@ -36,6 +36,11 @@ final class FeatureSmoke {
         checks++; System.out.println("NEON_CHECK " + name);
     }
     private void next() { stage++; age = 0; }
+    private void undo() { mc.gui.screen().keyPressed(new KeyEvent(GLFW.GLFW_KEY_Z, 0, GLFW.GLFW_MOD_CONTROL)); }
+    private void closeScreen() {
+        var before = mc.gui.screen(); before.keyPressed(new KeyEvent(GLFW.GLFW_KEY_ESCAPE, 0, 0));
+        if (mc.gui.screen() == before) before.keyPressed(new KeyEvent(GLFW.GLFW_KEY_ESCAPE, 0, 0));
+    }
     private List<AbstractWidget> widgets(ContainerEventHandler parent) {
         List<AbstractWidget> result = new ArrayList<>();
         for (var child : parent.children()) {
@@ -47,13 +52,13 @@ final class FeatureSmoke {
     private List<AbstractWidget> widgets() { return widgets(mc.gui.screen()); }
     private Button button(String name) { return widgets().stream().filter(w -> w instanceof Button && w.getMessage().getString().equals(name)).map(w -> (Button) w).findFirst().orElseThrow(() -> new AssertionError("No button " + name)); }
     private Button starts(String name) { return widgets().stream().filter(w -> w instanceof Button && w.getMessage().getString().startsWith(name)).map(w -> (Button) w).findFirst().orElseThrow(); }
-    private EditBox input() { return widgets().stream().filter(w -> w instanceof EditBox).map(w -> (EditBox) w).findFirst().orElseThrow(); }
-    private void number(String text) { check(mc.gui.screen() instanceof NumberScreen, "exact-value dialog opens"); input().setValue(text); button("Apply").onPress(null); }
+    private EditBox input() { return InlineInput.slider(mc.gui.screen()) != null ? InlineInput.field(mc.gui.screen()) : widgets().stream().filter(w -> w instanceof EditBox).map(w -> (EditBox) w).findFirst().orElseThrow(); }
+    private void number(String text) { check(InlineInput.slider(mc.gui.screen()) != null, "exact value edits inline"); input().setValue(text); mc.gui.screen().keyPressed(new KeyEvent(GLFW.GLFW_KEY_ENTER, 0, 0)); }
     private MouseButtonEvent mouse(double x, double y) { return new MouseButtonEvent(x, y, new MouseButtonInfo(0, 0)); }
-    private void clickValue(AbstractWidget slider) { slider.mouseClicked(mouse(slider.getX() + slider.getWidth() / 2.0, slider.getY() + 10), false); }
+    private void clickValue(AbstractWidget slider) { slider.mouseClicked(mouse(slider.getRight() - 8, slider.getY() + 8), false); }
     private void rowButton(String profile, String name) {
-        int y = button(profile).getY();
-        widgets().stream().filter(w -> w instanceof Button && w.getY() == y && w.getMessage().getString().equals(name)).map(w -> (Button) w).findFirst().orElseThrow().onPress(null);
+        var all=widgets(); int index=all.indexOf(button(profile));
+        all.subList(index+1,all.size()).stream().filter(w -> w instanceof Button && w.getMessage().getString().equals(name)).map(w -> (Button) w).findFirst().orElseThrow().onPress(null);
     }
     private void shot(String name) { Screenshot.grab(mc.gameDirectory, "neon-" + name + ".png", mc.gameRenderer.mainRenderTarget(), 1, message -> {}); }
     boolean run() {
@@ -65,32 +70,32 @@ final class FeatureSmoke {
                     oldZoom = Neon.config.zoomFactor; armorX = Neon.config.armor.x; oldInterval = Neon.config.leftIntervalTicks;
                     var slider = widgets().stream().filter(w -> w instanceof AbstractSliderButton).findFirst().orElseThrow();
                     clickValue(slider); input().setValue("17");
-                    check(!button("Apply").active, "exact value rejects out-of-range input"); return false;
+                    check(!InlineInput.slider(mc.gui.screen()).finishInline(true), "exact value rejects out-of-range input"); return false;
                 }
                 if (age < 10) return false;
                 if (age == 10) {
                     shot("exact-value-entry");
                     number("4.125"); check(Neon.config.zoomFactor == 4.125, "exact zoom preserves decimals between slider steps");
-                    button("Undo").onPress(null); check(Neon.config.zoomFactor == oldZoom, "Undo restores the previous numeric value");
-                    button("Reset page").onPress(null);
+                    undo(); check(Neon.config.zoomFactor == oldZoom, "Undo restores the previous numeric value");
+                    button("Reset").onPress(null);
                     check(Neon.config.zoomFactor == 4 && Neon.config.leftIntervalTicks == oldInterval && Neon.config.armor.x == armorX, "page reset changes Camera only");
-                    button("Undo").onPress(null); check(Neon.config.zoomFactor == oldZoom, "Undo reverses a section reset");
+                    undo(); check(Neon.config.zoomFactor == oldZoom, "Undo reverses a section reset");
                     var drag = (AbstractSliderButton) widgets().stream().filter(w -> w instanceof AbstractSliderButton).findFirst().orElseThrow();
-                    drag.mouseClicked(mouse(drag.getRight() - 4, drag.getY() + 10), false); drag.onRelease(mouse(drag.getRight() - 4, drag.getY() + 10));
+                    drag.mouseClicked(mouse(drag.getRight() - 4, drag.getY() + 23), false); drag.onRelease(mouse(drag.getRight() - 4, drag.getY() + 23));
                     return false;
                 }
                 if (age < 14) return false;
-                check(button("Undo").active, "Undo becomes available immediately after a slider drag");
-                button("Undo").onPress(null); check(Neon.config.zoomFactor == oldZoom, "one Undo restores a complete settings slider drag");
-                button("Controls").onPress(null); button("Unassigned").onPress(null);
+                check(Neon.config.zoomFactor != oldZoom, "settings slider drag changes the value before Undo");
+                undo(); check(Neon.config.zoomFactor == oldZoom, "one Undo restores a complete settings slider drag");
+                button("Visuals").onPress(null); button("Freelook").onPress(null); button("[—]").onPress(null);
                 mc.gui.screen().keyPressed(new KeyEvent(GLFW.GLFW_KEY_F9, 0, 0));
-                button("Undo").onPress(null); check(Neon.settings.isUnbound(), "Undo restores a changed key binding");
+                undo(); check(Neon.freelook.isUnbound(), "Undo restores a changed key binding");
                 Neon.config.zoomFactor = 4.125;
-                button("Profiles...").onPress(null); input().setValue(profileName); button("Save as...").onPress(null);
+                button("Settings").onPress(null); button("Profiles").onPress(null); input().setValue(profileName); button("Save").onPress(null);
                 check(Neon.profiles.names().contains(profileName), "profile can be saved through the native menu");
                 Neon.config.zoomFactor = 6; button(profileName).onPress(null);
                 check(Neon.config.zoomFactor == 4.125 && Neon.settings.isUnbound(), "profile load restores settings and preserves bindings");
-                button("Undo settings").onPress(null); check(Neon.config.zoomFactor == 6, "profile load can be undone");
+                undo(); check(Neon.config.zoomFactor == 6, "profile load can be undone");
                 rowButton(profileName, "Update"); button("Yes").onPress(null);
                 check(Neon.profiles.get(profileName).zoomFactor == 6, "saved profile can be updated");
                 rowButton(profileName, "Delete"); button("Yes").onPress(null);
@@ -98,14 +103,18 @@ final class FeatureSmoke {
             }
             case 1 -> {
                 if (age < 8) return false;
-                shot("profiles"); button("Done").onPress(null); button("HUD").onPress(null); button("Edit position...").onPress(null);
+                shot("profiles"); button("HUD").onPress(null);
+                var entry = button("Armor"); entry.mouseClicked(new MouseButtonEvent(entry.getX() + 5, entry.getY() + 5, new MouseButtonInfo(1, 0)), false);
                 HudBounds original = NeonHud.bounds(mc.gui.screen().width, mc.gui.screen().height, true);
-                starts("X: ").onPress(null); number("0"); starts("Y: ").onPress(null); number("0");
+                var canvas = (HudEditor) mc.gui.screen();
+                canvas.mouseClicked(mouse(original.x() + original.width() / 2.0, original.y() + original.height() / 2.0), false);
+                canvas.mouseDragged(mouse(original.width() / 2.0, original.height() / 2.0), 0, 0);
+                canvas.mouseReleased(mouse(original.width() / 2.0, original.height() / 2.0));
                 HudBounds moved = NeonHud.bounds(mc.gui.screen().width, mc.gui.screen().height, true);
-                check(moved.x() == 0 && moved.y() == 0 && Neon.config.armorAnchor == NeonConfig.ArmorAnchor.CUSTOM, "exact HUD coordinates reach the top-left edge");
-                button("Undo").onPress(null); button("Undo").onPress(null);
-                check(NeonHud.bounds(mc.gui.screen().width, mc.gui.screen().height, true).equals(original), "HUD coordinate edits undo independently");
-                button("Snap: OFF").onPress(null);
+                check(moved.x() == 0 && moved.y() == 0 && Neon.config.armorAnchor == NeonConfig.ArmorAnchor.CUSTOM, "direct HUD dragging reaches the top-left edge without position presets");
+                undo();
+                check(NeonHud.bounds(mc.gui.screen().width, mc.gui.screen().height, true).equals(original), "direct HUD placement undoes as one gesture");
+                button("General").onPress(null); button("Snap").onPress(null);
                 mc.gui.screen().keyPressed(new KeyEvent(GLFW.GLFW_KEY_H, 0, 0));
                 var editor = (HudEditor) mc.gui.screen();
                 HudBounds b = NeonHud.bounds(editor.width, editor.height, true);
@@ -119,23 +128,25 @@ final class FeatureSmoke {
                 editor.keyPressed(new KeyEvent(GLFW.GLFW_KEY_H, 0, 0));
                 double oldScale = Neon.config.armor.scale;
                 editor.mouseScrolled(original.x() + 4, original.y() + 4, 0, 1);
-                button("Undo").onPress(null); check(Neon.config.armor.scale == oldScale, "HUD wheel scaling can be undone");
+                undo(); check(Neon.config.armor.scale == oldScale, "HUD wheel scaling can be undone");
                 int actualDamage = mc.player.getItemBySlot(EquipmentSlot.HEAD).getDamageValue();
-                button("Damage preview: OFF").onPress(null);
+                button("Damage preview").onPress(null);
                 ItemStack shown = NeonHud.armor(true).getFirst();
                 check(shown.getDamageValue() == shown.getMaxDamage() - 1 && mc.player.getItemBySlot(EquipmentSlot.HEAD).getDamageValue() == actualDamage, "low-durability preview never changes real equipment"); next();
             }
             case 2 -> {
                 if (age < 8) return false;
-                shot("hud-editor-guides"); button("Done").onPress(null); button("Camera").onPress(null); button("Hold").onPress(null);
+                shot("hud-editor-guides"); closeScreen(); Neon.config.zoomScrollStep = 1.25;
+                button("Visuals").onPress(null); button("Zoom").onPress(null); button("Toggle").onPress(null);
                 var scroll = (AbstractScrollArea) widgets().stream().filter(w -> w instanceof AbstractScrollArea).findFirst().orElseThrow();
                 scroll.setScrollAmount(scroll.maxScrollAmount());
-                var step = widgets().stream().filter(w -> w instanceof AbstractSliderButton && w.getMessage().getString().equals("0.5x")).findFirst().orElseThrow();
-                clickValue(step); number("1.25"); check(Neon.config.zoomScrollStep == 1.25 && Neon.config.zoomToggle, "zoom mode and exact scroll step are configurable"); next();
+                var transition = widgets().stream().filter(w -> w instanceof AbstractSliderButton && w.getMessage().getString().endsWith(" ms")).findFirst().orElseThrow();
+                clickValue(transition); number("120"); check(Neon.config.zoomMillis == 120 && Neon.config.zoomToggle && Neon.config.zoomScrollStep == 1.25,
+                    "direct zoom transition edits preserve the existing configured wheel step"); next();
             }
             case 3 -> {
                 if (age < 8) return false;
-                shot("zoom-options"); button("Done").onPress(null);
+                shot("zoom-options"); closeScreen();
                 Neon.config.zoomFactor = 4; Neon.zoom.setDown(false); Neon.CAMERA.reset(mc, true); next();
             }
             case 4 -> { if (age >= 4) { Neon.zoom.setDown(true); next(); } }
@@ -162,7 +173,7 @@ final class FeatureSmoke {
                 check(Neon.CAMERA.fov(90) == 90, "held zoom key cannot retoggle after focus loss");
                 Neon.zoom.setDown(false); Neon.CLICKER.cancel(mc);
                 Neon.config.clickerEnabled = Neon.config.toggleClicker = Neon.config.clickerEntitiesOnly = true;
-                Neon.config.leftClick = true; Neon.config.rightClick = Neon.config.clickerProtectTools = false;
+                Neon.config.leftClick = true; Neon.config.rightClick = false;
                 Neon.config.leftAction = NeonConfig.LeftAction.CLICK; Neon.config.leftIntervalTicks = 1;
                 Neon.autoclicker.setDown(false); mc.player.setXRot(-90); LiveSmoke.attacks.clear(); LiveSmoke.trackClicks = true; next();
             }
@@ -185,13 +196,12 @@ final class FeatureSmoke {
                 check(mc.hitResult != null && mc.hitResult.getType() == HitResult.Type.ENTITY && !LiveSmoke.attacks.isEmpty(), "entities-only mode attacks a real targeted entity");
                 LiveSmoke.trackClicks = false;
                 Neon.applyConfig(ConfigStore.copy(Neon.config));
-                check(!Neon.CLICKER.active(), "applying profile settings immediately stops active automation"); next();
+                check(Neon.CLICKER.active(), "loading an enabled profile preserves active automation"); next();
             }
             case 15 -> {
                 if (age < 8) return false;
-                check(!Neon.CLICKER.active(), "profile settings do not reactivate automation automatically");
+                check(Neon.CLICKER.active(), "active toggle survives profile load");
                 Neon.config.clickerEntitiesOnly = false; Neon.config.leftAction = NeonConfig.LeftAction.HOLD;
-                Neon.config.clickerProtectTools = true; Neon.config.clickerMinDurability = 5;
                 mc.player.setXRot(90); intact = false;
                 mc.getSingleplayerServer().execute(() -> {
                     var server = mc.getSingleplayerServer(); var world = server.overworld();
@@ -206,12 +216,12 @@ final class FeatureSmoke {
             case 16 -> {
                 if (age < 20) return false;
                 ItemStack tool = mc.player.getMainHandItem();
-                check(tool.getMaxDamage() - tool.getDamageValue() == 5, "tool-protection fixture has five durability remaining");
-                Neon.autoclicker.setDown(true); next();
+                check(tool.isEmpty() || tool.getMaxDamage() - tool.getDamageValue() < 5, "low-durability tool keeps working without an automatic stop");
+                next();
             }
             case 17 -> {
                 if (age < 8) return false;
-                check(!Neon.CLICKER.active() && Neon.CLICKER.lastStopReason().contains("5 durability"), "tool protection stops clicking with a specific action-bar reason");
+                check(Neon.CLICKER.active(), "low durability does not turn the autoclicker off");
                 mc.getSingleplayerServer().execute(() -> {
                     boolean present = mc.getSingleplayerServer().overworld().getBlockState(new BlockPos(0, 100, 0)).is(Blocks.DIRT);
                     mc.execute(() -> intact = present);
@@ -219,20 +229,19 @@ final class FeatureSmoke {
             }
             case 18 -> {
                 if (age < 8) return false;
-                check(intact && mc.player.getMainHandItem().getMaxDamage() - mc.player.getMainHandItem().getDamageValue() == 5, "tool protection prevents mining and further tool wear");
-                shot("tool-protection");
+                check(!intact, "continuous mining still breaks the block with a nearly worn tool");
                 mc.getSingleplayerServer().execute(() -> mc.getSingleplayerServer().getPlayerList().getPlayers().getFirst().getInventory().setItem(0, new ItemStack(Items.DIAMOND_SHOVEL)));
                 next();
             }
             case 19 -> {
                 if (age < 20) return false;
-                check(!Neon.CLICKER.active(), "replacing a protected tool while the activation key is held cannot resume clicking");
+                check(Neon.CLICKER.active(), "replacing a tool preserves active toggle");
                 Neon.autoclicker.setDown(false); next();
             }
             case 20 -> { if (age >= 4) { Neon.autoclicker.setDown(true); next(); } }
             case 21 -> {
                 if (age < 10) return false;
-                check(Neon.CLICKER.active(), "fresh activation works after replacing the protected tool");
+                check(!Neon.CLICKER.active(), "manual toggle stops clicking after replacing a tool");
                 Neon.autoclicker.setDown(false); Neon.CLICKER.cancel(mc); Neon.config.clickerEnabled = false;
                 return true;
             }
