@@ -168,6 +168,11 @@ final class UiScroll extends AbstractContainerWidget {
         float opacity = Ui.opacity;
         for (AbstractWidget widget : children) if (widget.getBottom() > getY() && widget.getY() < getBottom()) {
             Ui.opacity = appearing.contains(widget) ? opacity * (float) (1 - Math.pow(1 - progress, 3)) : opacity;
+            // Let a departing row dissolve into the existing surface instead of leaving a
+            // hard one-pixel sliver. Fade content, never paint over the saved panel alpha.
+            int visible = Math.min(widget.getBottom(), getBottom()) - Math.max(widget.getY(), getY());
+            double edge = Math.clamp(visible / (double) Math.min(12, widget.getHeight()), 0, 1);
+            Ui.opacity *= (float) (edge * edge * (3 - 2 * edge));
             widget.extractRenderState(g, mx, my, delta);
         }
         Ui.opacity = opacity;

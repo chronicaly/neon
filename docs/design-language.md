@@ -2,6 +2,10 @@
 
 ## Premium interaction contract
 
+Scroll edges softly dissolve the final twelve logical units of a partially visible row. Fully visible controls keep their normal alpha. This is content-only feedback: no scrollbar, overlay surface, new input target, or change to wheel motion and immediate keyboard focus reveal.
+
+Rejected color paste displays Invalid inside the existing Paste button without changing its size or semantic action. Hover/focus and narration explain that no valid color was found and list the accepted Unity formats. Keep the current color, Undo history and sound silence; a valid paste or color edit clears the error.
+
 Module, Settings and ordinary action buttons share immediate mouse/keyboard press feedback. Pressing settles the two-pixel hover lift and tightens its glow over 50 ms; release takes 100 ms. Hitboxes never move. Bind feedback belongs to the bracketed target. Stable control identities retain feedback across rebuilds; outside release, focus loss and removal clear held input. Pressing adds no sound.
 
 UI motion uses an analytic critically damped response that preserves position and velocity when retargeted. Existing hover, drawer, HUD-fold and slider-fill durations remain settling targets. Input, settings and exact keyboard focus reveal stay immediate; camera and FPS smoothing are separate. Preserve the outline highlight's physical edge position during every reversal.

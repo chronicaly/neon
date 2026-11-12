@@ -8,7 +8,9 @@ import java.nio.file.*;
 public final class ConfigStore {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private final Path file;
+    private String recoveryNotice = "";
     public ConfigStore(Path file) { this.file = file; }
+    public String recoveryNotice() { return recoveryNotice; }
     public static String encode(NeonConfig config) { return GSON.toJson(config); }
     public static NeonConfig decode(String json) {
         NeonConfig config = GSON.fromJson(json, NeonConfig.class);
@@ -24,19 +26,40 @@ public final class ConfigStore {
     }
     public static NeonConfig copy(NeonConfig config) { return decode(encode(config)); }
     public NeonConfig load() throws IOException {
-        if (!Files.exists(file)) return new NeonConfig();
-        try {
-            return decode(Files.readString(file));
-        } catch (RuntimeException invalid) {
-            Files.copy(file, file.resolveSibling(file.getFileName() + ".invalid-" + System.currentTimeMillis()));
-            return new NeonConfig();
+        recoveryNotice="";
+        boolean existed=Files.exists(file);
+        if(existed) {
+            try { return decode(Files.readString(file)); }
+            catch(RuntimeException invalid) { archiveInvalid(file); }
         }
+        Path backup=backupPath(file);
+        if(Files.exists(backup)) {
+            NeonConfig recovered=null;
+            try { recovered=decode(Files.readString(backup)); }
+            catch(RuntimeException invalid) { archiveInvalid(backup); }
+            if(recovered!=null) {
+                writeRecoverable(file,encode(recovered));
+                recoveryNotice="Recovered settings from the last saved copy."+(existed?" The damaged file was preserved.":"");
+                return recovered;
+            }
+        }
+        if(existed)recoveryNotice="Settings could not be recovered; using defaults. The damaged files were preserved.";
+        return new NeonConfig();
     }
     public void save(NeonConfig config) throws IOException {
-        config.sanitize(); writeAtomically(file, encode(config));
+        config.sanitize(); writeRecoverable(file, encode(config));
     }
     public java.util.concurrent.CompletableFuture<Void> queue(QueuedSave writer, NeonConfig config) {
-        config.sanitize(); return writer.submit(file, encode(config));
+        config.sanitize(); return writer.submitRecoverable(file, encode(config));
+    }
+    static Path backupPath(Path file) { return file.resolveSibling(file.getFileName()+".bak"); }
+    static void archiveInvalid(Path file) throws IOException {
+        Path archive=Files.createTempFile(file.toAbsolutePath().getParent(),file.getFileName()+".invalid-",".json");
+        Files.copy(file,archive,StandardCopyOption.REPLACE_EXISTING);
+    }
+    static void writeRecoverable(Path file,String json) throws IOException {
+        writeAtomically(file,json);
+        writeAtomically(backupPath(file),json);
     }
     static void writeAtomically(Path file, String json) throws IOException {
         Files.createDirectories(file.getParent());

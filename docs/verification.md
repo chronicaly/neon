@@ -2,6 +2,10 @@ The current module grid and earlier interface revisions are documented below. Ea
 
 # Neon verification
 
+## Quality follow-up — 12 November 2026
+
+The latest work adds overflow polish, explicit rejected Paste feedback, measured allocation reductions, settings/profile recovery, an exact-JAR installation gate and expanded desktop/stability checks. See [quality-next-results.md](quality-next-results.md) for implementation, retained measurements, final verification and limitations. Earlier sections below describe their respective historical artifacts.
+
 ## Premium interaction pass — 12 November 2026
 
 Implemented the six approved changes in order, preserving the current checkout, palette, layout, input bindings, profiles, HUD behavior and sound policy. Each step passed an actual non-installing Gradle build before its packaged-client checks: 66 tactile-press checks; 7,946 slider/motion and page-layout checks; 120 presentation checks; 168 cursor checks; and 234 acknowledgement checks. The starting and step-5 runnable JARs were frozen before the performance work.

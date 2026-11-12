@@ -9,5 +9,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(MouseHandler.class)
 abstract class VerificationMouseMixin {
     @Inject(method={"onButton","onMove","onScroll"},at=@At("HEAD"),cancellable=true)
-    private void neon$isolateDesktop(CallbackInfo ci) { ci.cancel(); }
+    private void neon$isolateDesktop(CallbackInfo ci) {
+        if (me.xchro.neon.smoke.DesktopSmoke.enabled()) me.xchro.neon.smoke.DesktopSmoke.mouseEvents++;
+        else ci.cancel();
+    }
 }

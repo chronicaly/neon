@@ -15,5 +15,12 @@ abstract class VerificationKeyboardMixin {
     @Inject(method="setClipboard",at=@At("HEAD"),cancellable=true)
     private void neon$writeTestClipboard(String text,CallbackInfo ci) { neon$clipboard=text;ci.cancel(); }
     @Inject(method={"keyPress","charTyped"},at=@At("HEAD"),cancellable=true)
-    private void neon$isolateDesktop(CallbackInfo ci) { ci.cancel(); }
+    private void neon$isolateDesktop(CallbackInfo ci) {
+        if (me.xchro.neon.smoke.DesktopSmoke.enabled()) me.xchro.neon.smoke.DesktopSmoke.keyEvents++;
+        else ci.cancel();
+    }
+    @Inject(method="keyPress",at=@At("HEAD"))
+    private void neon$observeNativeKey(long window,int action,net.minecraft.client.input.KeyEvent key,CallbackInfo ci) {
+        if (me.xchro.neon.smoke.DesktopSmoke.enabled()) me.xchro.neon.smoke.DesktopSmoke.key(action,key);
+    }
 }

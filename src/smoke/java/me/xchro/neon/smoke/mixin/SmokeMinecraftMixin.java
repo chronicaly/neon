@@ -21,7 +21,7 @@ public abstract class SmokeMinecraftMixin {
     @Inject(method = "tick", at = @At("HEAD"))
     private void clock(CallbackInfo ci) { LiveSmoke.currentTick++; me.xchro.neon.smoke.ClickerPacketOrder.beginTick(); }
     @Inject(method = "isWindowActive", at = @At("HEAD"), cancellable = true)
-    private void focus(CallbackInfoReturnable<Boolean> cir) { cir.setReturnValue(LiveSmoke.focused); }
+    private void focus(CallbackInfoReturnable<Boolean> cir) { if(!me.xchro.neon.smoke.DesktopSmoke.enabled())cir.setReturnValue(LiveSmoke.focused); }
     @Inject(method = "startAttack", at = @At("HEAD"))
     private void attack(CallbackInfoReturnable<Boolean> cir) {
         if (LiveSmoke.trackClicks && missTime <= 0) {

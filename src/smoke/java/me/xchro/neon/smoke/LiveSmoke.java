@@ -54,6 +54,7 @@ public final class LiveSmoke implements ClientModInitializer {
     private ModuleGridSmoke moduleGrid;
     private HoverGlowSmoke hoverGlow;
     private PremiumSmoke premium;
+    private ReleaseSmoke release;
     private InteractionSmoke interactions;
     private FpsHudSmoke fpsHud;
     private TotemPopSmoke totemPops;
@@ -64,7 +65,10 @@ public final class LiveSmoke implements ClientModInitializer {
     public static void optionsWrite() { QualitySmoke.optionsWrites++; }
     @Override public void onInitializeClient() {
         if (!Boolean.getBoolean("neon.smoke")) throw new IllegalStateException("Test mod outside verification run");
+        if(Boolean.getBoolean("neon.smoke.recoveryOnly")){new RecoverySmoke().start();return;}
         Neon.config = new me.xchro.neon.config.NeonConfig();
+        if (Boolean.getBoolean("neon.smoke.desktopOnly")) { new DesktopSmoke().start(); return; }
+        if (Boolean.getBoolean("neon.smoke.stabilityOnly")) { new StabilitySmoke().start(); return; }
         if (Boolean.getBoolean("neon.smoke.numericOnly")) { new NumericTextSmoke().start(); return; }
         if (Boolean.getBoolean("neon.smoke.perfOnly")) { new PerformanceSmoke().start(); return; }
         if (Boolean.getBoolean("neon.smoke.clickerOnly")) { new PersistentClickerSmoke().start(); return; }
@@ -141,6 +145,7 @@ public final class LiveSmoke implements ClientModInitializer {
             switch (stage) {
                 case 0 -> {
                     if (age < 80) return;
+                    if(Boolean.getBoolean("neon.smoke.releaseOnly")){release=new ReleaseSmoke(mc,checks);stage=73;stageTick=tick;return;}
                     if(System.getProperty("neon.smoke.pageIndex")!=null){pages=new PageLayoutSmoke(mc,checks);stage=72;stageTick=tick;return;}
                     if(Boolean.getBoolean("neon.smoke.premiumOnly")){premium=new PremiumSmoke(mc,checks);stage=71;stageTick=tick;return;}
                     if(Boolean.getBoolean("neon.smoke.hoverOnly")){hoverGlow=new HoverGlowSmoke(mc,checks);stage=70;stageTick=tick;return;}
@@ -699,6 +704,9 @@ public final class LiveSmoke implements ClientModInitializer {
                     checks=premium.checks();Files.writeString(mc.gameDirectory.toPath().resolve("neon-verification.txt"),"PASS "+checks+" premium interaction checks\n");
                     stage=50;stageTick=tick;
                 }
+                case 73 -> {
+                    if(!release.run())return;checks=release.checks();Files.writeString(mc.gameDirectory.toPath().resolve("neon-verification.txt"),"PASS "+checks+" packaged release checks\n");stage=50;stageTick=tick;
+                }
                 case 61 -> {
                     if(colorPopup==null) { if(!moduleGrid.run())return; colorPopup=new ColorPopupSmoke(mc,moduleGrid.checks());return; }
                     if(pages==null) { if(!colorPopup.run())return; pages=new PageLayoutSmoke(mc,colorPopup.checks());return; }
@@ -710,6 +718,9 @@ public final class LiveSmoke implements ClientModInitializer {
                 case 54 -> {
                     if (pages == null) {
                         if (!colorPopup.run()) return;
+                        if(Boolean.getBoolean("neon.smoke.colorFocused")){
+                            checks=colorPopup.checks();Files.writeString(mc.gameDirectory.toPath().resolve("neon-verification.txt"),"PASS "+checks+" focused color and GPU equivalence checks\n");stage=50;stageTick=tick;return;
+                        }
                         pages = new PageLayoutSmoke(mc,colorPopup.checks()); return;
                     }
                     if (!pages.run()) return;

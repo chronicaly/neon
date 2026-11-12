@@ -1,0 +1,77 @@
+import groovy.json.JsonOutput
+import groovy.json.JsonSlurper
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
+import java.security.MessageDigest
+
+// A separate task cannot inherit focused/performance flags or a comparison JAR.
+def artifacts = layout.buildDirectory.dir('smoke/release').get().asFile.toPath()
+def game = file(providers.gradleProperty('neonVerificationDir').getOrElse('runtime/smoke/game'))
+def receipt = artifacts.resolve('verified.json')
+def production = artifacts.resolve('neon-under-test.jar')
+def verification = artifacts.resolve('verification.jar')
+def hash = { path -> HexFormat.of().formatHex(MessageDigest.getInstance('SHA-256').digest(Files.readAllBytes(path))) }
+def currentJar = { tasks.named('jar').get().archiveFile.get().asFile.toPath() }
+def currentHarness = { tasks.named('smokeJar').get().archiveFile.get().asFile.toPath() }
+
+ext.requireVerifiedNeon = { path ->
+    if (!Files.isRegularFile(receipt)) throw new GradleException('Installation requires a passing releaseSmoke run for this exact JAR.')
+    def proof
+    try { proof = new JsonSlurper().parse(receipt.toFile()) }
+    catch (Exception invalid) { throw new GradleException('Invalid production verification receipt; rerun releaseSmoke.', invalid) }
+    if (proof.schema != 1 || proof.passed != true || proof.suite != 'release' || proof.minecraft != project.minecraft_version || proof.java != 25 || !(proof.checks instanceof Number) || proof.checks <= 0)
+        throw new GradleException('Incomplete production verification receipt; rerun releaseSmoke.')
+    if (proof.productionSha256 != hash(path) || proof.verificationSha256 != hash(currentHarness()))
+        throw new GradleException('Production JAR or verification harness changed after the passing run; rerun releaseSmoke.')
+}
+
+tasks.register('prepareReleaseSmoke') {
+    dependsOn tasks.named('jar'), tasks.named('smokeJar')
+    doLast {
+        Files.createDirectories(artifacts)
+        Files.deleteIfExists(receipt)
+        Files.copy(currentJar(), production, StandardCopyOption.REPLACE_EXISTING)
+        Files.copy(currentHarness(), verification, StandardCopyOption.REPLACE_EXISTING)
+    }
+}
+tasks.register('releaseSmoke', project.ext.neonProductionRunTaskType) {
+    dependsOn tasks.named('prepareReleaseSmoke'), tasks.named('check')
+    mods.setFrom(production.toFile(), verification.toFile())
+    mods.from configurations.runtimeClasspath.filter { it.name == "fabric-api-${fabric_api_version}.jar" }
+    runDir = game
+    jvmArgs.addAll('-Dneon.smoke=true', '-Dneon.smoke.releaseOnly=true', '-Xmx1536M')
+    jvmArgs.add(providers.provider { '-Dneon.release.production=' + hash(production) })
+    jvmArgs.add(providers.provider { '-Dneon.release.verification=' + hash(verification) })
+    programArgs.addAll('--quickPlaySingleplayer', 'Neon Verification')
+    doFirst {
+        if (!new File(game, 'saves/Neon Verification/level.dat').isFile())
+            throw new GradleException('Missing isolated verification world. Set -PneonVerificationDir to the prepared test game directory; never use a Prism instance.')
+        Files.deleteIfExists(new File(game, 'neon-verification.txt').toPath())
+        Files.deleteIfExists(new File(game, 'neon-release-proof.json').toPath())
+    }
+    doLast {
+        def result = new File(game, 'neon-verification.txt')
+        def proofFile = new File(game, 'neon-release-proof.json')
+        if (!result.isFile() || !result.text.startsWith('PASS ') || !proofFile.isFile())
+            throw new GradleException('Packaged release verification did not pass; installation is blocked.')
+        def proof = new JsonSlurper().parse(proofFile)
+        if (proof.productionSha256 != hash(production) || proof.productionSha256 != hash(currentJar()) || proof.verificationSha256 != hash(verification) || proof.verificationSha256 != hash(currentHarness()))
+            throw new GradleException('An artifact changed during production verification; installation is blocked.')
+        proof.completedAt = java.time.Instant.now().toString()
+        def staged = Files.createTempFile(artifacts, 'verification-', '.tmp')
+        try {
+            Files.writeString(staged, JsonOutput.prettyPrint(JsonOutput.toJson(proof)))
+            Files.move(staged, receipt, StandardCopyOption.REPLACE_EXISTING)
+            project.ext.requireVerifiedNeon(currentJar())
+        } finally { Files.deleteIfExists(staged) }
+        logger.lifecycle(result.text.trim())
+        logger.lifecycle("Verified production SHA-256: ${proof.productionSha256}")
+    }
+}
+tasks.register('verifyInstall') {
+    dependsOn tasks.named('releaseSmoke'), tasks.named('check'), tasks.named('jar'), tasks.named('smokeJar')
+    doLast { project.ext.requireVerifiedNeon(currentJar()) }
+}
+if (!providers.gradleProperty('skipInstall').isPresent()) {
+    tasks.named('installNeon') { dependsOn tasks.named('verifyInstall') }
+}

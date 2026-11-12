@@ -9,5 +9,5 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(Window.class)
 public abstract class SmokeWindowMixin {
     @Inject(method = "isFocused", at = @At("HEAD"), cancellable = true)
-    private void focus(CallbackInfoReturnable<Boolean> cir) { cir.setReturnValue(LiveSmoke.focused); }
+    private void focus(CallbackInfoReturnable<Boolean> cir) { if(!me.xchro.neon.smoke.DesktopSmoke.enabled())cir.setReturnValue(LiveSmoke.focused); }
 }

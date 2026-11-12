@@ -14,13 +14,14 @@ import net.minecraft.client.input.*;
 /** Deterministic production-JAR benchmark. All instrumentation lives in the test-only mod. */
 public final class PerformanceSmoke {
     private static final String[] CASES = {"gameplay", "motion-blur", "idle-menu", "navigation-scroll", "color-edit", "hud-placement", "font-churn", "first-open", "drawer-reversals", "category-switch", "continuous-color", "menu-resize"};
-    private static final int ONLY = Arrays.asList(CASES).indexOf(System.getProperty("neon.perf.scenario", ""));
+    private static final Set<String> ONLY = System.getProperty("neon.perf.scenario") == null ? Set.of()
+        : new LinkedHashSet<>(Arrays.asList(System.getProperty("neon.perf.scenario").split(",")));
     private static final int WARM = 240, SAMPLES = 480;
     private static final com.sun.management.ThreadMXBean CPU = (com.sun.management.ThreadMXBean) ManagementFactory.getThreadMXBean();
     private static PerformanceSmoke active;
     private static int depth;
     private static long scopeCpu, scopeAlloc, scopeWall, cpu, wall, allocated, uploads, copies, passes;
-    private final StringBuilder csv = new StringBuilder("run,scenario,frame,frame_ms,render_ms,neon_cpu_us,neon_scope_us,neon_alloc_bytes,upload_bytes,copy_pixels,render_passes,event\n");
+    private final StringBuilder csv = new StringBuilder("run,scenario,frame,frame_ms,render_ms,neon_cpu_us,neon_scope_us,neon_alloc_bytes,upload_bytes,copy_pixels,render_passes,event,native_focused,native_iconified\n");
     private String event="";
     private MouseButtonEvent gesture;
     private double originX,originY;
@@ -29,7 +30,7 @@ public final class PerformanceSmoke {
     private boolean ready, done;
     private Minecraft mc;
     public void start() {
-        if (System.getProperty("neon.perf.scenario") != null && ONLY < 0) throw new IllegalArgumentException("Unknown performance scenario");
+        if (!Arrays.asList(CASES).containsAll(ONLY)) throw new IllegalArgumentException("Unknown performance scenario");
         try {
             Path jar = Path.of(Neon.class.getProtectionDomain().getCodeSource().getLocation().toURI());
             String hash = HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(jar)));
@@ -100,7 +101,7 @@ public final class PerformanceSmoke {
     }
     private void press(String text) { widgets(mc.gui.screen()).stream().filter(w -> w instanceof Button && w.getMessage().getString().equals(text)).map(w -> (Button) w).findFirst().orElseThrow().onPress(null); }
     private void next() {
-        do { stage++; } while (stage < CASES.length * 3 && ONLY >= 0 && stage % CASES.length != ONLY);
+        do { stage++; } while (stage < CASES.length * 3 && !ONLY.isEmpty() && !ONLY.contains(CASES[stage % CASES.length]));
         if (stage >= CASES.length * 3) { finish(); return; }
         frame = 0; previous = 0;gesture=null;
         Neon.config = new me.xchro.neon.config.NeonConfig();
@@ -175,8 +176,10 @@ public final class PerformanceSmoke {
     }
     private void record() {
         long now = System.nanoTime();
-        if (frame >= WARM && previous != 0) csv.append(String.format(Locale.ROOT, "%d,%s,%d,%.6f,%.6f,%.3f,%.3f,%d,%d,%d,%d,%s%n", stage / CASES.length + 1, CASES[stage % CASES.length], frame - WARM,
-            (start - previous) / 1e6, (now - start) / 1e6, cpu / 1e3, wall / 1e3, allocated, uploads, copies, passes,event));
+        if (frame >= WARM && previous != 0) csv.append(String.format(Locale.ROOT, "%d,%s,%d,%.6f,%.6f,%.3f,%.3f,%d,%d,%d,%d,%s,%d,%d%n", stage / CASES.length + 1, CASES[stage % CASES.length], frame - WARM,
+            (start - previous) / 1e6, (now - start) / 1e6, cpu / 1e3, wall / 1e3, allocated, uploads, copies, passes,event,
+            org.lwjgl.glfw.GLFW.glfwGetWindowAttrib(mc.getWindow().handle(),org.lwjgl.glfw.GLFW.GLFW_FOCUSED),
+            org.lwjgl.glfw.GLFW.glfwGetWindowAttrib(mc.getWindow().handle(),org.lwjgl.glfw.GLFW.GLFW_ICONIFIED)));
         previous = start;
         if (++frame == WARM + SAMPLES) next();
     }
@@ -184,7 +187,7 @@ public final class PerformanceSmoke {
         done = true;
         try {
             Files.writeString(mc.gameDirectory.toPath().resolve("neon-perf-" + System.getProperty("neon.perf.label", "after") + ".csv"), csv);
-            Files.writeString(mc.gameDirectory.toPath().resolve("neon-verification.txt"), "PASS performance: 3 warmed runs, " + (ONLY >= 0 ? 1 : CASES.length) + " scenarios, 480 frames each\n");
+            Files.writeString(mc.gameDirectory.toPath().resolve("neon-verification.txt"), "PASS performance: 3 warmed runs, " + (ONLY.isEmpty() ? CASES.length : ONLY.size()) + " scenarios, 480 frames each\n");
         } catch (Exception e) { throw new RuntimeException(e); }
         mc.stop();
     }

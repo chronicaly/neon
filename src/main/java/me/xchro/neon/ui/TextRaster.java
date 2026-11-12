@@ -10,8 +10,19 @@ import java.awt.image.DataBufferInt;
 final class TextRaster {
     static final FontRenderContext CONTEXT = new FontRenderContext(null, true, true);
     private static final int SAMPLES = 4, PAD = 2;
+    private static final ThreadLocal<BufferedImage> SCRATCH = new ThreadLocal<>();
+    private static final int MAX_SCRATCH_PIXELS = 1_048_576;
     record Image(int width, int height, int left, int top, int[] pixels) {}
     private TextRaster() {}
+    static void clearScratch() { SCRATCH.remove(); }
+    private static BufferedImage scratch(int width,int height) {
+        var image=SCRATCH.get();
+        if(image!=null&&image.getWidth()>=width&&image.getHeight()>=height)return image;
+        int w=Math.max(width,image==null?0:image.getWidth()),h=Math.max(height,image==null?0:image.getHeight());
+        // Keep at most 4 MiB per rendering thread. Unusually large runs are temporary.
+        if((long)w*h>MAX_SCRATCH_PIXELS)return new BufferedImage(width,height,BufferedImage.TYPE_INT_ARGB);
+        image=new BufferedImage(w,h,BufferedImage.TYPE_INT_ARGB);SCRATCH.set(image);return image;
+    }
     static Font supported(Font font, String text) {
         return font.canDisplayUpTo(text) < 0 ? font : new Font(Font.DIALOG, Font.PLAIN, 1).deriveFont(font.getSize2D());
     }
@@ -24,8 +35,11 @@ final class TextRaster {
         int left = (int) Math.floor(bounds.getMinX()) - PAD, top = (int) Math.floor(bounds.getMinY()) - PAD;
         int w = Math.max(1, (int) Math.ceil(bounds.getMaxX()) - left + PAD);
         int h = Math.max(1, (int) Math.ceil(bounds.getMaxY()) - top + PAD);
-        var high = new BufferedImage(w * SAMPLES, h * SAMPLES, BufferedImage.TYPE_INT_ARGB);
+        var high = scratch(w * SAMPLES, h * SAMPLES);
         var paint = high.createGraphics();
+        paint.setComposite(AlphaComposite.Clear);
+        paint.fillRect(0,0,w*SAMPLES,h*SAMPLES);
+        paint.setComposite(AlphaComposite.SrcOver);
         paint.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         paint.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
         paint.setRenderingHint(RenderingHints.KEY_FRACTIONALMETRICS, RenderingHints.VALUE_FRACTIONALMETRICS_ON);
@@ -33,7 +47,7 @@ final class TextRaster {
         // TYPE_INT_ARGB is a contiguous packed-int raster. getRGB(x,y) can allocate a
         // temporary data-element array for each of the sixteen samples per pixel.
         int[] source = ((DataBufferInt) high.getRaster().getDataBuffer()).getData();
-        int stride = w * SAMPLES;
+        int stride = high.getWidth();
         int[] pixels = new int[w * h];
         for (int y = 0; y < h; y++) for (int x = 0; x < w; x++) {
             int coverage = 0;

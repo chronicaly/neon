@@ -40,6 +40,8 @@ Click any slider's displayed value, or focus it and press Enter, to type an exac
 
 Open **Settings → Profiles**. **Combat**, **Mining**, and **Building** presets start with your existing camera/HUD preferences and appropriate autoclicker settings. Save named snapshots, click a profile to load it, or update/delete saved profiles. Loading leaves key bindings and window placement unchanged and preserves an active autoclicker unless the chosen profile disables it. Loading an enabled profile never starts an inactive session. **Ctrl+Z** reverses a load; changing the saved profile library uses its explicit Update/Delete controls.
 
+Settings and profiles keep a `.bak` recovery copy after successful saves. If a file is damaged, Neon preserves the original and attempts recovery at startup, keeping healthy profile entries and intentional deletions. A local, silent notice explains recovery. A valid primary file takes priority over its backup. The profile **Saved** acknowledgement waits for both copies to finish.
+
 For the autoclicker, enable it in Neon settings, choose mouse buttons, and assign its activation key. The **activation mode** controls whether you hold the key or press it to toggle. Choose **Toggle** for continuous operation and activate it in gameplay. Escape, Options, inventory, containers, chat, Neon settings, and focus loss all preserve the active session. While active, singleplayer continues ticking behind menus. Turn **Enabled** off in Neon or return to gameplay and press the activation key again to stop; normal Minecraft pausing then returns. Typing in a screen never activates or toggles automation, and synthetic input never clicks menu buttons or moves inventory slots. Saved Minecraft pause options are unchanged.
 
 The Toggle state also survives death, world changes, and disconnect during the same Minecraft session. It sends no world actions while no playable player/world is available, then resumes when gameplay becomes available again, without replaying missed clicks. A new Minecraft process starts inactive. Hold activation remains release-to-stop. The old chat/background switches and automatic low-durability stop have been removed so they cannot silently switch the autoclicker off.
@@ -78,7 +80,7 @@ With JDK 25:
 .\gradlew.bat build --console=plain
 ```
 
-The development build checks the code and installs `build/libs/neon-0.3.0.jar` as `neon.jar` in the local PrismLauncher **Vanilla** instance. The installed file is byte-checked against the build. Existing running games remain open; new code loads on the next game launch.
+The development build runs unit checks and the muted packaged-client release suite, then installs `build/libs/neon-0.3.0.jar` as `neon.jar` in the local PrismLauncher **Vanilla** instance. The suite needs a disposable game directory containing `saves/Neon Verification/level.dat`: use `-PneonVerificationDir=<test-game-directory>` (default `runtime/smoke/game`). Never point it at a real launcher instance. Both the production JAR and verification harness are hashed inside the running client; missing, failed or stale verification blocks installation. The staged and installed bytes are checked again. Existing games remain open; new code loads on the next game launch.
 
 Use `-PskipInstall` to build without installing, or `-PneonInstallDir=<mods-directory>` to select another destination. Linux/macOS users can run `./gradlew build -PskipInstall`.
 
@@ -86,7 +88,7 @@ On Windows installations affected by Java's local socket initialization error, r
 
 ## Verification
 
-`build` runs the regression suite and compiles the isolated live verification harness. The harness is excluded from the release JAR. All verification clients suppress Minecraft and Neon audio while recording cue requests; testing never plays sounds through your speakers. See [verification instructions](docs/verification.md) for live-test setup and results.
+`build -PskipInstall` runs the unit suite and compiles the isolated live harness. An installing build also requires `releaseSmoke`; `verifyInstall` validates its receipt. The harness is excluded from the release JAR. Verification clients suppress Minecraft and Neon audio while recording cue requests. See [verification instructions](docs/verification.md) and [the latest quality results](docs/quality-next-results.md) for setup, measurements and limits.
 
 YouTube chat is deferred. This release contains no chat integration or OAuth code.
 

@@ -11,6 +11,8 @@ public class UiButton extends Button {
     private BooleanSupplier selected = () -> false;
     private IntSupplier swatch = () -> Ui.BLUE;
     private String description = "";
+    private String statusLabel;
+    private int statusColor;
     private boolean small;
     private boolean wrapped;
     private boolean centeredNavigation;
@@ -34,6 +36,7 @@ public class UiButton extends Button {
     public UiButton selected(BooleanSupplier value) { selected = value; return this; }
     public UiButton swatch(IntSupplier value) { swatch = value; return this; }
     public UiButton hint(String value) { description = value; return this; }
+    UiButton status(String label, int color) { statusLabel = label; statusColor = color; return this; }
     public UiButton small() { small = true; return this; }
     public UiButton centeredNavigation() { centeredNavigation = true; return this; }
     public UiButton wrapText() { wrapped = true; wrap(); return this; }
@@ -60,6 +63,10 @@ public class UiButton extends Button {
     @Override public void onPress(net.minecraft.client.input.InputWithModifiers event) { feedback(event); super.onPress(event); }
     final void acknowledge(String label) { if(net.minecraft.client.Minecraft.getInstance().gui.screen() instanceof PixelScreen screen)screen.acknowledge(identity(),label); }
     private void actionText(GuiGraphicsExtractor g,String text,int x,int y,int color,int size) {
+        if (statusLabel != null) {
+            UiFont.draw(g,statusLabel,getX()+(getWidth()-UiFont.width(statusLabel,size))/2,y,statusColor,size);
+            return;
+        }
         var feedback=net.minecraft.client.Minecraft.getInstance().gui.screen() instanceof PixelScreen screen?screen.acknowledgement(identity()):null;
         if(feedback==null){UiFont.draw(g,text,x,y,color,size);return;}
         double amount=feedback.amount(System.nanoTime());

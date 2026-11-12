@@ -119,6 +119,7 @@ final class UiFont {
     }
     static void close() {
         closeFaces(FACES); closeFaces(HUD_FACES); warmed = false;
+        TextRaster.clearScratch();
         if (uploadBuffer != null) { org.lwjgl.system.MemoryUtil.memFree(uploadBuffer); uploadBuffer = null; }
     }
     static void flush() {

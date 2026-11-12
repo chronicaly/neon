@@ -14,6 +14,7 @@ import org.lwjgl.glfw.GLFW;
 
 /** Color drawer contents; the parent owns the shared surface, title, outline and reveal. */
 final class ColorPicker extends AbstractContainerWidget {
+    private static final String PASTE_HELP = "Paste #RGB, #RRGGBB, #RRGGBBAA, R,G,B[,A], hsb:H,S,B, or a Minecraft color name.";
     private final SettingsSession session;
     private final int initial;
     private IntSupplier synced;
@@ -36,7 +37,8 @@ final class ColorPicker extends AbstractContainerWidget {
         super(0, 0, 144, 230, Ui.label("Color picker"));
         this.initial = color; this.lastApplied = color; this.session = session; this.synced = synced; this.changed = changed; set(color);
         copy = new UiButton("Copy", 0, 0, 78, 21, this::copy).identity("color/"+name+"/copy").small();
-        paste = new UiButton("Paste", 0, 0, 78, 21, this::paste).small();
+        paste = new UiButton("Paste", 0, 0, 78, 21, this::paste).identity("color/"+name+"/paste").small().hint(PASTE_HELP);
+        paste.setTooltip(Tooltip.create(Ui.label(PASTE_HELP)));
         sync = new UiButton("Sync", 0, 0, 48, 21, UiButton.Kind.NORMAL, () -> {
             finishHex();
             session.change(toggleLink);
@@ -116,16 +118,23 @@ final class ColorPicker extends AbstractContainerWidget {
         int color = value();
         if (themeAlpha) Neon.config.theme.alphaEnabled = true;
         changed.accept(color, ((lastApplied ^ color) & 0xffffff) != 0); lastApplied = color;
-        Ui.refreshTheme(); invalidPaste = false;
+        Ui.refreshTheme(); pasteFeedback(false);
         if (hex != null && !hex.isFocused()) syncHex();
     }
     private void paste() {
         finishHex();
         var color = me.xchro.neon.core.ColorValue.parse(Minecraft.getInstance().keyboardHandler.getClipboard());
-        invalidPaste = color.isEmpty();
+        pasteFeedback(color.isEmpty());
         if (color.isPresent() && color.getAsInt() != value()) {
             session.change(() -> { set(color.getAsInt()); apply(); }); UiSounds.cue(Cue.CONFIRM);
         }
+    }
+    private void pasteFeedback(boolean invalid) {
+        if (invalidPaste == invalid) return;
+        invalidPaste = invalid;
+        String explanation = invalid ? "No valid color found. " + PASTE_HELP : PASTE_HELP;
+        paste.status(invalid ? "Invalid" : null, Ui.RED).hint(explanation);
+        paste.setTooltip(Tooltip.create(Ui.label(explanation)));
     }
     private void place() {
         if (copy == null) return;
@@ -170,8 +179,7 @@ final class ColorPicker extends AbstractContainerWidget {
         checker(g,x,y,w,h); Ui.rect(g,x,y,w,h,color); Ui.stroke(g, x,y,w,h,border);
     }
     private static void checker(GuiGraphicsExtractor g,int x,int y,int w,int h) {
-        for(int py=0;py<h;py+=4) for(int px=0;px<w;px+=4)
-            Ui.rect(g,x+px,y+py,Math.min(4,w-px),Math.min(4,h-py),((px+py)/4&1)==0?0xffabb6ba:0xff617077);
+        UiEffects.checker(g,x,y,w,h);
     }
     @Override protected void updateWidgetNarration(NarrationElementOutput output) { if(getFocused() instanceof AbstractWidget w) w.updateNarration(output); }
     private static final class Preview extends AbstractWidget {

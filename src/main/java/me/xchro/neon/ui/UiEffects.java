@@ -35,6 +35,31 @@ final class UiEffects {
         }
     }
     private UiEffects() {}
+    /** One render command for the transparency grid, with the same cell edges and colors. */
+    static void checker(GuiGraphicsExtractor g, int x, int y, int w, int h) {
+        if (w <= 0 || h <= 0) return;
+        var pose = new Matrix3x2f(g.pose());
+        var bounds = new ScreenRectangle(x, y, w, h).transformMaxBounds(pose);
+        var scissor = g.scissorStack.peek();
+        if (scissor != null) bounds = bounds.intersection(scissor);
+        if (bounds != null) g.guiRenderState.addGuiElement(new Checker(pose,x,y,w,h,
+            Ui.faded(0xffabb6ba),Ui.faded(0xff617077),scissor,bounds));
+    }
+    private record Checker(Matrix3x2f pose,int x,int y,int w,int h,int light,int dark,
+                           ScreenRectangle scissorArea,ScreenRectangle bounds) implements GuiElementRenderState {
+        public RenderPipeline pipeline() { return RenderPipelines.GUI; }
+        public TextureSetup textureSetup() { return TextureSetup.noTexture(); }
+        public void buildVertices(VertexConsumer v) {
+            for (int py=0;py<h;py+=4) for (int px=0;px<w;px+=4) {
+                int color=((px+py)/4&1)==0?light:dark;
+                int left=x+px,top=y+py,right=x+Math.min(w,px+4),bottom=y+Math.min(h,py+4);
+                v.addVertexWith2DPose(pose,left,top).setColor(color);
+                v.addVertexWith2DPose(pose,left,bottom).setColor(color);
+                v.addVertexWith2DPose(pose,right,bottom).setColor(color);
+                v.addVertexWith2DPose(pose,right,top).setColor(color);
+            }
+        }
+    }
     /** Low-contrast light inside the surface; the existing perimeter mesh stays untouched. */
     static void surfaceLight(GuiGraphicsExtractor g, int x, int y, int w, int h, int surface) {
         double phase = (System.nanoTime() % 16_000_000_000L) / 16_000_000_000.0 * Math.PI * 2;

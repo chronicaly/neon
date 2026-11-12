@@ -9,12 +9,13 @@ import java.util.function.BiConsumer;
 /** One ordered writer, immutable snapshots, per-file coalescing and explicit durability barriers. */
 public final class QueuedSave implements AutoCloseable {
     @FunctionalInterface public interface Writer { void write(Path path, String snapshot) throws IOException; }
-    private record Pending(String snapshot, List<CompletableFuture<Void>> completions) {}
+    private record Pending(String snapshot, List<CompletableFuture<Void>> completions, boolean recoverable) {}
     private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor(r -> {
         Thread t = new Thread(r, "Neon settings writer"); t.setDaemon(true); return t;
     });
     private final Map<Path, Pending> pending = new LinkedHashMap<>();
     private final Map<Path, String> written = new HashMap<>();
+    private final Map<Path, String> backups = new HashMap<>();
     private final Map<Path, String> latest = new HashMap<>();
     private final Writer writer;
     private final BiConsumer<Path, Throwable> failure;
@@ -24,12 +25,18 @@ public final class QueuedSave implements AutoCloseable {
     public QueuedSave(BiConsumer<Path, Throwable> failure) { this(ConfigStore::writeAtomically, failure); }
     public QueuedSave(Writer writer, BiConsumer<Path, Throwable> failure) { this.writer = writer; this.failure = failure; }
     public synchronized CompletableFuture<Void> submit(Path path, String snapshot) {
+        return submit(path,snapshot,false);
+    }
+    public synchronized CompletableFuture<Void> submitRecoverable(Path path,String snapshot) {
+        return submit(path,snapshot,true);
+    }
+    private CompletableFuture<Void> submit(Path path,String snapshot,boolean recoverable) {
         if (closed) return CompletableFuture.failedFuture(new IllegalStateException("Settings writer is closed"));
         path = path.toAbsolutePath().normalize(); latest.put(path, snapshot);
         var result = new CompletableFuture<Void>();
         Pending old = pending.get(path);
         var completions = old == null ? new ArrayList<CompletableFuture<Void>>() : old.completions;
-        completions.add(result); pending.put(path, new Pending(snapshot, completions));
+        completions.add(result); pending.put(path, new Pending(snapshot, completions,recoverable || old != null && old.recoverable));
         if (timer != null) timer.cancel(false);
         timer = executor.schedule(this::drain, 250, TimeUnit.MILLISECONDS);
         return result;
@@ -41,12 +48,15 @@ public final class QueuedSave implements AutoCloseable {
         for (var entry : batch.entrySet()) {
             Path path = entry.getKey(); Pending item = entry.getValue();
             try {
-                if (!item.snapshot.equals(written.get(path))) writer.write(path, item.snapshot);
+                if (!item.snapshot.equals(written.get(path))) writer.write(path,item.snapshot);
+                if(item.recoverable&&!item.snapshot.equals(backups.get(path))) {
+                    writer.write(ConfigStore.backupPath(path),item.snapshot);backups.put(path,item.snapshot);
+                }
                 written.put(path, item.snapshot);
                 item.completions.forEach(f -> f.complete(null));
             } catch (Exception error) {
                 // Keep the newest unsaved state for an explicit flush or a subsequent edit to retry.
-                synchronized (this) { pending.putIfAbsent(path, new Pending(item.snapshot, new ArrayList<>())); }
+                synchronized (this) { pending.putIfAbsent(path, new Pending(item.snapshot, new ArrayList<>(),item.recoverable)); }
                 item.completions.forEach(f -> f.completeExceptionally(error));
                 failure.accept(path, error); failed = error;
             }

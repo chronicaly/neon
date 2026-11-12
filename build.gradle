@@ -31,6 +31,7 @@ tasks.register('installNeon') {
     onlyIf { !providers.gradleProperty('skipInstall').isPresent() }
     doLast {
         def source = tasks.named('jar').get().archiveFile.get().asFile.toPath()
+        project.ext.requireVerifiedNeon(source)
         def destination = file(providers.gradleProperty('neonInstallDir').getOrElse(
             'C:/Users/Martin Krisch/AppData/Roaming/PrismLauncher/instances/Vanilla/minecraft/mods')).toPath()
         java.nio.file.Files.createDirectories(destination)
@@ -45,6 +46,7 @@ tasks.register('installNeon') {
         try {
             java.nio.file.Files.copy(source, staged, java.nio.file.StandardCopyOption.REPLACE_EXISTING)
             if (java.nio.file.Files.mismatch(source, staged) != -1L) throw new GradleException('Staged JAR differs from checked build output')
+            project.ext.requireVerifiedNeon(staged)
             for (int attempt = 0; ; attempt++) {
                 try {
                     try { java.nio.file.Files.move(staged, target, java.nio.file.StandardCopyOption.ATOMIC_MOVE, java.nio.file.StandardCopyOption.REPLACE_EXISTING) }
@@ -121,6 +123,13 @@ tasks.register('prodSmoke', net.fabricmc.loom.task.prod.ClientProductionRunTask)
     if (providers.gradleProperty('menuOnly').isPresent()) jvmArgs.add('-Dneon.smoke.menuOnly=true')
     if (providers.gradleProperty('rowsOnly').isPresent()) jvmArgs.add('-Dneon.smoke.rowsOnly=true')
     if (providers.gradleProperty('colorOnly').isPresent()) jvmArgs.add('-Dneon.smoke.colorOnly=true')
+    if (providers.gradleProperty('colorFocused').isPresent()) jvmArgs.add('-Dneon.smoke.colorFocused=true')
+    if (providers.gradleProperty('recoveryOnly').isPresent()) jvmArgs.add('-Dneon.smoke.recoveryOnly=true')
+    if (providers.gradleProperty('recoveryRestart').isPresent()) jvmArgs.add('-Dneon.smoke.recoveryRestart=true')
+    if (providers.gradleProperty('desktopOnly').isPresent()) jvmArgs.add('-Dneon.smoke.desktopOnly=true')
+    if (providers.gradleProperty('desktopPrimary').isPresent()) jvmArgs.add('-Dneon.desktop.primary=' + providers.gradleProperty('desktopPrimary').get())
+    if (providers.gradleProperty('desktopAlternate').isPresent()) jvmArgs.add('-Dneon.desktop.alternate=' + providers.gradleProperty('desktopAlternate').get())
+    if (providers.gradleProperty('stabilityOnly').isPresent()) jvmArgs.add('-Dneon.smoke.stabilityOnly=true')
     if (providers.gradleProperty('gridOnly').isPresent()) jvmArgs.add('-Dneon.smoke.gridOnly=true')
     if (providers.gradleProperty('hoverOnly').isPresent()) jvmArgs.add('-Dneon.smoke.hoverOnly=true')
     if (providers.gradleProperty('premiumOnly').isPresent()) jvmArgs.add('-Dneon.smoke.premiumOnly=true')
@@ -151,3 +160,6 @@ tasks.register('prodSmoke', net.fabricmc.loom.task.prod.ClientProductionRunTask)
         logger.lifecycle(result.text.trim())
     }
 }
+
+ext.neonProductionRunTaskType = net.fabricmc.loom.task.prod.ClientProductionRunTask
+apply from: 'gradle/verified-install.gradle'

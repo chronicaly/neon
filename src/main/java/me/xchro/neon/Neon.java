@@ -28,6 +28,7 @@ public final class Neon implements ClientModInitializer {
     public static final me.xchro.neon.input.ModuleBindings MODULE_BINDINGS = new me.xchro.neon.input.ModuleBindings();
     private static ConfigStore store;
     public static ProfileStore profiles;
+    private static final java.util.Queue<String> recoveryNotices = new java.util.ArrayDeque<>();
     public static final QueuedSave SAVES = new QueuedSave((path, failure) -> {
         LOG.error("Could not save {}. Unsaved settings retained in memory.", path, failure);
         Minecraft.getInstance().execute(() -> Minecraft.getInstance().gui.hud.setOverlayMessage(
@@ -38,6 +39,9 @@ public final class Neon implements ClientModInitializer {
         try { config = store.load(); } catch (Exception e) { LOG.error("Could not load Neon settings", e); }
         profiles = new ProfileStore(FabricLoader.getInstance().getConfigDir().resolve("neon-profiles.json"), SAVES);
         try { profiles.initialize(config); } catch (Exception e) { LOG.error("Could not load Neon profiles", e); }
+        for(String notice:java.util.List.of(store.recoveryNotice(),profiles.recoveryNotice()))if(!notice.isEmpty()) {
+            LOG.warn(notice);recoveryNotices.add(notice);
+        }
         var category = KeyMapping.Category.register(Identifier.fromNamespaceAndPath("neon", "controls"));
         settings = key("settings", category, GLFW.GLFW_KEY_P);
         settingsAlternate = key("settings_alternate", category, GLFW.GLFW_KEY_RIGHT_SHIFT);
@@ -49,6 +53,8 @@ public final class Neon implements ClientModInitializer {
         betterChat = key("better_chat", category, GLFW.GLFW_KEY_UNKNOWN);
         betterScreenshot = key("better_screenshot", category, GLFW.GLFW_KEY_UNKNOWN);
         ClientTickEvents.START_CLIENT_TICK.register(mc -> {
+            if(mc.player!=null&&!recoveryNotices.isEmpty())mc.gui.hud.getChat().addClientSystemMessage(
+                net.minecraft.network.chat.Component.literal("Neon: "+recoveryNotices.remove()));
             // Drain both queues together so simultaneous shortcuts cannot reopen the menu later.
             while (settings.consumeClick() | settingsAlternate.consumeClick()) {
                 if (mc.player != null && mc.gui.screen() == null && mc.gui.overlay() == null)

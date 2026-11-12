@@ -19,6 +19,9 @@ final class ColorPopupSmoke {
     private int stage=-3, age, checks, sounds, rowY;
     private double scrollBefore;
     private String referenceBefore;
+    private int feedbackVariant;
+    private net.minecraft.client.gui.navigation.ScreenRectangle pasteBounds;
+    private CheckerVerification checkerVerification;
     ColorPopupSmoke(Minecraft mc,int checks){this.mc=mc;this.checks=checks;clipboard=mc.keyboardHandler.getClipboard();setup(false,1);}
     int checks(){return checks;}
     private void check(boolean ok,String message){if(!ok)throw new AssertionError("Color popup "+stage+": "+message);checks++;System.out.println("NEON_CHECK "+message);}
@@ -117,17 +120,58 @@ final class ColorPopupSmoke {
             case 13->{
                 fits();shot("mention-minimum");
                 if(java.nio.file.Files.exists(mc.gameDirectory.toPath().resolve("neon-color-reference.json"))){setupReference(0);next();}
-                else return finish();
+                else feedbackSetup();
             }
             case 14,16,18,20->{click(widget(stage<18?"Mention color":"Accent"));next();}
             case 15,17,19,21->{
                 fits();shot("vanilla-"+(stage<18?"mention":"settings")+(stage==15||stage==19?"-default":"-minimum"));
                 check(ConfigStore.encode(Neon.config).equals(referenceBefore),"opening the drawer preserves the supplied Vanilla palette, alpha, links and mention color");
-                if(stage==21)return finish();
+                if(stage==21){feedbackSetup();return false;}
                 setupReference((stage-13)/2);next();
+            }
+            case 22->{click(widget("Accent"));next();}
+            case 23->{
+                fits();referenceBefore=ConfigStore.encode(Neon.config);
+                var paste=(UiButton)widget("Paste");pasteBounds=paste.getRectangle();
+                int cues=SoundAudit.cues.size();mc.keyboardHandler.setClipboard("not a color");click(paste);
+                check(ConfigStore.encode(Neon.config).equals(referenceBefore),"rejected paste preserves all settings");
+                check(SoundAudit.cues.size()==cues,"rejected paste stays silent");
+                check(paste.getRectangle().equals(pasteBounds)&&paste.getMessage().getString().equals("Paste"),"failure feedback preserves Paste geometry and action label");
+                check(paste.hint().startsWith("No valid color found.")&&paste.hint().contains("#RRGGBBAA"),"paste failure provides an explanation and accepted formats for hover, focus and narration");
+                check("Invalid".equals(status(paste)),"paste failure has visible text as well as a red border");
+                next();
+            }
+            case 24->{
+                var paste=(UiButton)widget("Paste");shot("invalid-paste-"+feedbackVariant);
+                check("Invalid".equals(status(paste)),"failure feedback survives rendered frames");
+                mc.keyboardHandler.setClipboard("#84DCE6FF");click(paste);
+                check(status(paste)==null&&!paste.hint().startsWith("No valid"),"valid unchanged paste clears the error");
+                paste.setFocused(true);mc.setLastInputType(InputType.KEYBOARD_TAB);mc.keyboardHandler.setClipboard("#33669980");
+                paste.keyPressed(new KeyEvent(GLFW.GLFW_KEY_ENTER,0,0));
+                check(Neon.config.theme.accent==0x80336699,"keyboard Paste retains RGBA parsing after failure");
+                undo();check(ConfigStore.encode(Neon.config).equals(referenceBefore),"invalid and unchanged pastes add no Undo entry");
+                if(++feedbackVariant==3){
+                    Neon.config.theme.rainbow=true;Neon.config.theme.syncedColors.add(ThemeColor.ACCENT);
+                    mc.keyboardHandler.setClipboard("invalid-color");click(paste);stage=26;age=0;
+                }
+                else feedbackSetup();
+            }
+            case 25->{if(checkerVerification.run()){checks=checkerVerification.checks();return finish();}}
+            case 26->{
+                check("Invalid".equals(status((UiButton)widget("Paste"))),"animated theme colors never erase a paste failure");
+                Neon.config.theme.rainbow=false;checkerVerification=new CheckerVerification(mc,checks);stage=25;age=0;
             }
         }
         return false;
+    }
+    private String status(UiButton button){
+        try{var field=UiButton.class.getDeclaredField("statusLabel");field.setAccessible(true);return (String)field.get(button);}
+        catch(ReflectiveOperationException failure){throw new AssertionError(failure);}
+    }
+    private void feedbackSetup(){
+        setup(feedbackVariant>0,feedbackVariant+1);
+        if(feedbackVariant==2){mc.getWindow().setWindowed(640,480);mc.resizeGui();}
+        stage=22;age=0;
     }
     private void setupTheme(boolean minimum){setup(minimum,minimum?2:1);scroll().setScrollAmount(0);press("Theme");mc.keyboardHandler.setClipboard("#ED80C2FF");press("Paste");}
     private void setupChat(boolean minimum){setup(minimum,minimum?2:1);press("Visuals");Menus.configure(menu,"Better chat");scroll().setScrollAmount(scroll().maxScrollAmount());}

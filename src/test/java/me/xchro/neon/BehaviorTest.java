@@ -51,13 +51,16 @@ class BehaviorTest {
         for (String name : reopened.names()) reopened.delete(name);
         reopened.initialize(baseline); assertTrue(reopened.names().isEmpty());
         assertThrows(IllegalArgumentException.class, () -> reopened.put(" \n ", baseline));
-        try (var files = Files.list(directory)) { assertEquals(1, files.count()); }
+        assertTrue(Files.exists(directory.resolve("neon-profiles.json.bak")));
     }
     @Test void invalidProfilesAreBackedUpBeforeRecovery() throws Exception {
         Path path = directory.resolve("neon-profiles.json"); Files.writeString(path, "{bad");
         ProfileStore store = new ProfileStore(path); store.initialize(new NeonConfig());
         assertEquals(3, store.names().size());
-        try (var files = Files.list(directory)) { assertEquals(2, files.count()); }
+        try (var files = Files.list(directory)) {
+            Path damaged=files.filter(p->p.getFileName().toString().contains(".invalid-")).findFirst().orElseThrow();
+            assertEquals("{bad",Files.readString(damaged));
+        }
     }
     @Test void hudSnapsToEdgesAndCenterOnlyWithinThreshold() {
         var b = new HudBounds(40, 40, 80, 20);
@@ -130,7 +133,7 @@ class BehaviorTest {
         NeonConfig loaded = store.load();
         assertEquals(8, loaded.zoomFactor); assertEquals(60, loaded.leftIntervalTicks); assertEquals(0, loaded.rightIntervalTicks);
         assertEquals(1, loaded.armor.scale); assertEquals(1, loaded.totems.x);
-        try (var files = Files.list(directory)) { assertEquals(1, files.count()); }
+        assertEquals(Files.readString(directory.resolve("neon.json")),Files.readString(directory.resolve("neon.json.bak")));
     }
     @Test void malformedConfigIsPreserved() throws Exception {
         Path path = directory.resolve("neon.json"); Files.writeString(path, "{bad");

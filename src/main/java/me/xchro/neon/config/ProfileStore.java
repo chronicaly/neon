@@ -12,27 +12,50 @@ public final class ProfileStore {
     private final Path file;
     private final QueuedSave writer;
     private Data data = new Data();
+    private String recoveryNotice = "";
+    private record Parsed(Data data,Set<String> damaged) {}
     private static final class Data {
         int version = 1;
         LinkedHashMap<String, NeonConfig> profiles = new LinkedHashMap<>();
     }
     public ProfileStore(Path file) { this(file, null); }
     public ProfileStore(Path file, QueuedSave writer) { this.file = file; this.writer = writer; }
+    public String recoveryNotice() { return recoveryNotice; }
     public void initialize(NeonConfig baseline) throws IOException {
-        if (Files.exists(file)) {
+        recoveryNotice="";
+        Parsed primary=null;
+        boolean existed=Files.exists(file);
+        if (existed) {
             try {
-                String json = Files.readString(file);
-                Data loaded = GSON.fromJson(json, Data.class);
-                if (loaded == null || loaded.profiles == null) throw new IllegalArgumentException("Empty profiles");
-                var saved = com.google.gson.JsonParser.parseString(json).getAsJsonObject().getAsJsonObject("profiles");
-                for (var entry : loaded.profiles.entrySet()) {
-                    if (!entry.getKey().equals(validName(entry.getKey())) || entry.getValue() == null) throw new IllegalArgumentException("Invalid profile");
-                    entry.setValue(ConfigStore.decode(saved.get(entry.getKey()).toString()));
-                }
-                data = loaded; return;
-            } catch (RuntimeException invalid) {
-                Files.copy(file, file.resolveSibling(file.getFileName() + ".invalid-" + System.currentTimeMillis()));
+                primary=parse(Files.readString(file));
+                if(primary.damaged.isEmpty()){data=primary.data;return;}
+            } catch (RuntimeException invalid) { /* Try the validated recovery copy below. */ }
+            ConfigStore.archiveInvalid(file);
+        }
+        Parsed backup=null;Path backupFile=ConfigStore.backupPath(file);
+        if(Files.exists(backupFile)) {
+            try {
+                backup=parse(Files.readString(backupFile));
+                if(!backup.damaged.isEmpty())ConfigStore.archiveInvalid(backupFile);
+            } catch(RuntimeException invalid){ConfigStore.archiveInvalid(backupFile);}
+        }
+        if(primary!=null) {
+            Data recovered=new Data();recovered.version=primary.data.version;
+            int restored=0,skipped=0;
+            for(var entry:primary.data.profiles.entrySet()) {
+                NeonConfig value=entry.getValue();
+                if(value==null&&backup!=null){value=backup.data.profiles.get(entry.getKey());if(value!=null)restored++;}
+                if(value!=null)recovered.profiles.put(entry.getKey(),value);else skipped++;
             }
+            // Only primary keys are considered: a backup must never resurrect deleted profiles.
+            persist(recovered);
+            recoveryNotice="Profiles recovered: "+restored+" restored, "+skipped+" skipped. Healthy profiles and the damaged file were preserved.";
+            return;
+        }
+        if(backup!=null&&(backup.damaged.isEmpty()||backup.data.profiles.values().stream().anyMatch(Objects::nonNull))) {
+            Data recovered=backup.data;recovered.profiles.values().removeIf(Objects::isNull);persist(recovered);
+            recoveryNotice="Recovered profiles from the last saved copy."+(existed?" The damaged file was preserved.":"");
+            return;
         }
         Data defaults = new Data();
         for (String name : List.of("Combat", "Mining", "Building")) {
@@ -44,6 +67,21 @@ public final class ProfileStore {
             defaults.profiles.put(name, c);
         }
         persist(defaults);
+        if(existed)recoveryNotice="Profiles could not be recovered; using defaults. The damaged files were preserved.";
+    }
+    private static Parsed parse(String json) {
+        var root=com.google.gson.JsonParser.parseString(json).getAsJsonObject();
+        var saved=root.getAsJsonObject("profiles");
+        if(saved==null)throw new IllegalArgumentException("Missing profiles");
+        Data parsed=new Data();Set<String> damaged=new LinkedHashSet<>();
+        if(root.has("version"))parsed.version=root.get("version").getAsInt();
+        for(var entry:saved.entrySet()) {
+            try {
+                if(!entry.getKey().equals(validName(entry.getKey())))throw new IllegalArgumentException("Invalid name");
+                parsed.profiles.put(entry.getKey(),ConfigStore.decode(entry.getValue().toString()));
+            }catch(RuntimeException invalid){parsed.profiles.put(entry.getKey(),null);damaged.add(entry.getKey());}
+        }
+        return new Parsed(parsed,damaged);
     }
     public List<String> names() { return List.copyOf(data.profiles.keySet()); }
     public NeonConfig get(String name) {
@@ -65,8 +103,8 @@ public final class ProfileStore {
     private java.util.concurrent.CompletableFuture<Void> persist(Data next) throws IOException {
         String snapshot = GSON.toJson(next);
         java.util.concurrent.CompletableFuture<Void> completion;
-        if (writer == null) { ConfigStore.writeAtomically(file, snapshot); completion=java.util.concurrent.CompletableFuture.completedFuture(null); }
-        else completion=writer.submit(file, snapshot);
+        if (writer == null) { ConfigStore.writeRecoverable(file, snapshot); completion=java.util.concurrent.CompletableFuture.completedFuture(null); }
+        else completion=writer.submitRecoverable(file, snapshot);
         data = next;
         return completion;
     }
