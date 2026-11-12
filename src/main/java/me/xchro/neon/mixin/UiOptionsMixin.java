@@ -15,6 +15,8 @@ public abstract class UiOptionsMixin {
     @Inject(method = "getMenuBackgroundBlurriness", at = @At("HEAD"), cancellable = true)
     private void neon$backdropStrength(CallbackInfoReturnable<Integer> result) {
         var screen = Minecraft.getInstance().gui.screen();
+        int exitBlur=me.xchro.neon.ui.MenuPresentation.exitBlur();
+        if(exitBlur>=0){result.setReturnValue(exitBlur);return;}
         if (screen instanceof PixelScreen && !(screen instanceof HudEditor)) result.setReturnValue(5);
     }
 }

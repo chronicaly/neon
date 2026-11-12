@@ -70,6 +70,6 @@ public final class Ui {
         UiEffects.surfaceLight(g, x + 1, y + 1, w - 2, h - 2, PANEL);
         UiEffects.outline(g, x, y, w, h);
     }
-    public static void releaseFonts() { UiFont.close(); UiIcons.close(); UiEffects.close(); }
+    public static void releaseFonts() { MenuPresentation.invalidateAll(); UiFont.close(); UiIcons.close(); UiEffects.close(); }
     public static void warmFonts() { UiFont.warmNative(); }
 }

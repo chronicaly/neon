@@ -18,6 +18,52 @@ public abstract class PixelScreen extends Screen {
     private double soundX = Double.NaN, soundY = Double.NaN;
     private GuiEventListener pointerOwner;
     private MouseButtonEvent pointerEvent;
+    private final java.util.Map<String, me.xchro.neon.core.PressFeedback> presses = new java.util.HashMap<>();
+    private record HeldPress(String identity, me.xchro.neon.core.PressFeedback state, int mouse, int key) {}
+    private final java.util.List<HeldPress> heldPresses = new java.util.ArrayList<>();
+    private final java.util.Map<String,me.xchro.neon.core.ActionFeedback> acknowledgements=new java.util.HashMap<>();
+    private final java.util.Map<String,Long> pendingActions=new java.util.HashMap<>();
+    private long actionSequence;
+    final me.xchro.neon.core.ActionFeedback acknowledgement(String identity) {
+        var feedback=acknowledgements.get(identity);
+        if(feedback!=null&&feedback.amount(System.nanoTime())==0){acknowledgements.remove(identity);return null;}
+        return feedback;
+    }
+    final void acknowledge(String identity,String label){acknowledgements.put(identity,new me.xchro.neon.core.ActionFeedback(label,System.nanoTime()));}
+    protected final long actionToken(String identity){long token=++actionSequence;pendingActions.put(identity,token);return token;}
+    protected final boolean currentAction(String identity,long token){return minecraft.gui.screen()==this&&java.util.Objects.equals(pendingActions.get(identity),token);}
+    protected final void clearAcknowledgements(){acknowledgements.clear();pendingActions.clear();}
+    final double pressAmount(String identity) {
+        var state = presses.get(identity); return state == null ? 0 : state.value(System.nanoTime());
+    }
+    final void press(String identity, net.minecraft.client.input.InputWithModifiers event) {
+        var state = presses.computeIfAbsent(identity, ignored -> new me.xchro.neon.core.PressFeedback());
+        long now = System.nanoTime(); state.press(now);
+        heldPresses.removeIf(held -> held.state == state);
+        if (event instanceof MouseButtonEvent mouse) heldPresses.add(new HeldPress(identity, state, mouse.button(), -1));
+        else if (event instanceof net.minecraft.client.input.KeyEvent key) heldPresses.add(new HeldPress(identity, state, -1, key.key()));
+        else state.release(now);
+    }
+    private void releasePresses(int mouse, int key) {
+        long now = System.nanoTime();
+        heldPresses.removeIf(held -> { if (mouse >= 0 && held.mouse == mouse || key >= 0 && held.key == key) { held.state.release(now); return true; } return false; });
+    }
+    private void clearPresses() { presses.values().forEach(me.xchro.neon.core.PressFeedback::clear); heldPresses.clear(); }
+    private static boolean containsControl(ContainerEventHandler parent,String identity) {
+        for(var child:parent.children()) {
+            if(child instanceof UiButton button&&button.identity().equals(identity))return true;
+            if(child instanceof ContainerEventHandler group&&containsControl(group,identity))return true;
+        }
+        return false;
+    }
+    @Override protected void rebuildWidgets() {
+        super.rebuildWidgets();
+        clearRemovedPresses();
+    }
+    @Override protected void removeWidget(GuiEventListener widget) { super.removeWidget(widget);clearRemovedPresses(); }
+    private void clearRemovedPresses() {
+        heldPresses.removeIf(held->{if(containsControl(this,held.identity))return false;held.state.clear();presses.remove(held.identity);return true;});
+    }
     final void capturePointer(GuiEventListener owner, MouseButtonEvent event) {
         pointerOwner = owner; pointerEvent = event;
         freezeScroll(this);
@@ -45,10 +91,12 @@ public abstract class PixelScreen extends Screen {
     @Override public void tick() {
         super.tick();
         if (!minecraft.isWindowActive() && hasPointerGesture()) finishPointerGesture();
+        if (!minecraft.isWindowActive()) clearPresses();
     }
-    @Override public void removed() { finishPointerGesture(); }
+    @Override public void removed() { finishPointerGesture(); clearPresses(); presses.clear(); clearAcknowledgements(); }
     @Override public void added() {
         super.added();
+        MenuPresentation.clearExit();
         soundX = soundY = Double.NaN;
         if (!soundOpened) { soundOpened = true; UiSounds.cue(Cue.NAVIGATE); }
     }
@@ -75,10 +123,14 @@ public abstract class PixelScreen extends Screen {
         Ui.refreshTheme(); UiFont.beginFrame();
         Ui.opacity = fade();
         g.pose().pushMatrix(); g.pose().scale(UI_SCALE / pixelScale());
-        try { renderPixels(g, (int) canvasCoordinate(mx), (int) canvasCoordinate(my), delta); }
+        try { renderPixels(g, (int) canvasCoordinate(mx), (int) canvasCoordinate(my), delta); cursor(g,(int)canvasCoordinate(mx),(int)canvasCoordinate(my)); }
         finally { Ui.opacity = 1; UiFont.flush(); g.pose().popMatrix(); }
     }
     protected abstract void renderPixels(GuiGraphicsExtractor g, int mx, int my, float delta);
+    protected void cursor(GuiGraphicsExtractor g,int mx,int my) {
+        if(pointerOwner instanceof ExactSlider)g.requestCursor(com.mojang.blaze3d.platform.cursor.CursorTypes.RESIZE_EW);
+        else if(pointerOwner instanceof EditBox)g.requestCursor(com.mojang.blaze3d.platform.cursor.CursorTypes.IBEAM);
+    }
     protected final void renderWidgets(GuiGraphicsExtractor g, int mx, int my, float delta) { super.extractRenderState(g, mx, my, delta); }
     protected final ExactSlider activeNumber() { return activeNumber(this); }
     @Override public final boolean keyPressed(net.minecraft.client.input.KeyEvent event) {
@@ -107,6 +159,9 @@ public abstract class PixelScreen extends Screen {
     }
     @Override public boolean charTyped(net.minecraft.client.input.CharacterEvent event) {
         var number = activeNumber(); return number != null ? number.charTyped(event) : super.charTyped(event);
+    }
+    @Override public boolean keyReleased(net.minecraft.client.input.KeyEvent event) {
+        releasePresses(-1, event.key()); return super.keyReleased(event);
     }
     private static ExactSlider activeNumber(net.minecraft.client.gui.components.events.ContainerEventHandler parent) {
         for (var child : parent.children()) {
@@ -144,6 +199,7 @@ public abstract class PixelScreen extends Screen {
         return pixelMouseDragged(p, canvasCoordinate(dx), canvasCoordinate(dy));
     }
     @Override public final boolean mouseReleased(MouseButtonEvent e) {
+        releasePresses(e.button(), -1);
         if (pointerOwner != null) {
             if (e.button() == pointerEvent.button()) { pointerEvent = pixels(e); finishPointerGesture(); }
             return true;

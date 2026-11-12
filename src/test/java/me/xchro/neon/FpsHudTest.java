@@ -55,13 +55,33 @@ class FpsHudTest {
     @Test void profilesAndConfigPreserveFpsAppearanceAndFractionalPlacement() throws Exception {
         var c = new NeonConfig(); c.fps.x = .237; c.fps.y = .684; c.fps.scale = 1.125; c.fps.visible = false;
         c.fpsAnimation = c.fpsBackground = c.fpsBorder = true; c.fpsShadow = false;
+        FpsColor.LABEL.color(c,0x80ff6600); FpsColor.VALUE.color(c,0xff66ddaa);
+        FpsColor.BACKGROUND.color(c,0); FpsColor.BORDER.color(c,0x330055ee);
         var config = new ConfigStore(directory.resolve("neon.json")); config.save(c);
         var profiles = new ProfileStore(directory.resolve("profiles.json")); profiles.initialize(c); profiles.put("FPS", c);
         var reopened = new ProfileStore(directory.resolve("profiles.json")); reopened.initialize(new NeonConfig());
         for (var saved : new NeonConfig[]{config.load(), reopened.get("FPS"), ConfigStore.copy(c)}) {
             assertEquals(.237, saved.fps.x); assertEquals(.684, saved.fps.y); assertEquals(1.125, saved.fps.scale);
             assertFalse(saved.fps.visible); assertTrue(saved.fpsAnimation); assertTrue(saved.fpsBackground); assertTrue(saved.fpsBorder); assertFalse(saved.fpsShadow);
+            assertEquals(c.fpsColors,saved.fpsColors); assertEquals(0,FpsColor.BACKGROUND.color(saved));
         }
         c.resetHud(); assertTrue(c.fps.visible); assertFalse(c.fpsAnimation); assertTrue(c.fpsShadow); assertEquals(1, c.fps.x);
+        assertTrue(c.fpsColors.isEmpty());
+    }
+    @Test void legacyColorsFollowTheThemeUntilIndividuallyOverridden() {
+        var c=ConfigStore.decode("{\"theme\":{\"paletteVersion\":1,\"alphaEnabled\":true,\"text\":-65536,\"background\":637534208}}");
+        assertTrue(c.fpsColors.isEmpty());
+        assertEquals(c.theme.color(ThemeColor.TEXT),FpsColor.VALUE.color(c));
+        assertEquals(c.theme.color(ThemeColor.BACKGROUND),FpsColor.BACKGROUND.color(c));
+        String original=ConfigStore.encode(c);
+        FpsColor.VALUE.color(c,0x12345678);
+        assertFalse(FpsColor.VALUE.synced(c)); assertTrue(FpsColor.LABEL.synced(c));
+        c.theme.text=0xff123456;
+        assertEquals(0x12345678,FpsColor.VALUE.color(c));
+        FpsColor.VALUE.sync(c);assertEquals(c.theme.text,FpsColor.VALUE.color(c));
+        FpsColor.VALUE.sync(c);c.theme.text=0xffabcdef;assertEquals(0xff123456,FpsColor.VALUE.color(c));
+        var untouched=ConfigStore.decode(original);assertEquals(637534208,untouched.theme.background);
+        assertTrue(ConfigStore.decode("{\"fpsColors\":null}").fpsColors.isEmpty());
+        assertTrue(ConfigStore.decode("{\"fpsColors\":{\"LABEL\":null}}").fpsColors.isEmpty());
     }
 }

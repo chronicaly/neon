@@ -16,15 +16,15 @@ public class UiButton extends Button {
     private boolean centeredNavigation;
     private java.util.List<String> textLines = java.util.List.of();
     private float hoverAmount, switchAmount = -1;
-    private me.xchro.neon.core.TimedValue hoverMotion = new me.xchro.neon.core.TimedValue(0);
-    private me.xchro.neon.core.TimedValue switchMotion = new me.xchro.neon.core.TimedValue(0);
-    private me.xchro.neon.core.TimedValue selectionMotion;
+    private me.xchro.neon.core.UiMotion hoverMotion = new me.xchro.neon.core.UiMotion(0);
+    private me.xchro.neon.core.UiMotion switchMotion = new me.xchro.neon.core.UiMotion(0);
+    private me.xchro.neon.core.UiMotion selectionMotion;
     private String identity;
     UiButton identity(String key) { identity = key; return this; }
     String identity() { return identity != null ? identity : kind + ":" + (description.isEmpty() ? getMessage().getString() : description + ":" + (kind == Kind.SEGMENT ? getMessage().getString() : "")); }
     void inherit(UiButton old) { hoverMotion = old.hoverMotion; switchMotion = old.switchMotion; switchAmount = old.switchAmount; selectionMotion = old.selectionMotion; }
     protected double selectionFraction(boolean on) {
-        if (selectionMotion == null) selectionMotion = new me.xchro.neon.core.TimedValue(on ? 1 : 0);
+        if (selectionMotion == null) selectionMotion = new me.xchro.neon.core.UiMotion(on ? 1 : 0);
         return selectionMotion.to(on ? 1 : 0, System.nanoTime(), 100_000_000L);
     }
     public UiButton(String text, int x, int y, int w, int h, Runnable action) { this(text, x, y, w, h, Kind.NORMAL, action); }
@@ -51,6 +51,23 @@ public class UiButton extends Button {
     }
     @Override public void setWidth(int width) { super.setWidth(width); wrap(); }
     public String hint() { return description; }
+    protected final void feedback(net.minecraft.client.input.InputWithModifiers event) {
+        if (active && visible && net.minecraft.client.Minecraft.getInstance().gui.screen() instanceof PixelScreen screen) screen.press(identity(), event);
+    }
+    final double pressFraction() {
+        return net.minecraft.client.Minecraft.getInstance().gui.screen() instanceof PixelScreen screen ? screen.pressAmount(identity()) : 0;
+    }
+    @Override public void onPress(net.minecraft.client.input.InputWithModifiers event) { feedback(event); super.onPress(event); }
+    final void acknowledge(String label) { if(net.minecraft.client.Minecraft.getInstance().gui.screen() instanceof PixelScreen screen)screen.acknowledge(identity(),label); }
+    private void actionText(GuiGraphicsExtractor g,String text,int x,int y,int color,int size) {
+        var feedback=net.minecraft.client.Minecraft.getInstance().gui.screen() instanceof PixelScreen screen?screen.acknowledgement(identity()):null;
+        if(feedback==null){UiFont.draw(g,text,x,y,color,size);return;}
+        double amount=feedback.amount(System.nanoTime());
+        UiFont.draw(g,text,x,y,Ui.alpha(color,(int)Math.round((color>>>24)*(1-amount))),size);
+        String label=feedback.label();
+        while(!label.isEmpty()&&UiFont.width(label,size)>getWidth()-4)label=label.substring(0,label.offsetByCodePoints(label.length(),-1));
+        UiFont.draw(g,label,getX()+(getWidth()-UiFont.width(label,size))/2,y,Ui.alpha(Ui.BLUE,(int)Math.round((Ui.BLUE>>>24)*amount)),size);
+    }
     protected float hoverFraction() {
         boolean focused = isFocused() && net.minecraft.client.Minecraft.getInstance().getLastInputType().isKeyboard();
         return (float) hoverMotion.to(active && (isHovered() || focused) ? 1 : 0, System.nanoTime(), 100_000_000L);
@@ -121,8 +138,9 @@ public class UiButton extends Button {
         }
         boolean plain = kind == Kind.QUIET || kind == Kind.KEY || kind == Kind.CARD || kind == Kind.SEGMENT;
         double emphasis=Math.max(hoverAmount,selectedAmount);
-        int fill=UiEffects.mix(Ui.FIELD,Ui.BLUE,.04*hoverAmount+.08*selectedAmount);
+        int fill=UiEffects.mix(UiEffects.mix(Ui.FIELD,Ui.BLUE,.04*hoverAmount+.08*selectedAmount),Ui.INK,.16*pressFraction());
         Ui.rect(g,x,y,w,h,Ui.buttonSurface(fill,emphasis));
+        if (pressFraction() > .001) Ui.stroke(g,x,y,w,h,Ui.alpha(Ui.BLUE,(int)((Ui.BLUE>>>24)*.3*pressFraction())));
         if (!plain) Ui.stroke(g, x, y, w, h, chosen ? Ui.BLUE : hover ? Ui.MUTED : Ui.LINE);
         int color = !active ? Ui.MUTED : chosen ? Ui.BLUE : kind == Kind.QUIET || kind == Kind.KEY || kind == Kind.NAV || kind == Kind.SEGMENT ? Ui.MUTED : Ui.TEXT;
         if (wrapped) {
@@ -140,6 +158,6 @@ public class UiButton extends Button {
         }
         int tx = kind == Kind.NAV || kind == Kind.CARD ? x + inset : x + (w - UiFont.width(text, size)) / 2;
         if (active && getMessage().getStyle().getColor() != null) color = 0xff000000 | getMessage().getStyle().getColor().getValue();
-        UiFont.draw(g, text, tx, y + (h - size) / 2, color, size);
+        actionText(g, text, tx, y + (h - size) / 2, color, size);
     }
 }

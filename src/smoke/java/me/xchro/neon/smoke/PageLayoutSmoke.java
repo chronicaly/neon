@@ -24,13 +24,14 @@ final class PageLayoutSmoke {
     private int index, age, checks;
     private boolean capturePending, captureDone;
     private int lastTextCoverage;
+    private int pickerColors;
     PageLayoutSmoke(Minecraft mc, int checks) {
         this.mc = mc; this.checks = checks; original = ConfigStore.copy(Neon.config); binding = Neon.autoclicker.saveString();
         mc.options.guiScale().set(1); mc.getWindow().setWindowed(1280, 800); mc.resizeGui(); mc.setLastInputType(InputType.MOUSE);
         Neon.autoclicker.setKey(InputConstants.Type.KEYSYM.getOrCreate(GLFW.GLFW_KEY_DELETE));
         Neon.config.clickerEnabled = true; Neon.config.leftClick = Neon.config.rightClick = true; Neon.config.motionBlurEnabled = true;
         Neon.config.motionBlurStrength = new NeonConfig().motionBlurStrength;
-        for (String[] entry : new String[][]{{"Combat", "Autoclicker"}, {"Visuals", "Freelook"}, {"Visuals", "Zoom"}, {"Visuals", "Motion blur"}, {"Visuals", "Totem pops"}, {"Visuals", "Better chat"}, {"Settings", "Colors"}, {"Settings", "Appearance"}, {"Settings", "Profiles"}}) {
+        for (String[] entry : new String[][]{{"Combat", "Autoclicker"}, {"Visuals", "Freelook"}, {"Visuals", "Zoom"}, {"Visuals", "Motion blur"}, {"Visuals", "Totem pops"}, {"Visuals", "Better chat"}, {"Visuals", "Better screenshot"}, {"Settings", "Colors"}, {"Settings", "Appearance"}, {"Settings", "Profiles"}}) {
             views.add(new View(entry[0], entry[1], false, false, ""));
             views.add(new View(entry[0], entry[1], true, true, ""));
         }
@@ -38,7 +39,7 @@ final class PageLayoutSmoke {
             views.add(new View("Settings", "Colors", true, false, color));
             views.add(new View("Settings", "Colors", true, true, color));
         }
-        setup();
+        index=Integer.getInteger("neon.smoke.pageIndex",0);setup();
     }
     int checks() { return checks; }
     private void check(boolean ok, String name) { if (!ok) throw new AssertionError("Page " + index + ": " + name); checks++; System.out.println("NEON_CHECK " + name); }
@@ -73,7 +74,9 @@ final class PageLayoutSmoke {
     }
     private void geometry() {
         var bounds=((SettingsScreen)mc.gui.screen()).menuBounds(); boolean narrow=(index/views.size())%2==1;
-        check(bounds.width()==(narrow?320:440) && bounds.height()==(narrow?210:280),"captured page retains its requested window size: "+bounds);
+        boolean colorOpen = !views.get(index % views.size()).color.isEmpty();
+        int expectedWidth = Math.min(narrow?320:440, ((SettingsScreen)mc.gui.screen()).canvasWidth()-28-300-(colorOpen?me.xchro.neon.core.ExpandingMenu.COLOR_WIDTH:0));
+        check(bounds.width()==expectedWidth && bounds.height()==(narrow?210:280),"captured page fits its requested window and attached drawers: "+bounds);
         var scroll = scroll(); var all = widgets((ContainerEventHandler) scroll);
         var settings = button("Settings");
         var editor = button("HUD editor");
@@ -90,7 +93,10 @@ final class PageLayoutSmoke {
         boolean visuals = views.get(index % views.size()).category.equals("Visuals");
         var tiles=all.stream().filter(w->w.getClass().getSimpleName().equals("UiModuleTile")).toList();
         check(!tiles.isEmpty()&&tiles.stream().map(AbstractWidget::getWidth).distinct().count()==1,"all module buttons have equal compact widths");
-        if(!narrow&&(visuals||views.get(index%views.size()).category.equals("Settings")))check(tiles.stream().map(AbstractWidget::getX).distinct().count()==2,"default Visuals uses two compact grid columns");
+        if(!narrow&&(visuals||views.get(index%views.size()).category.equals("Settings"))) {
+            int columns = colorOpen ? Math.max(1,(scroll.getWidth()-14)/(tiles.getFirst().getWidth()+10)) : 2;
+            check(tiles.stream().map(AbstractWidget::getX).distinct().count()==columns,"grid wraps to fit beside attached drawers");
+        }
         for(var tile:tiles) {
             check(tile.getWidth()<200 && tile.getHeight()==26,"module button keeps compact dimensions");
             check(tile.getX()>=scroll.getX() && tile.getRight()<=scroll.getRight(),"grid button fits viewport");
@@ -110,10 +116,10 @@ final class PageLayoutSmoke {
             var popup=widgets(screen).stream().filter(w->w.getClass().getSimpleName().equals("ColorPicker")).findFirst().orElseThrow();
             var shade = widgets(screen).stream().filter(w -> w.getMessage().getString().equals("Saturation and brightness")).findFirst().orElseThrow();
             check(shade.getWidth() == shade.getHeight(), "Unity picker uses a square saturation/brightness surface");
-            check(popup.getX()>=0&&popup.getY()>=0&&popup.getRight()<=screen.canvasWidth()&&popup.getBottom()<=screen.canvasHeight(),"floating picker fits the display at every menu size");
+            check(popup.getX()>screen.moduleSettingsBounds().right()&&popup.getRight()<screen.expandedBounds().right()&&popup.getBottom()<screen.expandedBounds().bottom(),"color drawer fits inside the shared menu outline");
             check(!all.contains(popup),"picker is outside the settings scroll viewport");
             check(button("Paste").getBottom() <= popup.getBottom() && button("Paste").getY() >= popup.getY(), "picker actions are always visible without scrolling");
-            check(shade.getX()>=popup.getX()&&shade.getRight()<=popup.getRight(),"gradient stays inside the floating panel");
+            check(shade.getX()>=popup.getX()&&shade.getRight()<=popup.getRight(),"gradient stays inside the color drawer");
             check(all.stream().noneMatch(w -> Set.of("Apply", "Cancel").contains(w.getMessage().getString())), "no color dialog buttons");
         }
     }
@@ -127,6 +133,8 @@ final class PageLayoutSmoke {
         String name = String.format("neon-quality-page-%03d-scale%d-%s-%s%s.png", index, mc.getWindow().getGuiScale(), (index / views.size()) % 2 == 0 ? "default" : "narrow", v.module.replace(' ', '-'), v.color.isEmpty() ? v.advanced ? "-advanced" : "" : "-" + v.color.replace(' ', '-') + (v.bottom ? "-bottom" : ""));
         var lastAction = v.bottom ? widgets(mc.gui.screen()).stream().filter(w -> w instanceof Button && w.getMessage().getString().equals(v.color.isEmpty() ? "Reset" : "Paste") && w.getY() >= scroll().getY() && w.getBottom() <= scroll().getBottom()).findFirst().orElse(null) : null;
         lastTextCoverage = -1;
+        pickerColors=-1;
+        var shade=widgets(mc.gui.screen()).stream().filter(w->w.getMessage().getString().equals("Saturation and brightness")).findFirst().orElse(null);
         Screenshot.takeScreenshot(mc.gameRenderer.mainRenderTarget(), image -> {
             try (image) {
                 int x = Math.round(captureBounds.left() * PixelScreen.UI_SCALE), y = Math.round(captureBounds.top() * PixelScreen.UI_SCALE);
@@ -141,6 +149,11 @@ final class PageLayoutSmoke {
                             int pixel = image.getPixel(px, py);
                             if ((pixel >>> 16 & 255) > 70 && (pixel >>> 8 & 255) > 70 && (pixel & 255) > 70) lastTextCoverage++;
                         }
+                }
+                if(shade!=null){
+                    var colors=new HashSet<Integer>();
+                    for(int sy=1;sy<12;sy++)for(int sx=1;sx<12;sx++)colors.add(image.getPixel(Math.round((shade.getX()+shade.getWidth()*sx/12f)*PixelScreen.UI_SCALE),Math.round((shade.getY()+shade.getHeight()*sy/12f)*PixelScreen.UI_SCALE))&0xffffff);
+                    pickerColors=colors.size();
                 }
                 ImageIO.write(crop, "png", mc.gameDirectory.toPath().resolve("screenshots").resolve(name).toFile()); captureDone = true;
             } catch (Exception e) { throw new AssertionError(e); }
@@ -159,14 +172,15 @@ final class PageLayoutSmoke {
         try {
             var field=SettingsScreen.class.getDeclaredField("frame");field.setAccessible(true);
             var frame=(me.xchro.neon.core.ExpandingMenu.Frame)field.get(mc.gui.screen());
-            if(frame.drawerWidth()<frame.fullDrawerWidth()-.01) {
+            if(frame.drawerWidth()<frame.fullDrawerWidth()-.01 || !settledView.color.isEmpty() && frame.colorWidth()<frame.fullColorWidth()-.01) {
                 check(age<200,"drawer animation completes before page capture"); return false;
             }
         } catch (ReflectiveOperationException failure) { throw new AssertionError(failure); }
         if (!capturePending) { geometry(); capture(); return false; }
         if (!captureDone) return false;
+        if(pickerColors>=0)check(pickerColors>30,"HSV square is visible in GPU readback ("+pickerColors+" colors)");
         if (lastTextCoverage >= 0) check(lastTextCoverage > 15, "last scrolled action text is visible in GPU readback (" + lastTextCoverage + " pixels)");
-        if (++index < views.size() * 6) { setup(); return false; }
+        if (++index < views.size() * 6 && System.getProperty("neon.smoke.pageIndex")==null) { setup(); return false; }
         Neon.autoclicker.setKey(InputConstants.getKey(binding)); KeyMapping.resetMapping(); Neon.applyConfig(original);
         mc.gui.setScreen(null);
         try { new me.xchro.neon.config.MenuPlacement().queue(mc.gameDirectory.toPath().resolve("config/neon-window.json"), Neon.SAVES); Neon.SAVES.flush().join(); } catch (Exception e) { throw new AssertionError(e); }

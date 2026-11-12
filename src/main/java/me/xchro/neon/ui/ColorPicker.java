@@ -4,83 +4,85 @@ import java.awt.Color;
 import java.util.*;
 import java.util.function.*;
 import me.xchro.neon.Neon;
-import me.xchro.neon.core.TimedValue;
 import me.xchro.neon.core.UiSoundPolicy.Cue;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.*;
 import net.minecraft.client.gui.narration.*;
-import net.minecraft.client.gui.navigation.ScreenRectangle;
 import net.minecraft.client.input.*;
 import org.lwjgl.glfw.GLFW;
 
-/** Floating color panel; live Unity HSV/alpha mechanics without moving the settings rows. */
+/** Color drawer contents; the parent owns the shared surface, title, outline and reveal. */
 final class ColorPicker extends AbstractContainerWidget {
     private final SettingsSession session;
     private final int initial;
-    private final String name;
     private IntSupplier synced;
     private BiConsumer<Integer, Boolean> changed;
     private int lastApplied;
-    private me.xchro.neon.config.ThemeColor syncRole;
+    private BooleanSupplier linked;
+    private Runnable toggleLink;
+    private boolean themeAlpha = true;
     private float hue, saturation, brightness, alpha;
-    private final TimedValue opening = new TimedValue(0);
     private final Picker shade = new Picker("Saturation and brightness", 1), hueBar = new Picker("Hue", 2), alphaBar = new Picker("Opacity", 3);
     private final UiButton copy, paste, sync;
     private final UiEditBox hex;
+    private final Preview originalPreview, currentPreview;
     private final List<AbstractWidget> controls;
-    private boolean invalidPaste, syncingHex, draggingHeader;
+    private boolean invalidPaste, syncingHex;
     private Integer hexStart;
     private boolean validHex;
-    private int square = 120, anchorX, anchorY, offsetX, offsetY, viewportWidth, viewportHeight;
-    private double grabX, grabY;
+    private int square = 144, visibleWidth;
     ColorPicker(String name, int color, SettingsSession session, IntSupplier synced, BiConsumer<Integer, Boolean> changed) {
-        super(0, 0, 184, 276, Ui.label("Color picker"));
-        this.name = name; this.initial = color; this.lastApplied = color; this.session = session; this.synced = synced; this.changed = changed; set(color);
-        copy = new UiButton("Copy", 0, 0, 78, 21, () -> {
-            finishHex();
-            var keyboard = Minecraft.getInstance().keyboardHandler;
-            if (!formatted().equals(keyboard.getClipboard())) { keyboard.setClipboard(formatted()); UiSounds.cue(Cue.CONFIRM); }
-        }).small();
+        super(0, 0, 144, 230, Ui.label("Color picker"));
+        this.initial = color; this.lastApplied = color; this.session = session; this.synced = synced; this.changed = changed; set(color);
+        copy = new UiButton("Copy", 0, 0, 78, 21, this::copy).identity("color/"+name+"/copy").small();
         paste = new UiButton("Paste", 0, 0, 78, 21, this::paste).small();
-        sync = new UiButton("Sync", 0, 0, 48, 21, UiButton.Kind.SEGMENT, () -> {
+        sync = new UiButton("Sync", 0, 0, 48, 21, UiButton.Kind.NORMAL, () -> {
             finishHex();
-            session.change(() -> Neon.config.theme.sync(syncRole, !Neon.config.theme.syncedColors.contains(syncRole)));
-            UiSounds.toggled(Neon.config.theme.syncedColors.contains(syncRole));
+            session.change(toggleLink);
+            UiSounds.toggled(linked.getAsBoolean());
             refreshSync(); Ui.refreshTheme();
-        }).small().selected(() -> syncRole != null && Neon.config.theme.syncedColors.contains(syncRole))
+        }).small().selected(() -> linked != null && linked.getAsBoolean())
             .hint("Link this color to Theme. Editing RGB makes it custom; alpha stays independent.");
         sync.visible = sync.active = false;
         hex = new UiEditBox(0, 0, 126, "Hex color").compact();
         hex.setMaxLength(9); syncHex(); hex.setResponder(this::editHex);
-        controls = new java.util.ArrayList<>(List.of(shade, hueBar, alphaBar, hex, copy, paste));
-        place(); opening.to(1, System.nanoTime(), 120_000_000L);
+        originalPreview = new Preview("Original color", () -> initial);
+        currentPreview = new Preview("Current color", this::value);
+        controls = new java.util.ArrayList<>(List.of(shade, hueBar, alphaBar, hex, copy, paste, originalPreview, currentPreview));
+        place();
     }
     void bind(IntSupplier synced, BiConsumer<Integer, Boolean> changed) { this.synced = synced; this.changed = changed; refreshSync(); }
     void syncRole(me.xchro.neon.config.ThemeColor role) {
-        syncRole = role; sync.visible = sync.active = role != null;
-        controls.remove(sync); if (role != null) controls.add(sync); place();
+        sync(role == null ? null : () -> Neon.config.theme.syncedColors.contains(role),
+            () -> Neon.config.theme.sync(role, !Neon.config.theme.syncedColors.contains(role)));
+        sync.hint("Link this color to Theme. Editing RGB makes it custom; alpha stays independent.");
     }
-    void anchor(ScreenRectangle menu, int width, int height) {
-        viewportWidth = width; viewportHeight = height;
-        // Keep the independent display density; only shorten the square on unusually short displays.
-        square = Math.clamp(height - 164, 24, 120);
-        setHeight(square + 156);
-        anchorX = menu.right() + 6;
-        if (anchorX + getWidth() > width - 4 && menu.left() - getWidth() - 6 >= 4)
-            anchorX = menu.left() - getWidth() - 6;
-        anchorX = Math.clamp(anchorX, 4, Math.max(4, width - getWidth() - 4));
-        anchorY = Math.clamp(menu.top(), 4, Math.max(4, height - getHeight() - 4));
-        position(anchorX + offsetX, anchorY + offsetY);
+    ColorPicker independent() { themeAlpha = false; return this; }
+    void sync(BooleanSupplier linked, Runnable toggle) {
+        this.linked = linked; toggleLink = toggle; sync.visible = sync.active = linked != null;
+        sync.hint("Follow the theme for this color. Editing it makes it custom.");
+        controls.remove(sync); if (linked != null) controls.add(sync); place();
     }
-    private void position(int x, int y) {
-        setX(Math.clamp(x, 4, Math.max(4, viewportWidth - getWidth() - 4)));
-        setY(Math.clamp(y, 4, Math.max(4, viewportHeight - getHeight() - 4)));
+    void layout(int x, int y, int width, int height, int visibleWidth) {
+        this.visibleWidth = Math.max(0, visibleWidth);
+        setWidth(width); setHeight(height);
+        square = Math.max(24, Math.min(width, height - 86));
+        setX(x); setY(y); place();
     }
-    void finish() { finishHex(); draggingHeader = false; setDragging(false); session.end(); }
-    boolean draggingPointer() { return draggingHeader || isDragging(); }
+    @Override public boolean isMouseOver(double x, double y) {
+        return active && x < getX() + visibleWidth && super.isMouseOver(x, y);
+    }
+    void finish() { finishHex(); setDragging(false); session.end(); }
+    boolean draggingPointer() { return isDragging(); }
     int value() { return Math.round(alpha * 255) << 24 | Color.HSBtoRGB(hue, saturation, brightness) & 0xffffff; }
     private String formatted() { return String.format(Locale.ROOT,"#%06X%02X", value() & 0xffffff, value() >>> 24); }
+    private void copy() {
+        finishHex();var keyboard=Minecraft.getInstance().keyboardHandler;String value=formatted();
+        boolean changed=!value.equals(keyboard.getClipboard());
+        if(changed)keyboard.setClipboard(value);
+        if(value.equals(keyboard.getClipboard())){copy.acknowledge("Copied");if(changed)UiSounds.cue(Cue.CONFIRM);}
+    }
     private void set(int color) {
         float[] hsv = Color.RGBtoHSB(color >> 16 & 255, color >> 8 & 255, color & 255, null);
         if (hsv[1] > 0) hue = hsv[0]; if (hsv[2] > 0) saturation = hsv[1]; brightness = hsv[2]; alpha = (color >>> 24) / 255f;
@@ -112,7 +114,8 @@ final class ColorPicker extends AbstractContainerWidget {
     }
     private void apply() {
         int color = value();
-        Neon.config.theme.alphaEnabled = true; changed.accept(color, ((lastApplied ^ color) & 0xffffff) != 0); lastApplied = color;
+        if (themeAlpha) Neon.config.theme.alphaEnabled = true;
+        changed.accept(color, ((lastApplied ^ color) & 0xffffff) != 0); lastApplied = color;
         Ui.refreshTheme(); invalidPaste = false;
         if (hex != null && !hex.isFocused()) syncHex();
     }
@@ -127,12 +130,16 @@ final class ColorPicker extends AbstractContainerWidget {
     private void place() {
         if (copy == null) return;
         int x = getX(), y = getY(), w = getWidth();
-        shade.setX(x + 10); shade.setY(y + 36); shade.setWidth(square); shade.setHeight(square);
-        hueBar.setX(x + 45); hueBar.setY(shade.getBottom() + 15); hueBar.setWidth(w - 89); hueBar.setHeight(7);
-        alphaBar.setX(hueBar.getX()); alphaBar.setY(hueBar.getY() + 22); alphaBar.setWidth(hueBar.getWidth()); alphaBar.setHeight(7);
-        if (hex != null) { hex.setX(x + 40); hex.setY(alphaBar.getY() + 25); hex.setWidth(w - 54); }
-        int buttonY = y + getHeight() - 31, buttonWidth = syncRole == null ? (w - 26) / 2 : (w - 32) / 3;
-        copy.setX(x + 10); copy.setY(buttonY); copy.setWidth(buttonWidth);
+        shade.setX(x + (w-square)/2); shade.setY(y); shade.setWidth(square); shade.setHeight(square);
+        hueBar.setX(x); hueBar.setY(shade.getBottom() + 5); hueBar.setWidth(w); hueBar.setHeight(8);
+        alphaBar.setX(x); alphaBar.setY(hueBar.getY() + 12); alphaBar.setWidth(w); alphaBar.setHeight(8);
+        if (hex != null) { hex.setX(x + 38); hex.setY(alphaBar.getY() + 21); hex.setWidth(w - 42); }
+        if (originalPreview != null) {
+            originalPreview.setX(x); originalPreview.setY(hex.getY()-3);
+            currentPreview.setX(x+16); currentPreview.setY(hex.getY()-3);
+        }
+        int buttonY = hex.getY() + 25, buttonWidth = linked == null ? (w - 6) / 2 : (w - 12) / 3;
+        copy.setX(x); copy.setY(buttonY); copy.setWidth(buttonWidth);
         paste.setX(copy.getRight() + 6); paste.setY(buttonY); paste.setWidth(buttonWidth);
         sync.setX(paste.getRight() + 6); sync.setY(buttonY); sync.setWidth(buttonWidth);
     }
@@ -144,18 +151,10 @@ final class ColorPicker extends AbstractContainerWidget {
     @Override public boolean mouseClicked(MouseButtonEvent e, boolean twice) {
         if (!isMouseOver(e.x(),e.y())) return false;
         if (!hex.isMouseOver(e.x(),e.y())) finishHex(true);
-        if (e.button() == 0 && e.y() < getY() + 26) {
-            draggingHeader = true; grabX = e.x() - getX(); grabY = e.y() - getY(); return true;
-        }
         super.mouseClicked(e,twice); return true;
     }
-    @Override public boolean mouseDragged(MouseButtonEvent e, double dx, double dy) {
-        if (draggingHeader) { position((int)Math.round(e.x()-grabX),(int)Math.round(e.y()-grabY)); offsetX=getX()-anchorX; offsetY=getY()-anchorY; return true; }
-        return super.mouseDragged(e,dx,dy);
-    }
     @Override public boolean mouseReleased(MouseButtonEvent e) {
-        boolean moved = draggingHeader; draggingHeader = false;
-        boolean handled = super.mouseReleased(e); session.end(); return moved || handled;
+        boolean handled = super.mouseReleased(e); session.end(); return handled;
     }
     @Override public boolean keyPressed(KeyEvent e) {
         if (hex.isFocused() && (e.key()==GLFW.GLFW_KEY_ENTER || e.key()==GLFW.GLFW_KEY_KP_ENTER || e.key()==GLFW.GLFW_KEY_ESCAPE)) { finishHex(e.key()!=GLFW.GLFW_KEY_ESCAPE); return true; }
@@ -164,33 +163,8 @@ final class ColorPicker extends AbstractContainerWidget {
     boolean editingHex() { return hex.isFocused(); }
     @Override protected void extractWidgetRenderState(GuiGraphicsExtractor g, int mx, int my, float delta) {
         refreshSync(); place();
-        float previousOpacity = Ui.opacity;
-        Ui.opacity *= (float)opening.to(1, System.nanoTime(), 120_000_000L);
-        g.nextStratum();
-        Ui.clip(g,getX(),getY(),getRight(),getBottom());
-        // Opaque floating surface prevents underlying controls showing through when it must overlap.
-        Ui.rect(g,getX(),getY(),getWidth(),getHeight(),Ui.PANEL|0xff000000); Ui.stroke(g, getX(),getY(),getWidth(),getHeight(),UiEffects.mix(Ui.LINE,Ui.OUTLINE,.45));
-        UiEffects.surfaceLight(g,getX()+1,getY()+1,getWidth()-2,getHeight()-2,Ui.PANEL|0xff000000);
-        Ui.stroke(g,getX(),getY(),getWidth(),1,Ui.OUTLINE);
-        Ui.text(g,name,getX()+10,getY()+8,Ui.TEXT);
-        swatch(g,getRight()-18,getY()+9,8,8,value(),Ui.MUTED);
-        Ui.rect(g,getX()+1,getY()+26,getWidth()-2,1,Ui.LINE);
-        int previewX=getRight()-46, previewSize=Math.min(36,Math.max(8,(square-34)/2));
-        UiFont.draw(g,"Original",previewX,shade.getY(),Ui.MUTED,8);
-        swatch(g,previewX,shade.getY()+14,36,previewSize,initial,Ui.MUTED);
-        int currentY=shade.getY()+square/2+3;
-        UiFont.draw(g,"Current",previewX,currentY,Ui.MUTED,8);
-        swatch(g,previewX,currentY+14,36,previewSize,value(),Ui.MUTED);
-        Ui.small(g,"Hue",getX()+10,hueBar.getY()-2,Ui.TEXT);
-        Ui.small(g,"Alpha",getX()+10,alphaBar.getY()-2,Ui.TEXT);
-        String hueValue=Math.round(hue*360)+"°", alphaValue=Math.round(alpha*100)+"%";
-        UiFont.draw(g,hueValue,getRight()-10-UiFont.width(hueValue,9),hueBar.getY()-2,Ui.MUTED,9);
-        UiFont.draw(g,alphaValue,getRight()-10-UiFont.width(alphaValue,9),alphaBar.getY()-2,Ui.MUTED,9);
-        Ui.small(g,"Hex",getX()+10,hex.getY()+1,Ui.TEXT);
         for(var control:controls) control.extractRenderState(g,mx,my,delta);
         if(invalidPaste) Ui.stroke(g, paste.getX(),paste.getY(),paste.getWidth(),paste.getHeight(),Ui.RED);
-        g.disableScissor();
-        Ui.opacity = previousOpacity;
     }
     static void swatch(GuiGraphicsExtractor g,int x,int y,int w,int h,int color,int border) {
         checker(g,x,y,w,h); Ui.rect(g,x,y,w,h,color); Ui.stroke(g, x,y,w,h,border);
@@ -200,6 +174,17 @@ final class ColorPicker extends AbstractContainerWidget {
             Ui.rect(g,x+px,y+py,Math.min(4,w-px),Math.min(4,h-py),((px+py)/4&1)==0?0xffabb6ba:0xff617077);
     }
     @Override protected void updateWidgetNarration(NarrationElementOutput output) { if(getFocused() instanceof AbstractWidget w) w.updateNarration(output); }
+    private static final class Preview extends AbstractWidget {
+        private final IntSupplier color;
+        Preview(String name, IntSupplier color) {
+            super(0,0,12,21,Ui.label(name)); this.color=color; active=false;
+            setTooltip(Tooltip.create(Ui.label(name)));
+        }
+        @Override protected void extractWidgetRenderState(GuiGraphicsExtractor g,int mx,int my,float delta) {
+            swatch(g,getX(),getY(),getWidth(),getHeight(),color.getAsInt(),Ui.LINE);
+        }
+        @Override protected void updateWidgetNarration(NarrationElementOutput output) { output.add(NarratedElementType.TITLE,getMessage()); }
+    }
     private final class Picker extends AbstractWidget {
         private final int kind;
         Picker(String name,int kind) { super(0,0,1,1,Ui.label(name)); this.kind=kind; }

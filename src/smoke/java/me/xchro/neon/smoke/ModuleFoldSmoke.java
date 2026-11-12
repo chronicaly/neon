@@ -3,7 +3,7 @@ package me.xchro.neon.smoke;
 import java.util.*;
 import me.xchro.neon.Neon;
 import me.xchro.neon.config.MenuPlacement;
-import me.xchro.neon.core.TimedValue;
+import me.xchro.neon.core.UiMotion;
 import me.xchro.neon.ui.*;
 import net.minecraft.client.*;
 import net.minecraft.client.gui.components.*;
@@ -39,14 +39,14 @@ final class ModuleFoldSmoke {
     private AbstractScrollArea scroll() {
         return widgets(menu).stream().filter(w -> w.getClass().getSimpleName().equals("UiScroll")).map(w -> (AbstractScrollArea) w).findFirst().orElseThrow();
     }
-    private TimedValue motion(AbstractWidget fold) throws Exception {
-        var field = fold.getClass().getDeclaredField("opening"); field.setAccessible(true); return (TimedValue) field.get(fold);
+    private UiMotion motion(AbstractWidget fold) throws Exception {
+        var field = fold.getClass().getDeclaredField("opening"); field.setAccessible(true); return (UiMotion) field.get(fold);
     }
     private void layout() throws Exception {
         var method = scroll().getClass().getDeclaredMethod("relayout"); method.setAccessible(true); method.invoke(scroll());
     }
     private void sample(long millis) throws Exception {
-        var started = TimedValue.class.getDeclaredField("started"); started.setAccessible(true);
+        var started = UiMotion.class.getDeclaredField("started"); started.setAccessible(true);
         started.setLong(motion(fold()), System.nanoTime() - millis * 1_000_000L); layout();
     }
     private MouseButtonEvent pointer(double x, double y) {

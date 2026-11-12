@@ -97,4 +97,28 @@ class ModuleBindingsTest {
         assertEquals(456, small.width());
         assertTrue(small.x() >= 14 && small.x() + small.width() <= 470);
     }
+    @Test void colorDrawerSharesTheShellAndReversesWithoutJumping() {
+        for (int viewport : new int[]{484, 700, 968, 1452}) {
+            var motion = new ExpandingMenu(); motion.reveal(); motion.color(true, 0);
+            double previous = 0;
+            for (long time = 0; time <= ExpandingMenu.DURATION; time += 1_000_000) {
+                var frame = motion.frame(400, 440, viewport, time);
+                assertTrue(frame.x() >= 14 && frame.x() + frame.width() <= viewport - 14 + .001);
+                assertTrue(frame.colorWidth() >= previous); previous = frame.colorWidth();
+                assertEquals(frame.width(), frame.mainWidth() + frame.drawerWidth() + frame.colorWidth(), .000001);
+                assertTrue(frame.mainWidth() >= 280);
+            }
+            var open = motion.frame(400, 440, viewport, ExpandingMenu.DURATION);
+            assertEquals(open.fullColorWidth(), open.colorWidth());
+            assertEquals(open.replacesDetails() ? 0 : open.fullDrawerWidth(), open.drawerWidth());
+            long turn = ExpandingMenu.DURATION + 120_000_000;
+            motion.color(false, ExpandingMenu.DURATION);
+            var before = motion.frame(400, 440, viewport, turn);
+            motion.color(true, turn);
+            assertEquals(before, motion.frame(400, 440, viewport, turn));
+            motion.color(false, turn);
+            var closed = motion.frame(400, 440, viewport, turn + ExpandingMenu.DURATION);
+            assertEquals(0, closed.colorWidth()); assertEquals(closed.fullDrawerWidth(), closed.drawerWidth());
+        }
+    }
 }

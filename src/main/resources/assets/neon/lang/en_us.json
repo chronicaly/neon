@@ -8,5 +8,6 @@
   "key.neon.motion_blur": "Motion blur activation",
   "key.neon.totem_pops": "Totem pops activation",
   "key.neon.better_chat": "Better chat activation",
+  "key.neon.better_screenshot": "Better screenshot activation",
   "modmenu.descriptionTranslation.neon": "Freelook, zoom, autoclicker, and a vanilla armor and totem HUD. Press P (default) for the Neon menu. Configure bindings in Controls."
 }

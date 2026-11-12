@@ -3,7 +3,7 @@ package me.xchro.neon.smoke;
 import java.util.*;
 import me.xchro.neon.Neon;
 import me.xchro.neon.config.*;
-import me.xchro.neon.core.TimedValue;
+import me.xchro.neon.core.UiMotion;
 import me.xchro.neon.hud.*;
 import me.xchro.neon.ui.*;
 import net.minecraft.client.*;
@@ -38,11 +38,11 @@ final class HudUpgradeSmoke {
         return widgets(editor).stream().filter(w -> w.getMessage().getString().equals(name)).findFirst().orElseThrow();
     }
     private AbstractWidget fold() { return named("Armor settings"); }
-    private TimedValue motion() throws Exception {
-        var f = fold().getClass().getDeclaredField("opening"); f.setAccessible(true); return (TimedValue) f.get(fold());
+    private UiMotion motion() throws Exception {
+        var f = fold().getClass().getDeclaredField("opening"); f.setAccessible(true); return (UiMotion) f.get(fold());
     }
     private void sample(long millis) throws Exception {
-        var f = TimedValue.class.getDeclaredField("started"); f.setAccessible(true); f.setLong(motion(), System.nanoTime() - millis * 1_000_000L);
+        var f = UiMotion.class.getDeclaredField("started"); f.setAccessible(true); f.setLong(motion(), System.nanoTime() - millis * 1_000_000L);
         var tick = fold().getClass().getDeclaredMethod("tick"); tick.setAccessible(true); tick.invoke(fold());
         var layout = HudEditor.class.getDeclaredMethod("layoutColumn"); layout.setAccessible(true); layout.invoke(editor);
     }

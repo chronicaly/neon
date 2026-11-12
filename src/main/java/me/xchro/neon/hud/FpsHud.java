@@ -1,7 +1,7 @@
 package me.xchro.neon.hud;
 
 import me.xchro.neon.Neon;
-import me.xchro.neon.config.ThemeColor;
+import me.xchro.neon.config.FpsColor;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 
@@ -28,13 +28,13 @@ public final class FpsHud {
     public static void draw(GuiGraphicsExtractor g, int width, int height) {
         var c = Neon.config;
         if (!c.fps.visible) return;
-        var b = bounds(width, height); var t = c.theme;
+        var b = bounds(width, height);
         if (c.fpsBackground) {
-            int color = t.color(ThemeColor.BACKGROUND);
+            int color = FpsColor.BACKGROUND.color(c);
             g.fill(b.x(), b.y(), b.x() + b.width(), b.y() + b.height(), color & 0xffffff | (int) Math.round((color >>> 24) * .78) << 24);
         }
         if (c.fpsBorder) {
-            int color = t.color(ThemeColor.OUTLINE), x = b.x(), y = b.y(), r = x + b.width(), bottom = y + b.height();
+            int color = FpsColor.BORDER.color(c), x = b.x(), y = b.y(), r = x + b.width(), bottom = y + b.height();
             g.fill(x, y, r, y + 1, color); g.fill(x, bottom - 1, r, bottom, color);
             g.fill(x, y + 1, x + 1, bottom - 1, color); g.fill(r - 1, y + 1, r, bottom - 1, color);
         }
@@ -42,8 +42,8 @@ public final class FpsHud {
         g.pose().pushMatrix();
         g.pose().translate(b.x() + paddingX(), b.y() + paddingY());
         g.pose().scale(textScale());
-        g.text(font, "FPS ", 0, 0, t.color(ThemeColor.MUTED), c.fpsShadow);
-        g.text(font, Integer.toString(value()), font.width("FPS "), 0, t.color(ThemeColor.TEXT), c.fpsShadow);
+        g.text(font, "FPS ", 0, 0, FpsColor.LABEL.color(c), c.fpsShadow);
+        g.text(font, Integer.toString(value()), font.width("FPS "), 0, FpsColor.VALUE.color(c), c.fpsShadow);
         g.pose().popMatrix();
     }
 }

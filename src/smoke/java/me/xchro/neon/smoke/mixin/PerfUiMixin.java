@@ -7,7 +7,8 @@ import org.spongepowered.asm.mixin.injection.callback.*;
 public abstract class PerfUiMixin {
     @ModifyArgs(method="extractRenderState",at=@At(value="INVOKE",target="Lme/xchro/neon/ui/PixelScreen;renderPixels(Lnet/minecraft/client/gui/GuiGraphicsExtractor;IIF)V"))
     private void hoverPointer(org.spongepowered.asm.mixin.injection.invoke.arg.Args args) {
-        var point=me.xchro.neon.smoke.HoverGlowSmoke.pointer();
+        var point=me.xchro.neon.smoke.PremiumSmoke.pointer();
+        if(point==null)point=me.xchro.neon.smoke.HoverGlowSmoke.pointer();
         if(point==null)point=me.xchro.neon.smoke.ModuleGridSmoke.pointer();
         if(point!=null){args.set(1,point[0]);args.set(2,point[1]);}
     }

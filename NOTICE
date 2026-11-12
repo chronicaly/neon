@@ -56,3 +56,9 @@ MixinChatComponent.java in Unity revision 5bbd639. Neon retains vanilla chat
 fonts, links, signatures and original history, adds server-chat mention support,
 and supplies independent message/mention pings and native settings. Unity's
 checkout and installed artifacts are not modified.
+
+At the author's explicit request, Better Screenshot ports ExtraScreenshotModule.java,
+MixinScreenshot.java and WindowsImageClipboard.java from Unity revision 5bbd639.
+The asynchronous clipboard worker, desktop image fallback and native Windows
+CF_DIB transfer are adapted to Neon's bindings, persistence, silent local notices
+and lifecycle. Vanilla PNG saving remains intact even when clipboard copying fails.

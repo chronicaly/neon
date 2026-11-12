@@ -4,6 +4,9 @@ import java.util.*;
 import java.util.function.*;
 import me.xchro.neon.Neon;
 import me.xchro.neon.config.NeonConfig;
+import me.xchro.neon.config.FpsColor;
+import me.xchro.neon.core.UiMotion;
+import me.xchro.neon.core.ExpandingMenu;
 import me.xchro.neon.config.HudPanelPlacement;
 import me.xchro.neon.config.NeonConfig.ArmorAnchor;
 import me.xchro.neon.hud.*;
@@ -42,9 +45,15 @@ public final class HudEditor extends PixelScreen {
     private double startX, startY, startScale, panelGrabX, panelGrabY;
     private HudBounds origin;
     private HudResize resizeGesture;
+    private int resizeCorner;
     private double guideX = -1, guideY = -1;
     private String error = "";
     private boolean animateRows;
+    private final UiMotion colorMotion = new UiMotion(0);
+    private FpsColor colorRole;
+    private ColorPicker colorPicker, closingPicker;
+    private String colorTitle = "";
+    private int shellX, shellY, shellWidth, shellHeight, colorWidth;
     public HudEditor(Screen parent) {
         super(Ui.label("HUD editor")); this.parent = parent;
         session = parent instanceof SettingsScreen settings ? settings.session() : new SettingsSession();
@@ -57,7 +66,7 @@ public final class HudEditor extends PixelScreen {
     }
     public boolean damagePreview() { return damagePreview; }
     public boolean controlsVisible() { return toolbar && gesture != Gesture.MOVE && gesture != Gesture.RESIZE; }
-    public ScreenRectangle inspectorBounds() { return new ScreenRectangle(px, py, pw, ph); }
+    public ScreenRectangle inspectorBounds() { return new ScreenRectangle(shellX, shellY, shellWidth, shellHeight); }
     // Unity's panel starts at 157/255 alpha. Keep row overlays translucent too:
     // stacking the normal menu's almost-opaque surfaces hides the placement canvas.
     static int surface(int color, int alpha) { return Ui.alpha(color, (color >>> 24) * alpha / 255); }
@@ -79,7 +88,7 @@ public final class HudEditor extends PixelScreen {
     private double detachedScale() { return Math.clamp(pixelScale() / NeonHud.density(), .5, 3); }
     private HudBounds bounds() { return bounds(selected); }
     // Ported from Unity HudEditorScreen: a root toggles on left click and folds on right click.
-    private void fold(String key) { if (column != null) column.pinHeader(key); if (!expanded.remove(key)) expanded.add(key); animateRows = true; rebuildWidgets(); UiSounds.cue(expanded.contains(key) ? Cue.NAVIGATE : Cue.BACK); }
+    private void fold(String key) { if (column != null) column.pinHeader(key); if (!expanded.remove(key)) expanded.add(key); if (key.equals("FPS") && !expanded.contains(key)) closeColor(false); animateRows = true; rebuildWidgets(); UiSounds.cue(expanded.contains(key) ? Cue.NAVIGATE : Cue.BACK); }
     private void root(List<Row> out, Element element, String name) {
         out.add(new Row(element.name(), name, 0, visible(element),
             () -> { selected = element; session.change(() -> widget().visible = !widget().visible); UiSounds.toggled(widget().visible); rebuildWidgets(); },
@@ -120,6 +129,7 @@ public final class HudEditor extends PixelScreen {
                 bool(out, "fps:background", "Background", 1, c.fpsBackground, () -> c.fpsBackground = !c.fpsBackground);
                 bool(out, "fps:border", "Border", 1, c.fpsBorder, () -> c.fpsBorder = !c.fpsBorder);
                 bool(out, "fps:shadow", "Shadow", 1, c.fpsShadow, () -> c.fpsShadow = !c.fpsShadow);
+                for (FpsColor role : FpsColor.values()) out.add(new Row("fps:"+role.name(),role.label,1,role,null,null));
             }
         }
         group(out, "general", "General", 0);
@@ -164,9 +174,17 @@ public final class HudEditor extends PixelScreen {
         if (animateRows) column.restorePosition(position); else column.setScrollAmount(position);
         memory.restore(column, false); animateRows = false;
         if (column.getFocused() != null) setFocused(column);
+        if (colorPicker != null) {
+            FpsColor role=colorRole;
+            colorPicker.bind(() -> role.color(Neon.config),(value,rgb) -> role.color(Neon.config,value));
+            addWidget(colorPicker);
+        }
+        layoutColor();
         refresh();
     }
     private AbstractWidget control(Row row) {
+        if (row.value instanceof FpsColor role) return new ColorRow(role.label,pw-2,() -> role.color(Neon.config),
+            () -> openColor(role),() -> colorRole == role).hudRow().identity(row.key);
         if (row.value instanceof Range r) return new ExactSlider(this, session, row.label, pw - 2, r.value, r.min, r.max, r.step,
             n -> NumberValue.format(n) + (row.label.endsWith("scale") || row.label.equals("Scale") ? "x" : row.label.equals("Warn below") ? "%" : row.label.equals("Snap sensitivity") ? "px" : ""), r.setter).inlineRow().identity(row.key);
         return new HudEntry(row.label, pw - 2, () -> Boolean.TRUE.equals(row.value),
@@ -178,6 +196,38 @@ public final class HudEditor extends PixelScreen {
         ph = Math.min(23 + column.contentHeight(), canvasHeight() - py - 8);
         column.setHeight(Math.max(22, ph - 23));
         column.relayout();
+        layoutColor();
+    }
+    private void openColor(FpsColor role) {
+        if (colorRole == role) { closeColor(true); return; }
+        if (colorPicker != null) { colorPicker.finish(); removeWidget(colorPicker); }
+        closingPicker = null; colorRole = role; colorTitle = role.label;
+        colorPicker = new ColorPicker(role.label,role.color(Neon.config),session,() -> role.color(Neon.config),
+            (value,rgb) -> role.color(Neon.config,value)).independent();
+        colorPicker.sync(() -> role.synced(Neon.config),() -> role.sync(Neon.config));
+        addWidget(colorPicker); colorMotion.to(1,System.nanoTime(),ExpandingMenu.DURATION); layoutColor();
+        UiSounds.cue(Cue.NAVIGATE);
+    }
+    private void closeColor(boolean sound) {
+        if (colorPicker == null) return;
+        finishPointerGesture(); colorPicker.finish(); removeWidget(colorPicker);
+        if (getFocused() == colorPicker) setFocused(column);
+        closingPicker = colorPicker; closingPicker.active = false; colorPicker = null; colorRole = null;
+        colorMotion.to(0,System.nanoTime(),ExpandingMenu.DURATION); layoutColor();
+        if (sound) UiSounds.cue(Cue.BACK);
+    }
+    private void layoutColor() {
+        double reveal = colorMotion.value(System.nanoTime(),ExpandingMenu.DURATION);
+        colorWidth = (int)Math.round(ExpandingMenu.COLOR_WIDTH * reveal);
+        shellWidth = pw + colorWidth;
+        shellHeight = ph + (int)Math.round(Math.max(0,Math.min(260,canvasHeight()-16)-ph)*reveal);
+        shellX = Math.clamp(px,8,Math.max(8,canvasWidth()-shellWidth-8));
+        shellY = Math.clamp(py,8,Math.max(8,canvasHeight()-shellHeight-8));
+        if (column != null) { column.setX(shellX+1); column.setY(shellY+22); }
+        var picker = colorPicker != null ? colorPicker : closingPicker;
+        if (picker != null) picker.layout(shellX+pw+12,shellY+22,ExpandingMenu.COLOR_WIDTH-24,
+            Math.min(230,Math.max(110,shellHeight-30)),Math.max(0,colorWidth-24));
+        if (colorPicker == null && colorWidth == 0) closingPicker = null;
     }
     private <T extends AbstractWidget> T addInspector(T widget) { inspector.add(widget); return addRenderableWidget(widget); }
     private void select(Element next) {
@@ -200,6 +250,7 @@ public final class HudEditor extends PixelScreen {
     @Override public boolean isPauseScreen() { return false; }
     @Override protected void pixelBackground(GuiGraphicsExtractor g, int x, int y, float delta) {}
     @Override protected void renderPixels(GuiGraphicsExtractor g, int mx, int my, float delta) {
+        layoutColor();
         boolean folding = false;
         for (var fold : folds.values()) folding |= fold.tick();
         if (folding) layoutColumn();
@@ -218,10 +269,17 @@ public final class HudEditor extends PixelScreen {
             g.pose().popMatrix();
         }
         if (controlsVisible()) {
-            Ui.rect(g, px, py, pw, ph, surface(Ui.PANEL, 157));
-            Ui.stroke(g, px, py, pw, ph, surface(Ui.MUTED, 100));
-            Ui.text(g, "HUD", px + 5, py + 6, Ui.TEXT);
+            Ui.rect(g, shellX, shellY, shellWidth, shellHeight, surface(Ui.PANEL, 157));
+            Ui.stroke(g, shellX, shellY, shellWidth, shellHeight, surface(Ui.MUTED, 100));
+            Ui.text(g, "HUD", shellX + 5, shellY + 6, Ui.TEXT);
             refresh(); renderWidgets(g, mx, my, delta);
+            var picker = colorPicker != null ? colorPicker : closingPicker;
+            if (picker != null && colorWidth > 1) {
+                Ui.clip(g,shellX+pw,shellY+1,shellX+shellWidth-1,shellY+shellHeight-1);
+                Ui.text(g,colorTitle,shellX+pw+12,shellY+6,Ui.TEXT);
+                picker.extractRenderState(g,colorPicker == null ? -10000 : mx,colorPicker == null ? -10000 : my,delta);
+                g.disableScissor();
+            }
         }
         if (!error.isEmpty()) Ui.small(g, error, 12, 12, Ui.RED);
     }
@@ -231,6 +289,23 @@ public final class HudEditor extends PixelScreen {
         int y = (corner < 2 ? b.y() : b.y() + b.height()) - size / 2;
         return new HudBounds(Math.clamp(x, 0, hudWidth() - size), Math.clamp(y, 0, hudHeight() - size), size, size);
     }
+    @Override protected void cursor(GuiGraphicsExtractor g,int mx,int my) {
+        super.cursor(g,mx,my);
+        if(gesture==Gesture.RESIZE){g.requestCursor(UiCursors.corner(resizeCorner));return;}
+        if(gesture==Gesture.MOVE||gesture==Gesture.PANEL){g.requestCursor(com.mojang.blaze3d.platform.cursor.CursorTypes.RESIZE_ALL);return;}
+        if(hasPointerGesture())return;
+        if(controlsVisible()&&mx>=shellX&&mx<=shellX+shellWidth&&my>=shellY&&my<=shellY+shellHeight){
+            if(my<shellY+22)g.requestCursor(com.mojang.blaze3d.platform.cursor.CursorTypes.RESIZE_ALL);
+            return;
+        }
+        double x=hudCoordinate(mx),y=hudCoordinate(my);
+        for(Element element:hitOrder()){
+            if(!visible(element))continue;HudBounds b=bounds(element);
+            for(int i=0;i<4;i++)if((element!=Element.TOTEMS||Neon.config.totemFloating)&&handle(b,i).contains(x,y)){g.requestCursor(UiCursors.corner(i));return;}
+            if(b.contains(x,y)){g.requestCursor(com.mojang.blaze3d.platform.cursor.CursorTypes.RESIZE_ALL);return;}
+        }
+    }
+    private java.util.List<Element> hitOrder(){var order=new ArrayList<>(List.of(Element.values()));order.remove(selected);order.addFirst(selected);return order;}
     private void move(double x, double y, boolean snap) {
         detachTotem();
         HudBounds b = bounds(); guideX = guideY = -1;
@@ -243,13 +318,23 @@ public final class HudEditor extends PixelScreen {
         if (selected == Element.ARMOR) Neon.config.armorAnchor = ArmorAnchor.CUSTOM;
     }
     @Override protected boolean pixelMouseClicked(MouseButtonEvent e, boolean twice) {
+        if (colorPicker != null) {
+            if (colorPicker.isMouseOver(e.x(),e.y())) {
+                colorPicker.mouseClicked(e,twice); setFocused(colorPicker); setDragging(e.button()==0);
+                if (e.button()==0 && colorPicker.draggingPointer()) capturePointer(colorPicker,e);
+                return true;
+            }
+            if (e.x()<shellX || e.x()>shellX+shellWidth || e.y()<shellY || e.y()>shellY+shellHeight) closeColor(true);
+        }
         ExactSlider editing = editingSlider();
         if (editing != null && !editing.isMouseOver(e.x(), e.y()) && !editing.finishInline(true)) return true;
-        if (toolbar && e.button() == 0 && e.x() >= px && e.x() <= px + pw && e.y() >= py && e.y() < py + 22) {
-            gesture = Gesture.PANEL; panelOriginX = px; panelOriginY = py; panelGrabX = e.x() - px; panelGrabY = e.y() - py; return true;
+        if (toolbar && e.button() == 0 && e.x() >= shellX && e.x() <= shellX + shellWidth && e.y() >= shellY && e.y() < shellY + 22) {
+            if (colorPicker != null) colorPicker.finish();
+            setFocused((GuiEventListener)null);
+            gesture = Gesture.PANEL; panelOriginX = px; panelOriginY = py; px=shellX;py=shellY;panelGrabX = e.x() - px; panelGrabY = e.y() - py; return true;
         }
         if (super.pixelMouseClicked(e, twice)) return true;
-        if (toolbar && e.x() >= px && e.x() <= px + pw && e.y() >= py && e.y() <= py + ph) return true;
+        if (toolbar && e.x() >= shellX && e.x() <= shellX + shellWidth && e.y() >= shellY && e.y() <= shellY + shellHeight) return true;
         e = new MouseButtonEvent(hudCoordinate(e.x()), hudCoordinate(e.y()), e.buttonInfo());
         if (e.button() == 1) {
             for (Element element : Element.values()) if (visible(element) && bounds(element).contains(e.x(), e.y())) {
@@ -265,12 +350,11 @@ public final class HudEditor extends PixelScreen {
         if (e.button() != 0) return false;
         setFocused((GuiEventListener) null);
         // Selection takes precedence when widgets overlap; the inspector can select either one.
-        var hitOrder = new ArrayList<>(List.of(Element.values())); hitOrder.remove(selected); hitOrder.addFirst(selected);
-        for (Element element : hitOrder) {
+        for (Element element : hitOrder()) {
             if (!visible(element)) continue;
             HudBounds b = bounds(element);
             for (int i=0;i<4;i++) if((element != Element.TOTEMS || Neon.config.totemFloating) && handle(b,i).contains(e.x(),e.y())) {
-                select(element);start(e,Gesture.RESIZE);resizeGesture=new HudResize(widget(),origin,i,startScale);return true;
+                select(element);start(e,Gesture.RESIZE);resizeCorner=i;resizeGesture=new HudResize(widget(),origin,i,startScale);return true;
             }
             if (b.contains(e.x(), e.y())) { select(element); start(e, Gesture.MOVE); return true; }
         }
@@ -282,10 +366,10 @@ public final class HudEditor extends PixelScreen {
     }
     @Override protected boolean pixelMouseDragged(MouseButtonEvent e, double dx, double dy) {
         if (gesture == Gesture.PANEL) {
-            int nx = Math.clamp((int) (e.x() - panelGrabX), 8, canvasWidth() - pw - 8);
-            int ny = Math.clamp((int) (e.y() - panelGrabY), 8, Math.max(8, canvasHeight() - ph - 8));
+            int nx = Math.clamp((int) (e.x() - panelGrabX), 8, Math.max(8,canvasWidth() - shellWidth - 8));
+            int ny = Math.clamp((int) (e.y() - panelGrabY), 8, Math.max(8, canvasHeight() - shellHeight - 8));
             int ox = nx - px, oy = ny - py; px = nx; py = ny;
-            for (AbstractWidget widget : inspector) { widget.setX(widget.getX() + ox); widget.setY(widget.getY() + oy); } return true;
+            for (AbstractWidget widget : inspector) { widget.setX(widget.getX() + ox); widget.setY(widget.getY() + oy); } layoutColor(); return true;
         }
         if (gesture != Gesture.MOVE && gesture != Gesture.RESIZE) return super.pixelMouseDragged(e, dx, dy);
         e = new MouseButtonEvent(hudCoordinate(e.x()), hudCoordinate(e.y()), e.buttonInfo());
@@ -308,7 +392,8 @@ public final class HudEditor extends PixelScreen {
         boolean control = super.pixelMouseReleased(e); if (handled) rebuildWidgets(); return handled || control;
     }
     @Override protected boolean pixelMouseScrolled(double x, double y, double dx, double dy) {
-        if (toolbar && x >= px && x <= px + pw && y >= py && y <= py + ph) return super.pixelMouseScrolled(x, y, dx, dy);
+        if (colorPicker != null && colorPicker.isMouseOver(x,y)) return true;
+        if (toolbar && x >= shellX && x <= shellX + shellWidth && y >= shellY && y <= shellY + shellHeight) { super.pixelMouseScrolled(x, y, dx, dy); return true; }
         if (visible(selected) && bounds().contains(hudCoordinate(x), hudCoordinate(y)) && dy != 0) {
             if (selected == Element.TOTEMS && !Neon.config.totemFloating) return true;
             double current = widget().scale;
@@ -318,16 +403,26 @@ public final class HudEditor extends PixelScreen {
     }
     @Override protected boolean pixelKeyPressed(KeyEvent e) {
         if (cancelNumberDrag(e)) return true;
+        if (colorPicker != null && colorPicker.editingHex() && (e.key()==GLFW.GLFW_KEY_ESCAPE || e.key()==GLFW.GLFW_KEY_ENTER || e.key()==GLFW.GLFW_KEY_KP_ENTER)) return colorPicker.keyPressed(e);
         ExactSlider editing = editingSlider();
         if (editing != null) return editing.keyPressed(e);
         if (e.key() == GLFW.GLFW_KEY_Z && (e.modifiers() & GLFW.GLFW_MOD_CONTROL) != 0) { session.undo(); rebuildWidgets(); return true; }
-        if (e.key() == GLFW.GLFW_KEY_H || e.key() == GLFW.GLFW_KEY_TAB) { toolbar = !toolbar; rebuildWidgets(); return true; }
         if (e.key() == GLFW.GLFW_KEY_ESCAPE && gesture != Gesture.NONE) {
             if (gesture == Gesture.PANEL) { px = panelOriginX; py = panelOriginY; }
             else session.cancel();
             rebuildWidgets(); return true;
         }
-        if (getFocused() != null || !visible(selected)) return super.pixelKeyPressed(e);
+        if (colorPicker != null && e.key()==GLFW.GLFW_KEY_ESCAPE) { closeColor(true); return true; }
+        if (colorPicker != null && (colorPicker.editingHex() || e.key()==GLFW.GLFW_KEY_TAB)) { colorMotion.snap(1);layoutColor();return super.pixelKeyPressed(e); }
+        if (e.key() == GLFW.GLFW_KEY_H || e.key() == GLFW.GLFW_KEY_TAB) { closeColor(false); toolbar = !toolbar; rebuildWidgets(); return true; }
+        if (getFocused() != null || !visible(selected)) {
+            var before = colorPicker; boolean handled = super.pixelKeyPressed(e);
+            if (colorPicker != null && (before != colorPicker || getFocused() == colorPicker)) {
+                if (before != colorPicker) {setFocused(colorPicker);colorPicker.setFocused(colorPicker.children().getFirst());}
+                colorMotion.snap(1);layoutColor();
+            }
+            return handled;
+        }
         int step = (e.modifiers() & GLFW.GLFW_MOD_SHIFT) != 0 ? 10 : 1; HudBounds b = bounds();
         switch (e.key()) {
             case GLFW.GLFW_KEY_LEFT -> session.change(() -> move(b.x() - step, b.y(), false));
@@ -346,5 +441,5 @@ public final class HudEditor extends PixelScreen {
         if (gesture == Gesture.PANEL) { placement.capture(px, py, canvasWidth(), canvasHeight()); placement.queue(placementFile, Neon.SAVES); }
         gesture = Gesture.NONE; resizeGesture = null; guideX = guideY = -1; session.end();
     }
-    @Override public void removed() { super.removed(); session.end(); gesture = Gesture.NONE; Neon.flushSaves(); }
+    @Override public void removed() { super.removed(); if(colorPicker!=null)colorPicker.finish(); colorPicker=closingPicker=null;colorRole=null;colorMotion.snap(0);session.end(); gesture = Gesture.NONE; Neon.flushSaves(); }
 }

@@ -45,7 +45,7 @@ final class UiFont {
         // Never evict an atlas while the current frame still references it.
         ensureDensity();
         frame++;
-        for (Face face : FACES.values()) while (face.pages.size() > 3) {
+        for (Face face : FACES.values()) while (face.pages.size() > 3 && !MenuPresentation.retainsTextures()) {
             Page victim = face.pages.stream().min(Comparator.comparingLong(p -> p.lastUsed)).orElseThrow();
             face.runs.values().removeIf(run -> run.page == victim);
             face.pages.remove(victim); victim.texture.close();

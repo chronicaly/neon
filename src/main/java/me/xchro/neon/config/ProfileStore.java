@@ -52,17 +52,23 @@ public final class ProfileStore {
         return ConfigStore.copy(found);
     }
     public void put(String name, NeonConfig config) throws IOException {
+        putAsync(name,config);
+    }
+    public java.util.concurrent.CompletableFuture<Void> putAsync(String name, NeonConfig config) throws IOException {
         name = validName(name);
         Data next = new Data(); next.profiles.putAll(data.profiles);
-        next.profiles.put(name, ConfigStore.copy(config)); persist(next);
+        next.profiles.put(name, ConfigStore.copy(config)); return persist(next);
     }
     public void delete(String name) throws IOException {
         Data next = new Data(); next.profiles.putAll(data.profiles); next.profiles.remove(name); persist(next);
     }
-    private void persist(Data next) throws IOException {
+    private java.util.concurrent.CompletableFuture<Void> persist(Data next) throws IOException {
         String snapshot = GSON.toJson(next);
-        if (writer == null) ConfigStore.writeAtomically(file, snapshot); else writer.submit(file, snapshot);
+        java.util.concurrent.CompletableFuture<Void> completion;
+        if (writer == null) { ConfigStore.writeAtomically(file, snapshot); completion=java.util.concurrent.CompletableFuture.completedFuture(null); }
+        else completion=writer.submit(file, snapshot);
         data = next;
+        return completion;
     }
     public static String validName(String name) {
         String trimmed = name == null ? "" : name.trim();

@@ -25,7 +25,7 @@ public final class ExactSlider extends AbstractSliderButton {
     private boolean compact;
     private int compactValueWidth;
     private UiEditBox edit;
-    private me.xchro.neon.core.TimedValue motion;
+    private me.xchro.neon.core.UiMotion motion;
     private boolean draggingValue;
     private NumberDrag drag;
     private String identity;
@@ -80,6 +80,12 @@ public final class ExactSlider extends AbstractSliderButton {
     private int compactTrackY() { return getY() + (compactStacked() ? 31 : 13); }
     private double trackLeft() { return inline ? getX() : compact ? compactTrackLeft() : getX() + (fullRow ? 3 : 6); }
     private double trackWidth() { return Math.max(1, inline ? getWidth() : compact ? compactTrackRight() - compactTrackLeft() : getWidth() - (fullRow ? 6 : 12)); }
+    private boolean exactTarget(double x,double y) {
+        if(inline)return false;
+        if(compact)return x>=getRight()-compactValueWidth&&(!compactStacked()||y<getY()+22);
+        int textWidth=Ui.width(getMessage().getString());double center=fullRow?getRight()-textWidth/2.0:getX()+getWidth()/2.0;
+        return y<getY()+14&&Math.abs(x-center)<=textWidth/2.0+4;
+    }
     private void accept(double next) {
         number = next; value = (number - min) / (max - min);
         set.accept(number); updateMessage();
@@ -97,7 +103,7 @@ public final class ExactSlider extends AbstractSliderButton {
         super(0, 0, width, 26, Component.empty(), (current - min) / (max - min));
         this.parent = parent; this.session = session; this.name = name; this.min = min; this.max = max;
         this.step = step; this.format = format; this.set = set; number = current; updateMessage();
-        motion = new me.xchro.neon.core.TimedValue(value);
+        motion = new me.xchro.neon.core.UiMotion(value);
     }
     private void typeValue() {
         session.end();
@@ -130,13 +136,11 @@ public final class ExactSlider extends AbstractSliderButton {
         if (edit != null) { edit.mouseClicked(event, doubled); return; }
         if (inline) { beginDrag(event); return; }
         if (compact) {
-            if (event.x() >= getRight() - compactValueWidth && (!compactStacked() || event.y() < getY() + 22)) { typeValue(); return; }
+            if (exactTarget(event.x(),event.y())) { typeValue(); return; }
             if (event.x() < compactTrackLeft() - 4 || compactStacked() && event.y() < getY() + 22) return;
             beginDrag(event); return;
         }
-        int textWidth = Ui.width(getMessage().getString());
-        double center = fullRow ? getRight() - textWidth / 2.0 : getX() + getWidth() / 2.0;
-        if (event.y() < getY() + 14 && Math.abs(event.x() - center) <= textWidth / 2.0 + 4) { typeValue(); return; }
+        if (exactTarget(event.x(),event.y())) { typeValue(); return; }
         beginDrag(event);
     }
     @Override public void onRelease(MouseButtonEvent event) { finishDrag(false); }
@@ -162,6 +166,10 @@ public final class ExactSlider extends AbstractSliderButton {
     }
     @Override protected void updateMessage() { if (format != null) setMessage(Ui.label(format.apply(number))); }
     @Override public void extractWidgetRenderState(net.minecraft.client.gui.GuiGraphicsExtractor g, int mx, int my, float delta) {
+        if(active&&isHovered()&&edit==null){
+            if(exactTarget(mx,my))g.requestCursor(com.mojang.blaze3d.platform.cursor.CursorTypes.IBEAM);
+            else if(inline||mx>=trackLeft()&&mx<=trackLeft()+trackWidth()&&(!compact||!compactStacked()||my>=getY()+22))g.requestCursor(com.mojang.blaze3d.platform.cursor.CursorTypes.RESIZE_EW);
+        }
         double displayed = motion.to(value, System.nanoTime(), VALUE_MOTION_NANOS);
         if (inline) {
             Ui.rect(g, getX(), getY(), getWidth(), getHeight(), HudEditor.surface(Ui.PANEL, 100));

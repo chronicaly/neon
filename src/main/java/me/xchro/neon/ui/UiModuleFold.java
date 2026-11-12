@@ -1,7 +1,7 @@
 package me.xchro.neon.ui;
 
 import java.util.*;
-import me.xchro.neon.core.TimedValue;
+import me.xchro.neon.core.UiMotion;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.*;
@@ -17,7 +17,7 @@ final class UiModuleFold extends AbstractContainerWidget {
     private final List<AbstractWidget> controls = new ArrayList<>();
     private final List<UiLabel> labels;
     private final Map<AbstractWidget, int[]> offsets = new IdentityHashMap<>();
-    private final TimedValue opening;
+    private final UiMotion opening;
     private final boolean open;
     private final Runnable relayout;
     private final boolean compact;
@@ -32,7 +32,7 @@ final class UiModuleFold extends AbstractContainerWidget {
         this.content = content != null ? content : previous.content;
         this.compact = compact;
         this.open = open; this.relayout = relayout;
-        opening = previous == null ? new TimedValue(animate ? 0 : open ? 1 : 0) : previous.opening;
+        opening = previous == null ? new UiMotion(animate ? 0 : open ? 1 : 0) : previous.opening;
         if (!animate && previous == null) opening.snap(open ? 1 : 0);
         opening.to(open ? 1 : 0, System.nanoTime(), DURATION);
         this.content.visitWidgets(controls::add);

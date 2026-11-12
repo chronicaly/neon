@@ -19,7 +19,7 @@ public final class InteractionSmoke {
     private int checks, variant, age, stage, fps, anchorY, samples, intermediate, lastHeight;
     private AbstractWidget measuredFold;
     private boolean measuring, monotonic;
-    private me.xchro.neon.core.TimedValue sliderMotion;
+    private me.xchro.neon.core.UiMotion sliderMotion;
     private double sliderFrom, sliderTarget, sliderLast;
     private int sliderSamples, sliderIntermediate;
     private boolean sliderMonotonic;
@@ -68,11 +68,12 @@ public final class InteractionSmoke {
         Menus.configure(menu, "Freelook"); stage = -3; age = 0;
     }
     private void measureSlider(double from, double target) throws Exception {
-        sliderMotion = (me.xchro.neon.core.TimedValue) field(slider(), "motion");
+        sliderMotion = (me.xchro.neon.core.UiMotion) field(slider(), "motion");
         sliderFrom = sliderLast = from; sliderTarget = target;
         sliderSamples = sliderIntermediate = 0; sliderMonotonic = true;
     }
     private void checkSlider(String action) {
+        System.out.println("NEON_SLIDER_SAMPLE action="+action+" samples="+sliderSamples+" intermediate="+sliderIntermediate+" monotonic="+sliderMonotonic+" last="+sliderLast+" target="+sliderTarget);
         check(sliderSamples > 0 && sliderIntermediate > 0 && sliderMonotonic && Math.abs(sliderLast - sliderTarget) < 1e-8,
             action + " renders intermediate motion without overshoot and settles at " + fps + " FPS");
         System.out.println("NEON_SLIDER fps=" + fps + " minimum=" + (variant % 2 == 1) + " action=" + action + " samples=" + sliderSamples + " intermediate=" + sliderIntermediate);

@@ -6,6 +6,12 @@ public final class NeonConfig {
     public int version = 2;
     public Theme theme = new Theme();
     public BetterChat betterChat = new BetterChat();
+    public BetterScreenshot betterScreenshot = new BetterScreenshot();
+    public static final class BetterScreenshot {
+        public boolean enabled, notify = true;
+        public BindMode mode = BindMode.TOGGLE;
+        void sanitize() { if (mode == null) mode = BindMode.TOGGLE; }
+    }
     public static final class BetterChat {
         public boolean enabled = true, duplicates = true, animation = true, mentions = true;
         public boolean messagePing = true, mentionPing = true;
@@ -100,6 +106,7 @@ public final class NeonConfig {
     public Widget totems = new Widget(1, 1);
     public Widget fps = new Widget(1, 1);
     public boolean fpsAnimation = false, fpsBackground = false, fpsBorder = false, fpsShadow = true;
+    public java.util.Map<FpsColor, Integer> fpsColors = new java.util.EnumMap<>(FpsColor.class);
     public boolean totemFloating = false;
     public boolean armorVertical = false, armorReverse = false, armorSlots = true, armorWarnings = true;
     public int armorGap = 0, armorWarningPercent = 10;
@@ -133,7 +140,7 @@ public final class NeonConfig {
         leftClick = true;
         leftIntervalTicks = rightIntervalTicks = 0; leftAction = LeftAction.CLICK;
     }
-    public void resetHud() { resetArmor(); totems = new Widget(1, 1); fps = new Widget(1, 1); fpsAnimation = fpsBackground = fpsBorder = false; fpsShadow = true; totemFloating = false; editorGuides = true; editorSnap = false; hudScale=1;snapSensitivity=10; }
+    public void resetHud() { resetArmor(); totems = new Widget(1, 1); fps = new Widget(1, 1); fpsColors.clear(); fpsAnimation = fpsBackground = fpsBorder = false; fpsShadow = true; totemFloating = false; editorGuides = true; editorSnap = false; hudScale=1;snapSensitivity=10; }
     public static final class Widget {
         public boolean visible = true;
         public double x, y, scale = 1;
@@ -147,6 +154,8 @@ public final class NeonConfig {
         theme.sanitize();
         if (betterChat == null) betterChat = new BetterChat();
         betterChat.sanitize();
+        if (betterScreenshot == null) betterScreenshot = new BetterScreenshot();
+        betterScreenshot.sanitize();
         if (freelookMode == null) freelookMode = BindMode.HOLD;
         if (motionBlurMode == null) motionBlurMode = BindMode.TOGGLE;
         if (totemPopsMode == null) totemPopsMode = BindMode.TOGGLE;
@@ -161,6 +170,8 @@ public final class NeonConfig {
         if (armor == null) armor = new Widget(1, .90);
         if (totems == null) totems = new Widget(1, 1);
         if (fps == null) fps = new Widget(1, 1);
+        if (fpsColors == null) fpsColors = new java.util.EnumMap<>(FpsColor.class);
+        fpsColors.entrySet().removeIf(entry -> entry.getKey() == null || entry.getValue() == null);
         armor.sanitize(); totems.sanitize(); fps.sanitize();
         armorGap = Math.clamp(armorGap, 0, 8); armorWarningPercent = Math.clamp(armorWarningPercent, 1, 30);
         hudScale=finite(hudScale,1,.5,2);snapSensitivity=Math.clamp(snapSensitivity,1,24);

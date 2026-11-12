@@ -24,7 +24,7 @@ public final class Neon implements ClientModInitializer {
     public static final CameraController CAMERA = new CameraController();
     public static final AutoClicker CLICKER = new AutoClicker();
     public static final me.xchro.neon.render.TotemPopCounter TOTEM_POPS = new me.xchro.neon.render.TotemPopCounter();
-    public static KeyMapping settings, settingsAlternate, freelook, zoom, autoclicker, motionBlur, totemPops, betterChat;
+    public static KeyMapping settings, settingsAlternate, freelook, zoom, autoclicker, motionBlur, totemPops, betterChat, betterScreenshot;
     public static final me.xchro.neon.input.ModuleBindings MODULE_BINDINGS = new me.xchro.neon.input.ModuleBindings();
     private static ConfigStore store;
     public static ProfileStore profiles;
@@ -47,6 +47,7 @@ public final class Neon implements ClientModInitializer {
         motionBlur = key("motion_blur", category, GLFW.GLFW_KEY_UNKNOWN);
         totemPops = key("totem_pops", category, GLFW.GLFW_KEY_UNKNOWN);
         betterChat = key("better_chat", category, GLFW.GLFW_KEY_UNKNOWN);
+        betterScreenshot = key("better_screenshot", category, GLFW.GLFW_KEY_UNKNOWN);
         ClientTickEvents.START_CLIENT_TICK.register(mc -> {
             // Drain both queues together so simultaneous shortcuts cannot reopen the menu later.
             while (settings.consumeClick() | settingsAlternate.consumeClick()) {
@@ -67,6 +68,7 @@ public final class Neon implements ClientModInitializer {
         net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents.CLIENT_STOPPING.register(mc -> {
             save(); try { SAVES.close(); } catch (java.util.concurrent.CompletionException failure) { LOG.error("Final settings flush failed", failure); }
             me.xchro.neon.ui.Ui.releaseFonts();me.xchro.neon.ui.UiSounds.close(); MotionBlurRenderer.close();
+            me.xchro.neon.screenshot.BetterScreenshot.close();
         });
         LOG.info("Neon {} ready", FabricLoader.getInstance().getModContainer("neon").orElseThrow().getMetadata().getVersion());
     }

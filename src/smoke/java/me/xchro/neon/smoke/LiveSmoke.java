@@ -53,11 +53,13 @@ public final class LiveSmoke implements ClientModInitializer {
     private ColorPopupSmoke colorPopup;
     private ModuleGridSmoke moduleGrid;
     private HoverGlowSmoke hoverGlow;
+    private PremiumSmoke premium;
     private InteractionSmoke interactions;
     private FpsHudSmoke fpsHud;
     private TotemPopSmoke totemPops;
     private UiSoundSmoke uiSounds;
     private BetterChatSmoke betterChat;
+    private BetterScreenshotSmoke betterScreenshot;
     private int interactionPhase;
     public static void optionsWrite() { QualitySmoke.optionsWrites++; }
     @Override public void onInitializeClient() {
@@ -139,8 +141,11 @@ public final class LiveSmoke implements ClientModInitializer {
             switch (stage) {
                 case 0 -> {
                     if (age < 80) return;
+                    if(System.getProperty("neon.smoke.pageIndex")!=null){pages=new PageLayoutSmoke(mc,checks);stage=72;stageTick=tick;return;}
+                    if(Boolean.getBoolean("neon.smoke.premiumOnly")){premium=new PremiumSmoke(mc,checks);stage=71;stageTick=tick;return;}
                     if(Boolean.getBoolean("neon.smoke.hoverOnly")){hoverGlow=new HoverGlowSmoke(mc,checks);stage=70;stageTick=tick;return;}
                     if (Boolean.getBoolean("neon.smoke.chatOnly")) { betterChat=new BetterChatSmoke(mc,checks);stage=62;stageTick=tick;return; }
+                    if (Boolean.getBoolean("neon.smoke.screenshotOnly")) { betterScreenshot=new BetterScreenshotSmoke(mc,checks);stage=63;stageTick=tick;return; }
                     if (Boolean.getBoolean("neon.smoke.gridOnly")) { moduleGrid=new ModuleGridSmoke(mc,checks);stage=61;stageTick=tick;return; }
                     if (Boolean.getBoolean("neon.smoke.nxeOnly")) { uiSounds = new UiSoundSmoke(mc, checks); stage = 60; stageTick = tick; return; }
                     if (Boolean.getBoolean("neon.smoke.totemPopsOnly")) { totemPops = new TotemPopSmoke(mc, checks); stage = 59; stageTick = tick; return; }
@@ -599,6 +604,11 @@ public final class LiveSmoke implements ClientModInitializer {
                 case 58 -> {
                     if (pages == null) {
                         if (!fpsHud.run()) return;
+                        if (Boolean.getBoolean("neon.smoke.fpsFocused")) {
+                            checks=fpsHud.checks();
+                            Files.writeString(mc.gameDirectory.toPath().resolve("neon-verification.txt"),"PASS "+checks+" focused FPS HUD checks\n");
+                            stage=50;stageTick=tick;return;
+                        }
                         pages = new PageLayoutSmoke(mc, fpsHud.checks()); return;
                     }
                     if (!pages.run()) return;
@@ -675,6 +685,20 @@ public final class LiveSmoke implements ClientModInitializer {
                     Files.writeString(mc.gameDirectory.toPath().resolve("neon-verification.txt"),"PASS "+checks+" button-hover GPU and layout checks\n");
                     stage=50;stageTick=tick;
                 }
+                case 63 -> {
+                    if (!betterScreenshot.run()) return;
+                    checks=betterScreenshot.checks();
+                    Files.writeString(mc.gameDirectory.toPath().resolve("neon-verification.txt"),"PASS "+checks+" screenshot clipboard, PNG, notification, binding, profile and layout checks\n");
+                    stage=50;stageTick=tick;
+                }
+                case 72 -> {
+                    if(!pages.run())return;checks=pages.checks();Files.writeString(mc.gameDirectory.toPath().resolve("neon-verification.txt"),"PASS "+checks+" focused page checks\n");stage=50;stageTick=tick;
+                }
+                case 71 -> {
+                    if(!premium.run())return;
+                    checks=premium.checks();Files.writeString(mc.gameDirectory.toPath().resolve("neon-verification.txt"),"PASS "+checks+" premium interaction checks\n");
+                    stage=50;stageTick=tick;
+                }
                 case 61 -> {
                     if(colorPopup==null) { if(!moduleGrid.run())return; colorPopup=new ColorPopupSmoke(mc,moduleGrid.checks());return; }
                     if(pages==null) { if(!colorPopup.run())return; pages=new PageLayoutSmoke(mc,colorPopup.checks());return; }
@@ -690,7 +714,7 @@ public final class LiveSmoke implements ClientModInitializer {
                     }
                     if (!pages.run()) return;
                     checks=pages.checks();
-                    Files.writeString(mc.gameDirectory.toPath().resolve("neon-verification.txt"),"PASS "+checks+" floating color picker and page-layout checks\n");
+                    Files.writeString(mc.gameDirectory.toPath().resolve("neon-verification.txt"),"PASS "+checks+" attached color drawer and page-layout checks\n");
                     stage=50;stageTick=tick;
                 }
                 case 51 -> {

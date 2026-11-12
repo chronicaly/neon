@@ -11,13 +11,13 @@ final class UiModuleRow extends AbstractContainerWidget {
     private final UiButton open, binding, toggle, tail;
     private final List<AbstractWidget> controls;
     private final BooleanSupplier expanded;
-    private me.xchro.neon.core.TimedValue selectedMotion;
-    private me.xchro.neon.core.TimedValue hoverMotion = new me.xchro.neon.core.TimedValue(0);
+    private me.xchro.neon.core.UiMotion selectedMotion;
+    private me.xchro.neon.core.UiMotion hoverMotion = new me.xchro.neon.core.UiMotion(0);
     void inherit(UiModuleRow old) { selectedMotion = old.selectedMotion; hoverMotion = old.hoverMotion; }
     UiModuleRow(String title, int width, Runnable action, UiButton binding, UiButton toggle, BooleanSupplier expanded) {
         super(0, 0, width, 26, Ui.label(title));
         this.binding = binding; this.toggle = toggle; this.expanded = expanded;
-        selectedMotion = new me.xchro.neon.core.TimedValue(expanded.getAsBoolean() ? 1 : 0);
+        selectedMotion = new me.xchro.neon.core.UiMotion(expanded.getAsBoolean() ? 1 : 0);
         if (toggle != null) toggle.identity(title + "/toggle");
         open = new UiButton(title, 0, 0, Ui.width(title) + 6, 26, UiButton.Kind.MODULE, action == null ? () -> {} : action).identity(title + "/name");
         tail = action == null ? null : new UiButton("", 0, 0, 20, 26, UiButton.Kind.DISCLOSURE, action).selected(expanded).hint((expanded.getAsBoolean() ? "Collapse " : "Expand ") + title).identity(title + "/disclosure");

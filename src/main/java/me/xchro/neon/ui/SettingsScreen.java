@@ -30,6 +30,7 @@ public final class SettingsScreen extends PixelScreen {
     private final SettingsSession session = new SettingsSession();
     private final MenuWindow window = new MenuWindow();
     private final ExpandingMenu expansion = new ExpandingMenu();
+    private final MenuPresentation presentation = new MenuPresentation();
     private final me.xchro.neon.core.OutlineTravel outlineTravel = new me.xchro.neon.core.OutlineTravel();
     private ExpandingMenu.Frame frame;
     private final List<IntConsumer> detailWidths = new ArrayList<>();
@@ -42,6 +43,8 @@ public final class SettingsScreen extends PixelScreen {
     private int page, sx, sy, sw, sh, side, contentX, contentY, panelWidth;
     private String module = "", renderedView = "", error = "", profileDraft = "", expandedColor = "";
     private ColorPicker colorPicker;
+    private ColorPicker closingPicker;
+    private String colorDrawerName = "";
     private ColorRow colorSource;
     private LinearLayout rows;
     private UiScroll scroll;
@@ -63,15 +66,21 @@ public final class SettingsScreen extends PixelScreen {
     @Override protected void init() {
         if (hasPointerGesture()) finishPointerGesture();
         boolean sameView = renderedView.equals(view());
+        if(!sameView)presentation.change();
         WidgetMemory memory = renderedView.startsWith(page + "/") ? new WidgetMemory(scroll) : null;
         WidgetMemory detailMemory = sameView && details != null ? new WidgetMemory(details) : null;
         UiScroll closingDetails = details;
         boolean sameColor = renderedColor.equals(expandedColor);
+        if(!sameView||!sameColor)clearAcknowledgements();
         reusablePicker = sameColor ? colorPicker : null;
+        if (!colorOpen && colorPicker != null) {
+            colorPicker.finish(); colorPicker.active = false; closingPicker = colorPicker;
+        }
         session.end(); rememberScroll(); scroll = null; colorPicker = null; colorSource = null; renderedView = view(); refreshers.clear(); Ui.refreshTheme();
         NAVIGATION.select(page, module);
         window.fit(canvasWidth(), canvasHeight()); var bounds = window.bounds();
         expansion.open(!module.isEmpty(), System.nanoTime());
+        expansion.color(colorOpen, System.nanoTime());
         frame = expansion.frame(bounds.left(),bounds.width(),canvasWidth(),System.nanoTime());
         sx = (int)Math.round(frame.x()); sy = bounds.top(); sw = (int)Math.round(frame.mainWidth()); sh = bounds.height();
         side = 96;
@@ -95,7 +104,7 @@ public final class SettingsScreen extends PixelScreen {
         }
         rows = LinearLayout.vertical().spacing(0);
         moduleRows();
-        scroll = addRenderableWidget(new UiScroll(contentX, contentY, panelWidth + 8, contentHeight(), rows));
+        scroll = addWidget(new UiScroll(contentX, contentY, panelWidth + 8, contentHeight(), rows));
         details = null;
         if (!module.isEmpty()) {
             drawerName = module; detailWidths.clear();
@@ -122,8 +131,8 @@ public final class SettingsScreen extends PixelScreen {
         layoutDrawer();
         if (colorPicker != null) {
             addWidget(colorPicker);
-            colorPicker.anchor(expandedBounds(), canvasWidth(), canvasHeight());
         }
+        layoutColor();
         renderedColor = expandedColor;
         refresh();
     }
@@ -165,6 +174,7 @@ public final class SettingsScreen extends PixelScreen {
         switch (module) {
             case "Freelook" -> slider("Distance", c.freelookDistance, 1, 16, .5, " blocks", v -> c.freelookDistance = v);
             case "Totem pops" -> slider("Red at", c.totemPopsRedAt, 2, 20, 1, " pops", v -> c.totemPopsRedAt = (int) v);
+            case "Better screenshot" -> toggle("Notify", () -> c.betterScreenshot.notify, v -> c.betterScreenshot.notify = v);
             case "Better chat" -> {
                 var chat = c.betterChat;
                 toggle("Message ping", () -> chat.messagePing, v -> chat.messagePing = v);
@@ -277,7 +287,7 @@ public final class SettingsScreen extends PixelScreen {
             closeColor(); return;
         }
         if (colorPicker != null) colorPicker.finish();
-        session.end(); expandedColor = name; colorOpen = true; rebuildWidgets();
+        session.end(); expandedColor = colorDrawerName = name; colorOpen = true; closingPicker = null; rebuildWidgets();
         UiSounds.cue(Cue.NAVIGATE);
     }
     private void closeColor() {
@@ -288,7 +298,10 @@ public final class SettingsScreen extends PixelScreen {
             if (getFocused() == colorPicker) setFocused(details);
             removeWidget(colorPicker);
         }
+        closingPicker = colorPicker;
+        if (closingPicker != null) closingPicker.active = false;
         colorPicker = reusablePicker = null; colorSource = null; colorOpen = false; expandedColor = renderedColor = "";
+        expansion.color(false, System.nanoTime()); layoutWindow();
         if (wasOpen) UiSounds.cue(Cue.BACK);
     }
     private void profiles() {
@@ -302,10 +315,7 @@ public final class SettingsScreen extends PixelScreen {
                 session.change(() -> { if (!Neon.applyConfig(next)) error = "Could not save settings."; else UiSounds.cue(Cue.CONFIRM); }); rebuildWidgets();
             }).hint("Load profile " + name).wrapText());
             controlResize(width -> profile.setWidth(Math.min(width, Math.max(preferred, width-updateWidth-deleteWidth-6))));
-            line.add(new UiButton("Update", 0, 0, updateWidth, 29, UiButton.Kind.QUIET, () -> confirm("Update " + name + "?", "Replace this profile with your current settings?", () -> {
-                if (me.xchro.neon.config.ConfigStore.encode(Neon.profiles.get(name)).equals(me.xchro.neon.config.ConfigStore.encode(Neon.config))) return false;
-                Neon.profiles.put(name, Neon.config); return true;
-            })).small());
+            line.add(new UiButton("Update", 0, 0, updateWidth, 29, UiButton.Kind.QUIET, () -> updateProfile(name)).identity("profiles/update/"+name).small());
             line.add(new UiButton("Delete", 0, 0, deleteWidth, 29, UiButton.Kind.QUIET, () -> confirm("Delete " + name + "?", "Remove this saved profile?", () -> {
                 if (!Neon.profiles.names().contains(name)) return false;
                 Neon.profiles.delete(name); return true;
@@ -324,14 +334,31 @@ public final class SettingsScreen extends PixelScreen {
             try {
                 String valid = ProfileStore.validName(profileDraft);
                 if (Neon.profiles.names().contains(valid)) throw new IllegalArgumentException("Name already exists.");
-                Neon.profiles.put(valid, Neon.config); profileDraft = ""; error = ""; rebuildWidgets();
-                UiSounds.cue(Cue.CONFIRM);
+                saveProfile(valid,true);
             } catch (IllegalArgumentException invalid) { error = invalid.getMessage(); }
             catch (Exception failure) { error = "Could not save profile."; Neon.LOG.error(error, failure); }
-        }), saveFrame.newChildLayoutSettings().paddingTop(7));
+        }).identity("profiles/save"), saveFrame.newChildLayoutSettings().paddingTop(7));
         rows.addChild(form);
     }
     private int profileNameWidth(int width) { return width >= 125 ? width - 61 : width; }
+    private void saveProfile(String name,boolean creating) throws java.io.IOException {
+        String identity=creating?"profiles/save":"profiles/update/"+name;
+        long token=actionToken(identity);var completion=Neon.profiles.putAsync(name,Neon.config);
+        if(creating)profileDraft="";error="";rebuildWidgets();
+        completion.whenComplete((ignored,failure)->minecraft.execute(()->{
+            if(!currentAction(identity,token))return;
+            if(failure!=null){error="Could not save profile.";Neon.LOG.error(error,failure);return;}
+            acknowledge(identity,"Saved");UiSounds.cue(Cue.CONFIRM);
+        }));
+    }
+    private void updateProfile(String name) {
+        minecraft.gui.setScreen(new ConfirmSheet(this,"Update "+name+"?","Replace this profile with your current settings?",yes->{
+            minecraft.gui.setScreen(this);
+            if(!yes){UiSounds.cue(Cue.BACK);return;}
+            if(me.xchro.neon.config.ConfigStore.encode(Neon.profiles.get(name)).equals(me.xchro.neon.config.ConfigStore.encode(Neon.config)))return;
+            try{saveProfile(name,false);}catch(Exception failure){error="Could not save profile.";Neon.LOG.error(error,failure);}
+        }));
+    }
     private interface FileAction { boolean run() throws Exception; }
     private void confirm(String title, String body, FileAction action) {
         minecraft.gui.setScreen(new ConfirmSheet(this, title, body, yes -> {
@@ -364,8 +391,12 @@ public final class SettingsScreen extends PixelScreen {
         // Gameplay key mappings do not receive presses while a screen is open.
         // Let text fields and bind capture keep their input before toggling the menu.
         if ((Neon.settings.matches(e) || Neon.settingsAlternate.matches(e)) && !editingText()) { onClose(); return true; }
+        boolean wasColorOpen = colorOpen;
         boolean handled = super.pixelKeyPressed(e);
-        if (getFocused() == details && details != null && !module.isEmpty()) { expansion.reveal(); layoutWindow(); }
+        if (colorOpen && colorPicker != null && (!wasColorOpen || getFocused() == colorPicker)) {
+            if (!wasColorOpen) { setFocused(colorPicker); colorPicker.setFocused(colorPicker.children().getFirst()); }
+            expansion.revealColor(); layoutWindow();
+        } else if (getFocused() == details && details != null && !module.isEmpty()) { expansion.reveal(); layoutWindow(); }
         return handled;
     }
     private boolean editingText() {
@@ -384,7 +415,8 @@ public final class SettingsScreen extends PixelScreen {
             }
             // The selected row handles its own toggle; other outside clicks dismiss before dispatch.
             boolean selectedRow = (scroll.isMouseOver(e.x(),e.y()) || details!=null&&!module.isEmpty()&&details.isMouseOver(e.x(),e.y())) && colorSource != null && colorSource.isMouseOver(e.x(),e.y());
-            if (!selectedRow) closeColor();
+            boolean header = e.x() >= frame.x() && e.x() < frame.x()+frame.width() && e.y() >= sy && e.y() < sy+37;
+            if (!selectedRow && !header && shellCorner(e.x(),e.y()) < 0) closeColor();
         }
         if (e.button() == 0) {
             int corner = shellCorner(e.x(),e.y());
@@ -397,7 +429,7 @@ public final class SettingsScreen extends PixelScreen {
         return false;
     }
     @Override protected boolean pixelMouseDragged(MouseButtonEvent e, double dx, double dy) {
-        if (window.dragging()) { window.drag(e.x(), e.y()); layoutWindow(); return true; }
+        if (window.dragging()) { presentation.invalidate(); window.drag(e.x(), e.y()); layoutWindow(); return true; }
         return super.pixelMouseDragged(e, dx, dy);
     }
     private void layoutWindow() {
@@ -413,11 +445,14 @@ public final class SettingsScreen extends PixelScreen {
         if (resized && scroll != null) {
             scroll.setWidth(panelWidth + 8); scroll.setHeight(contentHeight()); scroll.relayout();
         }
-        if (colorPicker != null) colorPicker.anchor(expandedBounds(), canvasWidth(), canvasHeight());
         layoutDrawer();
+        layoutColor();
     }
     private void layoutDrawer() {
         if (details==null) return;
+        boolean interactive = !module.isEmpty() && !(colorOpen && frame.replacesDetails());
+        if (interactive && !children().contains(details)) addWidget(details);
+        else if (!interactive && children().contains(details)) removeWidget(details);
         details.setX(sx+sw+12); details.setY(contentY);
         details.setWidth(Math.max(1,(int)Math.round(frame.drawerWidth())-24)); details.setHeight(sh-50);
         if(detailLayoutWidth!=frame.fullDrawerWidth() || detailLayoutHeight!=sh) {
@@ -426,11 +461,26 @@ public final class SettingsScreen extends PixelScreen {
             details.relayout();
         }
     }
+    private void layoutColor() {
+        ColorPicker picker = colorPicker != null ? colorPicker : closingPicker;
+        if (picker == null) return;
+        int x = (int)Math.round(frame.x()+frame.mainWidth()+frame.drawerWidth())+12;
+        picker.layout(x,contentY,frame.fullColorWidth()-24,sh-50,Math.max(0,(int)Math.round(frame.colorWidth())-24));
+        if (!colorOpen && frame.colorWidth() < .01) closingPicker = null;
+    }
     private int shellCorner(double x,double y) {
         double left=frame.x(),right=left+frame.width();
         if(Math.abs(x-left)<=6){if(Math.abs(y-sy)<=6)return 0;if(Math.abs(y-sy-sh)<=6)return 2;}
         if(Math.abs(x-right)<=6){if(Math.abs(y-sy)<=6)return 1;if(Math.abs(y-sy-sh)<=6)return 3;}
         return -1;
+    }
+    @Override protected void cursor(GuiGraphicsExtractor g,int mx,int my) {
+        super.cursor(g,mx,my);
+        if(window.dragging()){g.requestCursor(window.gesture()==4?com.mojang.blaze3d.platform.cursor.CursorTypes.RESIZE_ALL:UiCursors.corner(window.gesture()));return;}
+        if(hasPointerGesture())return;
+        int corner=shellCorner(mx,my);
+        if(corner>=0)g.requestCursor(UiCursors.corner(corner));
+        else if(mx>=frame.x()&&mx<frame.x()+frame.width()&&my>=sy&&my<sy+37)g.requestCursor(com.mojang.blaze3d.platform.cursor.CursorTypes.RESIZE_ALL);
     }
     @Override protected boolean pixelMouseReleased(MouseButtonEvent e) {
         if (window.dragging()) { if (e.button() == 0) window.finish(); return true; }
@@ -443,31 +493,44 @@ public final class SettingsScreen extends PixelScreen {
     @Override protected void pixelBackground(GuiGraphicsExtractor g, int mx, int my, float delta) { Ui.background(g, canvasWidth(), canvasHeight()); }
     @Override protected void renderPixels(GuiGraphicsExtractor g, int mx, int my, float delta) {
         layoutWindow(); refresh();
+        g=presentation.begin(g,mx,my);
         UiEffects.gradient(g,(float)frame.x(),sy,(float)frame.width(),sh,Ui.PANEL,Ui.PANEL,Ui.PANEL,Ui.PANEL);
         UiEffects.surfaceLight(g,sx+1,sy+1,(int)Math.round(frame.width())-2,sh-2,Ui.PANEL);
         Ui.rect(g, sx + 1, sy + 1, side - 1, sh - 2, Ui.SIDEBAR);
         Ui.rect(g, sx + side - 1, sy + 1, 1, sh - 2, UiEffects.mix(Ui.PANEL, 0xffffffff, .027));
         int brandX = sx + 15;
         for (char letter : "NEON".toCharArray()) { String glyph = Character.toString(letter); Ui.title(g, glyph, brandX, sy + 14); brandX += UiFont.width(glyph, 13) + 2; }
-        Ui.title(g, TABS[page], contentX, sy + 14);
         renderWidgets(g, mx, my, delta);
+        presentation.content(g,sx+side,sy+1,(int)Math.ceil(frame.width())-side,sh-2);
+        Ui.title(g, TABS[page], contentX, sy + 14);
+        scroll.extractRenderState(g,mx,my,delta);
         if (details!=null && frame.drawerWidth()>1) {
-            Ui.clip(g,sx+sw,sy+1,(int)Math.floor(frame.x()+frame.width()-1),sy+sh-1);
+            Ui.clip(g,sx+sw,sy+1,(int)Math.floor(frame.x()+frame.mainWidth()+frame.drawerWidth()-1),sy+sh-1);
             Ui.title(g,drawerName,sx+sw+12,sy+14);
-            details.extractRenderState(g,module.isEmpty()?-10000:mx,module.isEmpty()?-10000:my,delta);
+            boolean interactive = !module.isEmpty() && !(colorOpen && frame.replacesDetails());
+            details.extractRenderState(g,interactive?mx:-10000,interactive?my:-10000,delta);
             g.disableScissor();
         }
         if (!error.isEmpty()) {
             boolean drawer = !module.isEmpty() && frame.drawerWidth() > 24;
             Ui.small(g, Ui.fit(error, drawer ? controlWidth() : panelWidth), drawer ? sx + sw + 12 : contentX, sy + sh - 26, Ui.RED);
         }
-        // One pixel-snapped mesh surrounds both panes; its clock never restarts on retarget.
+        ColorPicker picker = colorPicker != null ? colorPicker : closingPicker;
+        if (picker != null && frame.colorWidth() > 1) {
+            int left = (int)Math.round(frame.x()+frame.mainWidth()+frame.drawerWidth());
+            Ui.clip(g,left,sy+1,(int)Math.floor(frame.x()+frame.width()-1),sy+sh-1);
+            Ui.title(g,colorDrawerName,left+12,sy+14);
+            picker.extractRenderState(g,colorOpen?mx:-10000,colorOpen?my:-10000,delta);
+            g.disableScissor();
+        }
+        // One pixel-snapped mesh surrounds every pane; its clock never restarts on retarget.
+        presentation.endContent();
         UiEffects.outline(g,(float)frame.x(),sy,(float)frame.width(),sh,outlineTravel);
-        if (colorPicker != null) colorPicker.extractRenderState(g, mx, my, delta);
+        presentation.finish();
     }
     @Override public void onClose() {
         if (window.dragging()) { window.cancel(); layoutWindow(); return; }
-        if (Neon.save()) { minecraft.gui.setScreen(parent); UiSounds.cue(Cue.BACK); } else error = "Could not save. Check the game log.";
+        if (Neon.save()) { var exit=presentation.freeze(parent); minecraft.gui.setScreen(parent); MenuPresentation.showExit(exit); UiSounds.cue(Cue.BACK); } else error = "Could not save. Check the game log.";
     }
     @Override protected boolean hasPointerGesture() { return super.hasPointerGesture() || window.dragging(); }
     @Override protected void finishPointerGesture() {
@@ -477,7 +540,7 @@ public final class SettingsScreen extends PixelScreen {
     @Override public void removed() {
         super.removed(); rememberScroll(); capturing = null;
         if (colorPicker != null) colorPicker.finish();
-        expandedColor = renderedColor = profileDraft = ""; colorOpen = false; colorPicker = reusablePicker = null;
+        expandedColor = renderedColor = profileDraft = ""; colorOpen = false; colorPicker = reusablePicker = closingPicker = null; expansion.hideColor();
         scroll = null; details = null; session.end(); Neon.flushSaves();
     }
 }

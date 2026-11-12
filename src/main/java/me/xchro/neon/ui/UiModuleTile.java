@@ -3,7 +3,7 @@ package me.xchro.neon.ui;
 import java.util.List;
 import java.util.function.*;
 import me.xchro.neon.Neon;
-import me.xchro.neon.core.TimedValue;
+import me.xchro.neon.core.UiMotion;
 import me.xchro.neon.module.ClientModule;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -19,7 +19,7 @@ final class UiModuleTile extends AbstractContainerWidget {
     private final UiBindButton binding;
     private final BooleanSupplier selected;
     private final Runnable configure;
-    private TimedValue hover = new TimedValue(0), enabled;
+    private UiMotion hover = new UiMotion(0), enabled;
     private double amount, on;
     private boolean wrapped;
     UiModuleTile(ClientModule module, Runnable toggle, Runnable configure, BooleanSupplier selected,
@@ -33,20 +33,21 @@ final class UiModuleTile extends AbstractContainerWidget {
                          BooleanSupplier capturing, Runnable capture, Runnable mode) {
         super(0, 0, 124, 26, Ui.label(label));
         this.module = module; this.configure = configure; this.selected = selected;
-        enabled = new TimedValue(active() ? 1 : 0);
+        enabled = new UiMotion(active() ? 1 : 0);
+        String buttonLabel = module == null ? label : module.buttonLabel;
         body = new UiButton(label, 0, 0, 124, 26, UiButton.Kind.MODULE, action) {
             @Override protected void extractContents(GuiGraphicsExtractor g, int mx, int my, float delta) {
-                String title=binding==null||wrapped?label:Ui.fit(label,Math.max(1,binding.textLeft()-getX()-15));
+                String title=binding==null||wrapped?buttonLabel:Ui.fit(buttonLabel,Math.max(1,binding.textLeft()-getX()-15));
                 Ui.text(g, title, getX() + 10, getY() + 7, module == null ? Ui.TEXT : UiEffects.mix(Ui.MUTED, Ui.TEXT, Math.max(on, amount)));
                 if (isFocused() && Minecraft.getInstance().getLastInputType().isKeyboard()) Ui.stroke(g,getX(),getY(),getWidth(),getHeight(),Ui.BLUE);
             }
             @Override public boolean mouseClicked(MouseButtonEvent event, boolean twice) {
-                if (event.button() == 1 && isMouseOver(event.x(), event.y())) { UiSounds.input(configure); return true; }
+                if (event.button() == 1 && isMouseOver(event.x(), event.y())) { feedback(event); UiSounds.input(configure); return true; }
                 return super.mouseClicked(event, twice);
             }
             @Override public boolean keyPressed(KeyEvent event) {
                 if (event.key() == GLFW.GLFW_KEY_MENU || event.key() == GLFW.GLFW_KEY_F10 && (event.modifiers() & GLFW.GLFW_MOD_SHIFT) != 0) {
-                    UiSounds.input(configure); return true;
+                    feedback(event); UiSounds.input(configure); return true;
                 }
                 return super.keyPressed(event);
             }
@@ -59,14 +60,14 @@ final class UiModuleTile extends AbstractContainerWidget {
     private boolean active() { return module == null ? selected.getAsBoolean() : module.enabled(Neon.config); }
     static int commonWidth() {
         int width = 124;
-        for (var module : ClientModule.values()) width = Math.max(width, 27 + Ui.width(module.label) + Math.max(UiBindButton.measure("[…]"),UiBindButton.measure(SettingsScreen.bindingName(module.key()))));
+        for (var module : ClientModule.values()) width = Math.max(width, 27 + Ui.width(module.buttonLabel) + Math.max(UiBindButton.measure("[…]"),UiBindButton.measure(SettingsScreen.bindingName(module.key()))));
         return width;
     }
     void inherit(UiModuleTile old) { hover = old.hover; enabled = old.enabled; }
     private void place() {
         if (body == null) return;
         if (binding != null) binding.refresh();
-        wrapped = binding != null && 27 + Ui.width(module.label) + binding.getWidth() > getWidth();
+        wrapped = binding != null && 27 + Ui.width(module.buttonLabel) + binding.getWidth() > getWidth();
         setHeight(wrapped ? 43 : 26);
         body.setX(getX()); body.setY(getY()); body.setWidth(getWidth()); body.setHeight(getHeight());
         if (binding == null) return;
@@ -92,9 +93,10 @@ final class UiModuleTile extends AbstractContainerWidget {
         boolean keyboard=isFocused() && Minecraft.getInstance().getLastInputType().isKeyboard();
         amount=hover.to(isMouseOver(mx,my)||keyboard?1:0,now,220_000_000L);
         on=enabled.to(active()?1:0,now,100_000_000L);
-        g.pose().pushMatrix(); g.pose().translate(0,(float)(-2/PixelScreen.UI_SCALE*amount));
+        double press=body.pressFraction();
+        g.pose().pushMatrix(); g.pose().translate(0,(float)(-2/PixelScreen.UI_SCALE*amount*(1-press)));
         try {
-            UiEffects.buttonGlow(g,getX(),getY(),getWidth(),getHeight(),amount);
+            UiEffects.buttonGlow(g,getX(),getY(),getWidth(),getHeight(),amount*(1-.28*press));
             double emphasis=Math.max(amount,selected.getAsBoolean()?1:0);
             int cyan=Ui.buttonSurface(UiEffects.mix(Ui.FIELD,Ui.BLUE,.045*on+.12*amount),emphasis);
             int violet=Ui.buttonSurface(UiEffects.mix(Ui.FIELD,UiEffects.hoverViolet(),.045*on+.22*amount),emphasis);

@@ -19,6 +19,7 @@ import org.lwjgl.glfw.GLFW;
 final class FpsHudSmoke {
     private final Minecraft mc;
     private final NeonConfig original;
+    private final String clipboard;
     private HudEditor editor;
     private SettingsScreen parent;
     private int stage, age, scenario, checks;
@@ -26,7 +27,7 @@ final class FpsHudSmoke {
     private List<String> originalPacks;
     private int originalFontWidth, originalHudWidth;
     FpsHudSmoke(Minecraft mc, int checks) {
-        this.mc = mc; this.checks = checks; original = ConfigStore.copy(Neon.config); setup();
+        this.mc = mc; this.checks = checks; original = ConfigStore.copy(Neon.config); clipboard=mc.keyboardHandler.getClipboard(); setup();
     }
     int checks() { return checks; }
     private void check(boolean ok, String name) {
@@ -51,6 +52,25 @@ final class FpsHudSmoke {
     }
     private void key(int key, int modifiers) { editor.keyPressed(new KeyEvent(key, 0, modifiers)); }
     private void undo() { key(GLFW.GLFW_KEY_Z, GLFW.GLFW_MOD_CONTROL); }
+    private void paste(String value) { mc.keyboardHandler.setClipboard(value); click(named("Paste"),0); }
+    private void colors() throws Exception {
+        var state=new GuiRenderState();var g=new GuiGraphicsExtractor(mc,state,0,0);
+        FpsHud.draw(g,mc.getWindow().getWidth(),mc.getWindow().getHeight());
+        var text=new ArrayList<GuiTextRenderState>();state.forEachText(text::add);
+        var color=GuiTextRenderState.class.getDeclaredField("color");color.setAccessible(true);
+        check(text.size()==2 && color.getInt(text.get(0))==FpsColor.LABEL.color(Neon.config) && color.getInt(text.get(1))==FpsColor.VALUE.color(Neon.config),"renderer uses independent FPS label and value colors");
+        var rectangles=new ArrayList<ColoredRectangleRenderState>();
+        state.forEachElement(element->{if(element instanceof ColoredRectangleRenderState r)rectangles.add(r);},GuiRenderState.TraverseRange.ALL);
+        int background=FpsColor.BACKGROUND.color(Neon.config);
+        int paint=background&0xffffff|(int)Math.round((background>>>24)*.78)<<24;
+        check(rectangles.stream().anyMatch(r->r.col1()==paint),"FPS background uses its own RGBA color");
+        check(rectangles.stream().filter(r->r.col1()==FpsColor.BORDER.color(Neon.config)).count()==4,"FPS border uses its own RGBA color on every edge");
+    }
+    private void fitsColor() {
+        var shell=editor.inspectorBounds();var picker=named("Color picker");
+        check(shell.left()>=8 && shell.top()>=8 && shell.right()<=editor.canvasWidth()-8 && shell.bottom()<=editor.canvasHeight()-8,"HUD color drawer stays inside the display");
+        check(picker.getX()>shell.left() && picker.getRight()<shell.right() && named("Paste").getBottom()<shell.bottom(),"compact color actions fit inside the quiet shared HUD border");
+    }
     private HudBounds bounds() { return FpsHud.bounds(mc.getWindow().getWidth(), mc.getWindow().getHeight()); }
     private void shot(String suffix) { Screenshot.grab(mc.gameDirectory, "neon-fps-" + scenario + "-" + suffix + ".png", mc.gameRenderer.mainRenderTarget(), 1, message -> {}); }
     private void setup() {
@@ -98,7 +118,7 @@ final class FpsHudSmoke {
                 key(GLFW.GLFW_KEY_A, GLFW.GLFW_MOD_CONTROL);
                 for (int cp : "1.125".codePoints().toArray()) editor.charTyped(new CharacterEvent(cp));
                 key(GLFW.GLFW_KEY_ENTER, 0); check(Neon.config.fps.scale == 1.125 && FpsHud.fontPixels() == 18, "FPS font scale preserves exact fractional input");
-                undo(); check(Neon.config.fps.scale == 1, "one Undo restores FPS scale"); next();
+                undo(); check(Neon.config.fps.scale == 1, "one Undo restores FPS scale"); stage=6;age=0;
             }
             case 2 -> {
                 shot("options"); var before = bounds();
@@ -151,8 +171,47 @@ final class FpsHudSmoke {
             case 5 -> {
                 if (!reload.isDone() || mc.gui.overlay() != null) return false; reload.join();
                 check(mc.font.width("FPS 0123456789") == originalFontWidth && bounds().width() == originalHudWidth, "FPS font and bounds restore when the resource pack is removed");
-                Neon.applyConfig(original); mc.gui.setScreen(null); mc.resizeGui(); return true;
+                Neon.applyConfig(original); mc.keyboardHandler.setClipboard(clipboard); mc.gui.setScreen(null); mc.resizeGui(); return true;
             }
+            case 6 -> { Neon.config.fps.y=.9;check(Arrays.stream(FpsColor.values()).allMatch(role->named(role.label).active),"four FPS color rows live directly in the FPS fold");click(named("Label color"),0);next(); }
+            case 7 -> {
+                fitsColor();var before=ConfigStore.copy(Neon.config);paste("#FF8844FF");
+                check(FpsColor.LABEL.color(Neon.config)==0xffff8844 && FpsColor.VALUE.synced(Neon.config),"label edit leaves the number following the theme");
+                var edited=ConfigStore.copy(Neon.config);edited.fpsColors.clear();before.fpsColors.clear();
+                check(ConfigStore.encode(edited).equals(ConfigStore.encode(before)),"FPS color editing never mutates the menu palette, alpha or other settings");
+                undo();check(FpsColor.LABEL.synced(Neon.config),"Undo restores the original theme link");paste("#FF8844FF");
+                check(FpsColor.LABEL.color(Neon.config)==0xffff8844,"pasting immediately after Undo uses the restored picker state");
+                click(named("Value color"),1);paste("#44DDFFFF");
+                click(named("Background color"),0);paste("#142535A0");
+                click(named("Border color"),0);paste("#9966FFFF");colors();
+                check(FpsColor.LABEL.color(Neon.config)==0xffff8844 && FpsColor.VALUE.color(Neon.config)==0xff44ddff && FpsColor.BACKGROUND.color(Neon.config)==0xa0142535 && FpsColor.BORDER.color(Neon.config)==0xff9966ff,"all four selected FPS colors remain independent");
+                click(named("Copy"),0);check(mc.keyboardHandler.getClipboard().equals("#9966FFFF"),"HUD color Copy retains RGBA order");
+                var hex=(EditBox)named("Hex color");click(hex,0);hex.setValue("#ABCDEF80");key(GLFW.GLFW_KEY_ENTER,0);
+                check(FpsColor.BORDER.color(Neon.config)==0x80abcdef,"HUD color hex edits apply live");undo();
+                var shade=named("Saturation and brightness");int sounds=SoundAudit.cues.size();int previous=FpsColor.BORDER.color(Neon.config);
+                var start=mouse(editor.guiCoordinate(shade.getX()+5),editor.guiCoordinate(shade.getY()+5),0);
+                var end=mouse(editor.guiCoordinate(shade.getRight()-5),editor.guiCoordinate(shade.getBottom()-5),0);
+                editor.mouseClicked(start,false);editor.mouseDragged(end,end.x()-start.x(),end.y()-start.y());editor.mouseReleased(end);
+                check(FpsColor.BORDER.color(Neon.config)!=previous && SoundAudit.cues.size()==sounds,"continuous HUD color dragging changes the color silently");
+                undo();check(FpsColor.BORDER.color(Neon.config)==previous,"one Undo restores a complete HUD color drag");
+                click(named("Sync"),0);check(FpsColor.BORDER.synced(Neon.config),"Sync restores theme following for only the selected FPS color");undo();colors();
+                Neon.save();Neon.SAVES.flush().join();var saved=new ConfigStore(mc.gameDirectory.toPath().resolve("config/neon.json")).load();
+                check(saved.fpsColors.equals(Neon.config.fpsColors),"all four independent FPS colors survive a real save and reload");
+                next();
+            }
+            case 8 -> {
+                fitsColor();shot("colors");
+                click(named("Hex color"),0);var panel=editor.inspectorBounds();
+                var start=mouse(editor.guiCoordinate(panel.left()+24),editor.guiCoordinate(panel.top()+8),0);
+                var end=mouse(editor.guiCoordinate(panel.left()+48),editor.guiCoordinate(panel.top()+18),0);
+                editor.mouseClicked(start,false);editor.mouseDragged(end,end.x()-start.x(),end.y()-start.y());
+                check(editor.inspectorBounds().left()==panel.left()+24,"HUD header dragging takes priority over focused color hex input");
+                key(GLFW.GLFW_KEY_ESCAPE,0);editor.mouseReleased(end);
+                check(editor.inspectorBounds().left()==panel.left() && named("Color picker")!=null,"Escape cancels a HUD panel move before dismissing its color drawer");
+                key(GLFW.GLFW_KEY_ESCAPE,0);
+                check(mc.gui.screen()==editor && widgets(editor).stream().noneMatch(w->w.getMessage().getString().equals("Color picker")),"Escape closes only the color drawer and retains its edits");next();
+            }
+            case 9 -> { check(editor.inspectorBounds().width()==188,"closing restores the compact HUD column");Neon.config.fps.y=.3;stage=2;age=0; }
         }
         return false;
     }

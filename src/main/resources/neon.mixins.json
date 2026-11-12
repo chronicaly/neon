@@ -2,6 +2,6 @@
   "required": true,
   "package": "me.xchro.neon.mixin",
   "compatibilityLevel": "JAVA_25",
-  "client": ["CameraMixin", "MouseMixin", "InputMixin", "KeyAccessor", "PlayerVisibilityMixin", "TotemPopPacketMixin", "TotemPopNameMixin", "BetterChatMixin", "HudMixin", "MotionBlurMixin", "FpsMixin", "UiWidgetMixin", "UiOptionsMixin", "EditBoxAccessor"],
+  "client": ["CameraMixin", "MouseMixin", "InputMixin", "KeyAccessor", "PlayerVisibilityMixin", "TotemPopPacketMixin", "TotemPopNameMixin", "BetterChatMixin", "ScreenshotMixin", "HudMixin", "MotionBlurMixin", "FpsMixin", "UiWidgetMixin", "UiOptionsMixin", "MenuPresentationMixin", "EditBoxAccessor"],
   "injectors": {"defaultRequire": 1}
 }

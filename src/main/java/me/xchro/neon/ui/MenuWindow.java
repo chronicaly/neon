@@ -33,6 +33,7 @@ final class MenuWindow {
     }
     ScreenRectangle bounds() { return new ScreenRectangle(x, y, w, h); }
     boolean dragging() { return gesture >= 0; }
+    int gesture() { return gesture; }
     int corner(double mx, double my) {
         for (int i = 0; i < 4; i++) if (Math.abs(mx - (x + (i % 2) * w)) <= 6 && Math.abs(my - (y + (i / 2) * h)) <= 6) return i;
         return -1;

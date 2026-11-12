@@ -35,17 +35,18 @@ final class UiBindButton extends UiButton {
         return super.isMouseOver(x,y)||showingMode&&visible&&active&&x>=textLeft()-3&&x<getRight()&&y>=getY()&&y<getBottom();
     }
     @Override public boolean mouseClicked(MouseButtonEvent event,boolean twice) {
-        if(event.button()==1&&isMouseOver(event.x(),event.y())){UiSounds.input(cycle);return true;}
+        if(event.button()==1&&isMouseOver(event.x(),event.y())){feedback(event);UiSounds.input(cycle);return true;}
         return super.mouseClicked(event,twice);
     }
     @Override public boolean keyPressed(KeyEvent event) {
-        if(event.key()==GLFW.GLFW_KEY_MENU||event.key()==GLFW.GLFW_KEY_F10&&(event.modifiers()&GLFW.GLFW_MOD_SHIFT)!=0){UiSounds.input(cycle);return true;}
+        if(event.key()==GLFW.GLFW_KEY_MENU||event.key()==GLFW.GLFW_KEY_F10&&(event.modifiers()&GLFW.GLFW_MOD_SHIFT)!=0){feedback(event);UiSounds.input(cycle);return true;}
         return super.keyPressed(event);
     }
     @Override protected void extractContents(GuiGraphicsExtractor g,int mx,int my,float delta) {
         refresh();var key=module.key();
         boolean conflict=!key.isUnbound()&&Arrays.stream(Minecraft.getInstance().options.keyMappings).anyMatch(other->other!=key&&key.same(other));
         int color=capturing.getAsBoolean()||showingMode?Ui.BLUE:conflict?Ui.RED:Ui.MUTED;
+        color=UiEffects.mix(color,Ui.TEXT,.55*pressFraction());
         UiFont.draw(g,displayLabel(),textLeft(),getY()+8,color,10);
         if(isFocused()&&Minecraft.getInstance().getLastInputType().isKeyboard())Ui.stroke(g,getX(),getY(),getWidth(),getHeight(),Ui.BLUE);
     }
