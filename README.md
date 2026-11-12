@@ -80,7 +80,7 @@ With JDK 25:
 .\gradlew.bat build --console=plain
 ```
 
-The development build runs unit checks and the muted packaged-client release suite, then installs `build/libs/neon-0.3.0.jar` as `neon.jar` in the local PrismLauncher **Vanilla** instance. The suite needs a disposable game directory containing `saves/Neon Verification/level.dat`: use `-PneonVerificationDir=<test-game-directory>` (default `runtime/smoke/game`). Never point it at a real launcher instance. Both the production JAR and verification harness are hashed inside the running client; missing, failed or stale verification blocks installation. The staged and installed bytes are checked again. Existing games remain open; new code loads on the next game launch.
+The development build runs unit checks and the muted packaged-client release suite, then installs `build/libs/neon-0.4.0.jar` as `neon.jar` in the local PrismLauncher **Vanilla** instance. The suite needs a disposable game directory containing `saves/Neon Verification/level.dat`: use `-PneonVerificationDir=<test-game-directory>` (default `runtime/smoke/game`). Never point it at a real launcher instance. Both the production JAR and verification harness are hashed inside the running client; missing, failed or stale verification blocks installation. The staged and installed bytes are checked again. Existing games remain open; new code loads on the next game launch.
 
 Use `-PskipInstall` to build without installing, or `-PneonInstallDir=<mods-directory>` to select another destination. Linux/macOS users can run `./gradlew build -PskipInstall`.
 
