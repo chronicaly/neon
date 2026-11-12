@@ -138,7 +138,7 @@ public final class MotionBlurSmoke {
             case 1 -> { if (finished()) { Neon.config.motionBlurIncludeUi = true; begin("Include UI changed"); next(); } }
             case 2 -> {
                 if (!finished()) return false;
-                mc.gui.setScreen(new SettingsScreen(null)); button("Visuals").onPress(null); button("Motion blur").onPress(null); next();
+                mc.gui.setScreen(Menus.fresh(null)); button("Visuals").onPress(null); button("Motion blur").onPress(null); next();
             }
             case 3 -> {
                 if (age < 4) return false;
@@ -166,7 +166,7 @@ public final class MotionBlurSmoke {
             case 6 -> {
                 if (age < 4) return false;
                 check(!ready(), "profile screen is excluded from motion blur");
-                mc.gui.setScreen(new HudEditor(new SettingsScreen(null))); next();
+                mc.gui.setScreen(new HudEditor(Menus.fresh(null))); next();
             }
             case 7 -> {
                 if (age < 4) return false;

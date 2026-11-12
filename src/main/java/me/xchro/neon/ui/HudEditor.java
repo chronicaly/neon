@@ -4,9 +4,11 @@ import java.util.*;
 import java.util.function.*;
 import me.xchro.neon.Neon;
 import me.xchro.neon.config.NeonConfig;
+import me.xchro.neon.config.HudPanelPlacement;
 import me.xchro.neon.config.NeonConfig.ArmorAnchor;
 import me.xchro.neon.hud.*;
 import me.xchro.neon.core.NumberValue;
+import me.xchro.neon.core.UiSoundPolicy.Cue;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.*;
 import net.minecraft.client.gui.components.events.GuiEventListener;
@@ -16,15 +18,20 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.*;
 import org.lwjgl.glfw.GLFW;
 
-/** Unity HudEditorScreen's root/group/bool/range row model, adapted to Neon's two widgets and renderer. */
+/** Unity HudEditorScreen's root/group/bool/range row model, adapted to Neon's widgets and renderer. */
 public final class HudEditor extends PixelScreen {
-    private enum Element { ARMOR, TOTEMS }
+    private enum Element { ARMOR, TOTEMS, FPS }
+    private static final int COLLAPSED_HEIGHT = 23 + (Element.values().length + 1) * 22;
     private enum Gesture { NONE, MOVE, RESIZE, PANEL }
     private final Screen parent;
     private final SettingsSession session;
+    private final java.nio.file.Path placementFile = net.fabricmc.loader.api.FabricLoader.getInstance().getConfigDir().resolve("neon-hud-window.json");
+    private final HudPanelPlacement placement;
+    private int viewportWidth, viewportHeight;
     private final List<Runnable> refreshers = new ArrayList<>();
     private final List<AbstractWidget> inspector = new ArrayList<>();
     private final Set<String> expanded = new HashSet<>();
+    private final Map<String, UiModuleFold> folds = new HashMap<>();
     private record Row(String key, String label, int depth, Object value, Runnable left, Runnable right) {}
     private record Range(double value, double min, double max, double step, DoubleConsumer setter) {}
     private UiScroll column;
@@ -35,50 +42,67 @@ public final class HudEditor extends PixelScreen {
     private double startX, startY, startScale, panelGrabX, panelGrabY;
     private HudBounds origin;
     private HudResize resizeGesture;
-    private int guideX = -1, guideY = -1;
+    private double guideX = -1, guideY = -1;
     private String error = "";
     private boolean animateRows;
     public HudEditor(Screen parent) {
         super(Ui.label("HUD editor")); this.parent = parent;
         session = parent instanceof SettingsScreen settings ? settings.session() : new SettingsSession();
+        HudPanelPlacement loaded;
+        try {
+            String pending = Neon.SAVES.latest(placementFile);
+            loaded = pending == null ? HudPanelPlacement.load(placementFile) : HudPanelPlacement.decode(pending);
+        } catch (Exception error) { loaded = new HudPanelPlacement(); Neon.LOG.warn("Could not read HUD column placement", error); }
+        placement = loaded;
     }
     public boolean damagePreview() { return damagePreview; }
     public boolean controlsVisible() { return toolbar && gesture != Gesture.MOVE && gesture != Gesture.RESIZE; }
     public ScreenRectangle inspectorBounds() { return new ScreenRectangle(px, py, pw, ph); }
-    private NeonConfig.Widget widget() { return selected == Element.ARMOR ? Neon.config.armor : Neon.config.totems; }
-    private boolean visible(Element element) { return (element == Element.ARMOR ? Neon.config.armor : Neon.config.totems).visible; }
+    // Unity's panel starts at 157/255 alpha. Keep row overlays translucent too:
+    // stacking the normal menu's almost-opaque surfaces hides the placement canvas.
+    static int surface(int color, int alpha) { return Ui.alpha(color, (color >>> 24) * alpha / 255); }
+    private NeonConfig.Widget widget() { return widget(selected); }
+    private NeonConfig.Widget widget(Element element) {
+        return switch (element) { case ARMOR -> Neon.config.armor; case TOTEMS -> Neon.config.totems; case FPS -> Neon.config.fps; };
+    }
+    private boolean visible(Element element) { return widget(element).visible; }
     private int hudWidth() { return Math.min(width * pixelScale(), minecraft.getWindow().getWidth()); }
     private int hudHeight() { return Math.min(height * pixelScale(), minecraft.getWindow().getHeight()); }
-    private HudBounds bounds(Element element) { return element == Element.ARMOR ? NeonHud.pixelBounds(hudWidth(), hudHeight(), true) : NeonHud.totemPixelBounds(hudWidth(), hudHeight()); }
+    private HudBounds bounds(Element element) {
+        return switch (element) {
+            case ARMOR -> NeonHud.pixelBounds(hudWidth(), hudHeight(), true);
+            case TOTEMS -> NeonHud.totemPixelBounds(hudWidth(), hudHeight());
+            case FPS -> FpsHud.bounds(hudWidth(), hudHeight());
+        };
+    }
     private double hudCoordinate(double canvas) { return canvas * UI_SCALE; }
-    private double controlCoordinate(double pixel) { return pixel / UI_SCALE; }
     private double detachedScale() { return Math.clamp(pixelScale() / NeonHud.density(), .5, 3); }
     private HudBounds bounds() { return bounds(selected); }
     // Ported from Unity HudEditorScreen: a root toggles on left click and folds on right click.
-    private void fold(String key) { if (!expanded.remove(key)) expanded.add(key); animateRows = true; rebuildWidgets(); }
+    private void fold(String key) { if (column != null) column.pinHeader(key); if (!expanded.remove(key)) expanded.add(key); animateRows = true; rebuildWidgets(); UiSounds.cue(expanded.contains(key) ? Cue.NAVIGATE : Cue.BACK); }
     private void root(List<Row> out, Element element, String name) {
-        out.add(new Row(element.name(), name, 0, element == Element.ARMOR ? Neon.config.armor.visible : Neon.config.totems.visible,
-            () -> { selected = element; session.change(() -> widget().visible = !widget().visible); if(widget().visible)UiSounds.moduleEnabled(); rebuildWidgets(); },
+        out.add(new Row(element.name(), name, 0, visible(element),
+            () -> { selected = element; session.change(() -> widget().visible = !widget().visible); UiSounds.toggled(widget().visible); rebuildWidgets(); },
             () -> { selected = element; fold(element.name()); }));
     }
     private void group(List<Row> out, String key, String name, int depth) { out.add(new Row(key, name, depth, null, () -> fold(key), () -> fold(key))); }
     private void bool(List<Row> out, String key, String name, int depth, boolean value, Runnable action) {
-        out.add(new Row(key, name, depth, value, () -> { session.change(action); rebuildWidgets(); }, null));
+        out.add(new Row(key, name, depth, value, () -> { session.change(action); rebuildWidgets(); UiSounds.toggled(!value); }, null));
     }
     private void range(List<Row> out, String key, String name, int depth, double value, double min, double max, double step, DoubleConsumer setter) {
         out.add(new Row(key, name, depth, new Range(value, min, max, step, setter), null, null));
     }
     private void choice(List<Row> out, String key, String name, String value, Runnable cycle) {
-        out.add(new Row(key, name + ": " + value, 1, null, () -> { session.change(cycle); rebuildWidgets(); }, null));
+        out.add(new Row(key, name + ": " + value, 1, null, () -> { session.change(cycle); rebuildWidgets(); UiSounds.cue(Cue.CONFIRM); }, null));
     }
     private List<Row> makeRows() {
         List<Row> out = new ArrayList<>(); var c = Neon.config;
         for (Element e : Element.values()) {
-            root(out, e, e == Element.ARMOR ? "Armor" : "Totems");
-            if (!expanded.contains(e.name())) continue;
-            var widget = e == Element.ARMOR ? c.armor : c.totems;
-            range(out, e + ":Scale", "Scale", 1, e == Element.TOTEMS && !c.totemFloating ? detachedScale() : widget.scale, .5, 3, .05,
-                v -> { selected = e; resizeAtTopLeft(v); });
+            root(out, e, switch (e) { case ARMOR -> "Armor"; case TOTEMS -> "Totems"; case FPS -> "FPS"; });
+            var widget = widget(e);
+            if (e != Element.TOTEMS || c.totemFloating)
+                range(out, e + ":Scale", "Scale", 1, widget.scale, .5, 3, .05,
+                    v -> { selected = e; resizeAtTopLeft(v); });
             if (e == Element.ARMOR) {
                 choice(out, "armor:layout", "Layout", c.armorVertical ? "Vertical" : "Horizontal", () -> c.armorVertical = !c.armorVertical);
                 bool(out, "armor:frames", "Slot frames", 1, c.armorSlots, () -> c.armorSlots = !c.armorSlots);
@@ -87,14 +111,19 @@ public final class HudEditor extends PixelScreen {
                 bool(out, "armor:warnings", "Warnings", 1, c.armorWarnings, () -> c.armorWarnings = !c.armorWarnings);
                 if (c.armorWarnings) range(out, "armor:threshold", "Warn below", 1, c.armorWarningPercent, 1, 30, 1, v -> c.armorWarningPercent = (int) v);
                 bool(out, "armor:preview", "Damage preview", 1, damagePreview, () -> damagePreview = !damagePreview);
-            } else {
+            } else if (e == Element.TOTEMS) {
                 choice(out, "totems:mode", "Mode", c.totemFloating ? "Floating" : "Offhand", () -> {
                     selected = Element.TOTEMS; if (c.totemFloating) c.totemFloating = false; else detachTotem();
                 });
+            } else {
+                bool(out, "fps:smooth", "Smooth FPS", 1, c.fpsAnimation, () -> c.fpsAnimation = !c.fpsAnimation);
+                bool(out, "fps:background", "Background", 1, c.fpsBackground, () -> c.fpsBackground = !c.fpsBackground);
+                bool(out, "fps:border", "Border", 1, c.fpsBorder, () -> c.fpsBorder = !c.fpsBorder);
+                bool(out, "fps:shadow", "Shadow", 1, c.fpsShadow, () -> c.fpsShadow = !c.fpsShadow);
             }
         }
         group(out, "general", "General", 0);
-        if (expanded.contains("general")) {
+        {
             range(out, "general:scale", "HUD scale", 1, c.hudScale, .5, 2, .05, v -> c.hudScale = v);
             bool(out, "general:guides", "Guides", 1, c.editorGuides, () -> c.editorGuides = !c.editorGuides);
             bool(out, "general:snap", "Snap", 1, c.editorSnap, () -> c.editorSnap = !c.editorSnap);
@@ -103,30 +132,52 @@ public final class HudEditor extends PixelScreen {
         return out;
     }
     @Override protected void init() {
+        finishPointerGesture();
         WidgetMemory memory = new WidgetMemory(column);
         double position = column == null ? 0 : column.scrollAmount(); column = null;
         session.end(); gesture = Gesture.NONE; resizeGesture = null; refreshers.clear(); inspector.clear(); guideX = guideY = -1;
         if (!toolbar) return;
         pw = Math.min(188, canvasWidth() - 16);
+        if (viewportWidth != canvasWidth() || viewportHeight != canvasHeight()) {
+            viewportWidth = canvasWidth(); viewportHeight = canvasHeight();
+            var positionInView = placement.fit(viewportWidth, viewportHeight, pw, COLLAPSED_HEIGHT);
+            px = positionInView.x(); py = positionInView.y();
+        }
         px = Math.clamp(px, 8, canvasWidth() - pw - 8);
-        py = Math.clamp(py, 8, Math.max(8, canvasHeight() - 89));
+        py = Math.clamp(py, 8, Math.max(8, canvasHeight() - COLLAPSED_HEIGHT));
         LinearLayout rows = LinearLayout.vertical().spacing(0);
-        for (Row row : makeRows()) {
-            if (row.value instanceof Range r) {
-                rows.addChild(new ExactSlider(this, session, row.label, pw - 8, r.value, r.min, r.max, r.step,
-                    n -> NumberValue.format(n) + (row.label.endsWith("scale") || row.label.equals("Scale") ? "x" : row.label.equals("Warn below") ? "%" : row.label.equals("Snap sensitivity") ? "px" : ""), r.setter).inlineRow().identity(row.key));
-            } else {
-                rows.addChild(new HudEntry(row.label, pw - 8, () -> Boolean.TRUE.equals(row.value),
-                    () -> expanded.contains(row.key), row.left == null ? () -> {} : row.left, row.right == null ? () -> {} : row.right).depth(row.depth).identity(row.key));
+        List<Row> model = makeRows();
+        for (int i = 0; i < model.size();) {
+            Row root = model.get(i++);
+            rows.addChild(control(root));
+            LinearLayout content = LinearLayout.vertical().spacing(0);
+            while (i < model.size() && model.get(i).depth > 0) content.addChild(control(model.get(i++)));
+            UiModuleFold previous = folds.get(root.key);
+            if (expanded.contains(root.key) || previous != null) {
+                var fold = new UiModuleFold(root.label, pw - 2, content, previous, expanded.contains(root.key), animateRows, this::layoutColumn, true);
+                folds.put(root.key, fold); rows.addChild(fold);
             }
         }
         rows.arrangeElements();
         ph = Math.min(23 + rows.getHeight(), canvasHeight() - py - 8);
         column = addInspector(new UiScroll(px + 1, py + 22, pw - 2, Math.max(22, ph - 23), rows));
-        column.setScrollAmount(position);
-        memory.restore(column, animateRows); animateRows = false;
+        if (animateRows) column.restorePosition(position); else column.setScrollAmount(position);
+        memory.restore(column, false); animateRows = false;
         if (column.getFocused() != null) setFocused(column);
         refresh();
+    }
+    private AbstractWidget control(Row row) {
+        if (row.value instanceof Range r) return new ExactSlider(this, session, row.label, pw - 2, r.value, r.min, r.max, r.step,
+            n -> NumberValue.format(n) + (row.label.endsWith("scale") || row.label.equals("Scale") ? "x" : row.label.equals("Warn below") ? "%" : row.label.equals("Snap sensitivity") ? "px" : ""), r.setter).inlineRow().identity(row.key);
+        return new HudEntry(row.label, pw - 2, () -> Boolean.TRUE.equals(row.value),
+            () -> expanded.contains(row.key), row.left == null ? () -> {} : row.left, row.right).depth(row.depth).identity(row.key);
+    }
+    private void layoutColumn() {
+        if (column == null) return;
+        column.relayout();
+        ph = Math.min(23 + column.contentHeight(), canvasHeight() - py - 8);
+        column.setHeight(Math.max(22, ph - 23));
+        column.relayout();
     }
     private <T extends AbstractWidget> T addInspector(T widget) { inspector.add(widget); return addRenderableWidget(widget); }
     private void select(Element next) {
@@ -138,15 +189,20 @@ public final class HudEditor extends PixelScreen {
         HudBounds before = bounds(); Neon.config.totemFloating = true; widget().scale = detachedScale();
         before.move(widget(), before.x(), before.y(), hudWidth(), hudHeight());
     }
-    private void resizeAtTopLeft(double scale) { detachTotem(); HudBounds before = bounds(); widget().scale = scale; move(before.x(), before.y(), false); }
+    private void resizeAtTopLeft(double scale) {
+        if (selected == Element.TOTEMS && !Neon.config.totemFloating) return;
+        HudBounds before = bounds(); widget().scale = scale; move(before.x(), before.y(), false);
+    }
     private void refresh() { refreshers.forEach(Runnable::run); }
     private ExactSlider editingSlider() {
-        if (column == null) return null;
-        return column.children().stream().filter(w -> w instanceof ExactSlider slider && slider.isEditing()).map(w -> (ExactSlider) w).findFirst().orElse(null);
+        return activeNumber();
     }
     @Override public boolean isPauseScreen() { return false; }
     @Override protected void pixelBackground(GuiGraphicsExtractor g, int x, int y, float delta) {}
     @Override protected void renderPixels(GuiGraphicsExtractor g, int mx, int my, float delta) {
+        boolean folding = false;
+        for (var fold : folds.values()) folding |= fold.tick();
+        if (folding) layoutColumn();
         // Gameplay and editor share physical-pixel geometry; attached totems follow the real offhand slot.
         g.pose().pushMatrix(); g.pose().scale(1 / UI_SCALE);
         NeonHud.drawPixels(g, true, hudWidth(), hudHeight());
@@ -154,14 +210,17 @@ public final class HudEditor extends PixelScreen {
         g.pose().popMatrix();
         boolean moving = gesture == Gesture.MOVE || gesture == Gesture.RESIZE;
         if (moving && Neon.config.editorGuides) {
-            Ui.rect(g, canvasWidth() / 2, 0, 1, canvasHeight(), 0x30ffffff);
-            Ui.rect(g, 0, canvasHeight() / 2, canvasWidth(), 1, 0x30ffffff);
-            if (guideX >= 0) Ui.rect(g, (int) Math.round(controlCoordinate(guideX)), 0, 1, canvasHeight(), Ui.BLUE);
-            if (guideY >= 0) Ui.rect(g, 0, (int) Math.round(controlCoordinate(guideY)), canvasWidth(), 1, Ui.BLUE);
+            g.pose().pushMatrix(); g.pose().scale(1 / UI_SCALE);
+            Ui.rect(g, hudWidth() / 2, 0, 1, hudHeight(), 0x30ffffff);
+            Ui.rect(g, 0, hudHeight() / 2, hudWidth(), 1, 0x30ffffff);
+            if (guideX >= 0) Ui.rect(g, Math.min(hudWidth()-1, (int) Math.round(guideX)), 0, 1, hudHeight(), Ui.BLUE);
+            if (guideY >= 0) Ui.rect(g, 0, Math.min(hudHeight()-1, (int) Math.round(guideY)), hudWidth(), 1, Ui.BLUE);
+            g.pose().popMatrix();
         }
         if (controlsVisible()) {
-            Ui.rect(g, px, py, pw, ph, Ui.PANEL); Ui.stroke(g, px, py, pw, ph, Ui.LINE); Ui.text(g, "HUD", px + 7, py + 6, Ui.TEXT);
-            Ui.rect(g, px + 1, py + 21, pw - 2, 1, Ui.LINE);
+            Ui.rect(g, px, py, pw, ph, surface(Ui.PANEL, 157));
+            Ui.stroke(g, px, py, pw, ph, surface(Ui.MUTED, 100));
+            Ui.text(g, "HUD", px + 5, py + 6, Ui.TEXT);
             refresh(); renderWidgets(g, mx, my, delta);
         }
         if (!error.isEmpty()) Ui.small(g, error, 12, 12, Ui.RED);
@@ -176,26 +235,12 @@ public final class HudEditor extends PixelScreen {
         detachTotem();
         HudBounds b = bounds(); guideX = guideY = -1;
         if (snap && Neon.config.editorSnap) {
-            Element neighbor = selected == Element.ARMOR ? Element.TOTEMS : Element.ARMOR;
-            HudBounds other = visible(neighbor) ? bounds(neighbor) : null;
-            double nx = snapAxis(x, b.width(), hudWidth(), other == null ? 0 : other.x(), other == null ? -1 : other.width());
-            double ny = snapAxis(y, b.height(), hudHeight(), other == null ? 0 : other.y(), other == null ? -1 : other.height());
-            if (nx != x) guideX = (int) nx;
-            if (ny != y) guideY = (int) ny;
-            x = nx; y = ny;
+            var neighbors = Arrays.stream(Element.values()).filter(e -> e != selected && visible(e)).map(this::bounds).toList();
+            var snapped = HudSnap.move(b, neighbors, hudWidth(), hudHeight(), x, y, Neon.config.snapSensitivity);
+            x = snapped.x(); y = snapped.y(); guideX = snapped.guideX(); guideY = snapped.guideY();
         }
         b.move(widget(), x, y, hudWidth(), hudHeight());
         if (selected == Element.ARMOR) Neon.config.armorAnchor = ArmorAnchor.CUSTOM;
-    }
-    private double snapAxis(double value, int size, int extent, int other, int otherSize) {
-        double result = value, nearest = Neon.config.snapSensitivity;
-        double[] anchors = otherSize < 0 ? new double[]{0, (extent-size)/2.0, extent-size}
-            : new double[]{0, (extent-size)/2.0, extent-size, other, other+(otherSize-size)/2.0, other+otherSize-size};
-        for (double anchor : anchors) {
-            double distance = Math.abs(value - anchor);
-            if (distance < nearest) { nearest = distance; result = anchor; }
-        }
-        return result;
     }
     @Override protected boolean pixelMouseClicked(MouseButtonEvent e, boolean twice) {
         ExactSlider editing = editingSlider();
@@ -208,17 +253,23 @@ public final class HudEditor extends PixelScreen {
         e = new MouseButtonEvent(hudCoordinate(e.x()), hudCoordinate(e.y()), e.buttonInfo());
         if (e.button() == 1) {
             for (Element element : Element.values()) if (visible(element) && bounds(element).contains(e.x(), e.y())) {
-                selected = element; expanded.add(element.name()); toolbar = true; rebuildWidgets(); return true;
+                selected = element; animateRows = expanded.add(element.name());
+                boolean opened = animateRows || !toolbar; toolbar = true; rebuildWidgets();
+                if (opened) UiSounds.cue(Cue.NAVIGATE);
+                column.children().stream().filter(w -> w instanceof HudEntry entry && entry.identity().equals(element.name()))
+                    .findFirst().ifPresent(w -> column.reveal(w.getY(), w.getBottom() + 22));
+                return true;
             }
             return false;
         }
         if (e.button() != 0) return false;
         setFocused((GuiEventListener) null);
         // Selection takes precedence when widgets overlap; the inspector can select either one.
-        for (Element element : new Element[]{selected, selected == Element.ARMOR ? Element.TOTEMS : Element.ARMOR}) {
+        var hitOrder = new ArrayList<>(List.of(Element.values())); hitOrder.remove(selected); hitOrder.addFirst(selected);
+        for (Element element : hitOrder) {
             if (!visible(element)) continue;
             HudBounds b = bounds(element);
-            for (int i=0;i<4;i++) if(handle(b,i).contains(e.x(),e.y())) {
+            for (int i=0;i<4;i++) if((element != Element.TOTEMS || Neon.config.totemFloating) && handle(b,i).contains(e.x(),e.y())) {
                 select(element);start(e,Gesture.RESIZE);resizeGesture=new HudResize(widget(),origin,i,startScale);return true;
             }
             if (b.contains(e.x(), e.y())) { select(element); start(e, Gesture.MOVE); return true; }
@@ -249,18 +300,24 @@ public final class HudEditor extends PixelScreen {
         return false;
     }
     @Override protected boolean pixelMouseReleased(MouseButtonEvent e) {
+        if (gesture != Gesture.NONE && e.button() != 0) return true;
+        if (gesture == Gesture.PANEL) {
+            placement.capture(px, py, canvasWidth(), canvasHeight()); placement.queue(placementFile, Neon.SAVES);
+        }
         boolean handled = gesture != Gesture.NONE; gesture = Gesture.NONE; guideX = guideY = -1; session.end();
         boolean control = super.pixelMouseReleased(e); if (handled) rebuildWidgets(); return handled || control;
     }
     @Override protected boolean pixelMouseScrolled(double x, double y, double dx, double dy) {
         if (toolbar && x >= px && x <= px + pw && y >= py && y <= py + ph) return super.pixelMouseScrolled(x, y, dx, dy);
         if (visible(selected) && bounds().contains(hudCoordinate(x), hudCoordinate(y)) && dy != 0) {
-            double current = selected == Element.TOTEMS && !Neon.config.totemFloating ? detachedScale() : widget().scale;
+            if (selected == Element.TOTEMS && !Neon.config.totemFloating) return true;
+            double current = widget().scale;
             session.change(() -> resizeAtTopLeft(Math.clamp(current + Math.signum(dy) * .05, .5, 3))); rebuildWidgets(); return true;
         }
         return super.pixelMouseScrolled(x, y, dx, dy);
     }
-    @Override public boolean keyPressed(KeyEvent e) {
+    @Override protected boolean pixelKeyPressed(KeyEvent e) {
+        if (cancelNumberDrag(e)) return true;
         ExactSlider editing = editingSlider();
         if (editing != null) return editing.keyPressed(e);
         if (e.key() == GLFW.GLFW_KEY_Z && (e.modifiers() & GLFW.GLFW_MOD_CONTROL) != 0) { session.undo(); rebuildWidgets(); return true; }
@@ -270,17 +327,24 @@ public final class HudEditor extends PixelScreen {
             else session.cancel();
             rebuildWidgets(); return true;
         }
-        if (getFocused() != null || !visible(selected)) return super.keyPressed(e);
+        if (getFocused() != null || !visible(selected)) return super.pixelKeyPressed(e);
         int step = (e.modifiers() & GLFW.GLFW_MOD_SHIFT) != 0 ? 10 : 1; HudBounds b = bounds();
         switch (e.key()) {
             case GLFW.GLFW_KEY_LEFT -> session.change(() -> move(b.x() - step, b.y(), false));
             case GLFW.GLFW_KEY_RIGHT -> session.change(() -> move(b.x() + step, b.y(), false));
             case GLFW.GLFW_KEY_UP -> session.change(() -> move(b.x(), b.y() - step, false));
             case GLFW.GLFW_KEY_DOWN -> session.change(() -> move(b.x(), b.y() + step, false));
-            default -> { return super.keyPressed(e); }
+            default -> { return super.pixelKeyPressed(e); }
         }
         refresh(); return true;
     }
-    @Override public void onClose() { session.end(); if (Neon.save()) minecraft.gui.setScreen(parent); else error = "Could not save settings. Check the game log."; }
-    @Override public void removed() { session.end(); gesture = Gesture.NONE; Neon.flushSaves(); }
+    @Override public void onClose() { session.end(); if (Neon.save()) { minecraft.gui.setScreen(parent); UiSounds.cue(Cue.BACK); } else error = "Could not save settings. Check the game log."; }
+    @Override protected boolean soundControlsVisible() { return controlsVisible() && !hasPointerGesture(); }
+    @Override protected boolean hasPointerGesture() { return super.hasPointerGesture() || gesture != Gesture.NONE; }
+    @Override protected void finishPointerGesture() {
+        super.finishPointerGesture();
+        if (gesture == Gesture.PANEL) { placement.capture(px, py, canvasWidth(), canvasHeight()); placement.queue(placementFile, Neon.SAVES); }
+        gesture = Gesture.NONE; resizeGesture = null; guideX = guideY = -1; session.end();
+    }
+    @Override public void removed() { super.removed(); session.end(); gesture = Gesture.NONE; Neon.flushSaves(); }
 }

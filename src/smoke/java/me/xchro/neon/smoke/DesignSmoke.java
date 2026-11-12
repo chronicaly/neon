@@ -21,7 +21,7 @@ final class DesignSmoke {
     DesignSmoke(Minecraft mc, int checks) {
         this.mc = mc; this.checks = checks; original = ConfigStore.copy(Neon.config);
         mc.options.guiScale().set(2); mc.resizeGui();
-        mc.getWindow().setWindowed(1280, 800); mc.resizeGui(); mc.gui.setScreen(new SettingsScreen(null));
+        mc.getWindow().setWindowed(1280, 800); mc.resizeGui(); mc.gui.setScreen(Menus.fresh(null));
     }
     int checks() { return checks; }
     private void check(boolean ok, String message) {
@@ -87,7 +87,7 @@ final class DesignSmoke {
                 check(changed > 30, "real rendered neon outline moves between frames");
                 check(mc.gui.screen().width >= 600, "menu adapts to a larger window (GUI=" + mc.gui.screen().width + ", display=" + mc.getWindow().getWidth() + ", scale=" + mc.getWindow().getGuiScale() + ")");
                 check(widgets().stream().filter(w -> w instanceof Button).allMatch(w -> w instanceof UiButton), "all menu actions use the custom controls");
-                check(List.of("Combat", "Visuals", "HUD", "Settings").stream().map(this::button).map(AbstractWidget::getX).distinct().count() == 1, "sidebar contains categories");
+                check(List.of("Combat", "Visuals", "Settings").stream().map(this::button).map(AbstractWidget::getX).distinct().count() == 1, "sidebar category targets share a centered column");
                 shot("cards"); button("Visuals").onPress(null); button("Zoom").onPress(null); next();
             }
             case 1 -> {
@@ -99,9 +99,9 @@ final class DesignSmoke {
             }
             case 2 -> {
                 shot("zoom-options");
-                check(widgets().size() == essentialCount && button("Reset").getBottom() <= scroll().getBottom(), "all direct zoom options are reachable by scrolling");
-                button("HUD").onPress(null);
-                check(mc.gui.screen() instanceof HudEditor, "HUD category opens the editor directly"); next();
+                check(widgets().size() == essentialCount && widgets().stream().filter(w -> w.getMessage().getString().equals("Scroll zoom")).allMatch(w -> w.getBottom() <= scroll().getBottom()), "all direct zoom options are reachable by scrolling");
+                button("HUD editor").onPress(null);
+                check(mc.gui.screen() instanceof HudEditor, "Visuals HUD editor action opens the editor directly"); next();
             }
             case 3 -> {
                 shot("hud-module"); next();
@@ -172,7 +172,7 @@ final class DesignSmoke {
                 check(mc.gui.screen() == null, "editor verification restores gameplay");
                 mc.getWindow().setWindowed(1280, 800); mc.options.guiScale().set(1); mc.resizeGui();
                 try { new me.xchro.neon.config.MenuPlacement().queue(mc.gameDirectory.toPath().resolve("config/neon-window.json"), Neon.SAVES); Neon.SAVES.flush().join(); } catch (Exception e) { throw new AssertionError(e); }
-                mc.gui.setScreen(new SettingsScreen(null)); next();
+                mc.gui.setScreen(Menus.fresh(null)); next();
             }
             case 8 -> {
                 var menu = (SettingsScreen) mc.gui.screen(); var b = menu.menuBounds();
@@ -195,21 +195,21 @@ final class DesignSmoke {
                 check(menu.mouseClicked(mouse(menu.guiCoordinate(resized.left() + 40), menu.guiCoordinate(resized.top() + 20)), false), "header begins a cancellable movement");
                 menu.mouseDragged(mouse(10000, 10000), 0, 0); key(GLFW.GLFW_KEY_ESCAPE);
                 check(menu.menuBounds().equals(resized), "Escape cancels menu movement");
-                closeScreen(); mc.gui.setScreen(new SettingsScreen(null));
+                closeScreen(); mc.gui.setScreen(Menus.fresh(null));
                 check(((SettingsScreen) mc.gui.screen()).menuBounds().equals(resized), "menu placement persists across reopening");
                 button("Settings").onPress(null);
                 check(button("Appearance").active && button("Profiles").active && widgets().stream().noneMatch(w -> w.getMessage().getString().startsWith("[")), "Settings merges appearance and profiles without a bind list");
                 next();
             }
             case 9 -> {
-                shot("settings-cards"); button("Appearance").onPress(null); next();
+                shot("settings-cards"); button("Colors").onPress(null); next();
             }
             case 10 -> {
-                colorSounds=SoundAudit.neonClicks;
+                colorSounds=SoundAudit.neonEnables;
                 shot("appearance"); button("Background").onPress(null); next();
             }
             case 11 -> {
-                check(mc.gui.screen() instanceof SettingsScreen, "color picker expands inside Appearance without replacing the menu");
+                check(mc.gui.screen() instanceof SettingsScreen, "color picker expands inside Colors without replacing the menu");
                 var picker = (SettingsScreen) mc.gui.screen();
                 if (colorPhase == 0) {
                 shot("color-picker");
@@ -226,7 +226,7 @@ final class DesignSmoke {
                 colorPhase++; age = 0; return false;
                 }
                 if (colorPhase == 1) {
-                check(widgets().stream().noneMatch(w -> w.getMessage().getString().equals("Color picker")), "Escape collapses the picker and keeps Appearance open");
+                check(widgets().stream().noneMatch(w -> w.getMessage().getString().equals("Color picker")), "Escape collapses the picker and keeps Colors open");
                 check(widgets().stream().noneMatch(w -> Set.of("Apply", "Cancel").contains(w.getMessage().getString())), "inline color editing has no dialog actions");
                 check(Neon.save(), "appearance saves"); Neon.SAVES.flush().join();
                 try { check(new ConfigStore(mc.gameDirectory.toPath().resolve("config/neon.json")).load().theme.background == 0xcc162233, "appearance and opacity survive configuration reload"); } catch (Exception e) { throw new AssertionError(e); }
@@ -250,7 +250,7 @@ final class DesignSmoke {
                 colorPhase++; age = 0; return false;
                 }
                 check(widgets().stream().noneMatch(w -> w.getMessage().getString().equals("Color picker")), "color row closes inline after its short fold animation");
-                check(SoundAudit.neonClicks==colorSounds,"opening, dragging, pasting, copying and closing colors are silent");
+                check(SoundAudit.neonEnables==colorSounds,"color interactions never request module-enable cues");
                 var before = ((SettingsScreen) mc.gui.screen()).menuBounds();
                 button("Settings").onPress(null); button("Profiles").onPress(null);
                 String profile = "Design verification";

@@ -48,7 +48,7 @@ public final class AutoClicker {
         boolean interactive = mc.player != null && mc.level != null && mc.gui.screen() == null
             && mc.gui.overlay() == null && mc.isWindowActive();
         // Menu typing never toggles automation. Existing Toggle sessions survive every context change.
-        boolean next = activation.update(Neon.config.clickerEnabled, interactive, activationDown(mc), Neon.config.toggleClicker);
+        boolean next = activation.update(Neon.config.clickerEnabled && !Neon.autoclicker.isUnbound(), interactive, activationDown(mc), Neon.config.clickerMode());
         if (next != active && mc.player != null) mc.gui.hud.setOverlayMessage(Component.literal("Autoclicker: " + (next ? "on" : "off")), false);
         active = next;
         if (!active) {

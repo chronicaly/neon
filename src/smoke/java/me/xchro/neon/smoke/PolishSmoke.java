@@ -51,7 +51,7 @@ final class PolishSmoke {
     private void setup() {
         mc.getWindow().setWindowed(1603, 1003); mc.options.guiScale().set(stage + 1); mc.resizeGui();
         new MenuPlacement().queue(mc.gameDirectory.toPath().resolve("config/neon-window.json"), Neon.SAVES); Neon.SAVES.flush().join();
-        mc.gui.setScreen(new SettingsScreen(null)); button("Visuals").onPress(null); button("Zoom").onPress(null); age = 0;
+        mc.gui.setScreen(Menus.fresh(null)); button("Visuals").onPress(null); button("Zoom").onPress(null); age = 0;
     }
     private void shot(String name) { Screenshot.grab(mc.gameDirectory, "neon-polish-" + name + ".png", mc.gameRenderer.mainRenderTarget(), 1, message -> {}); }
     private void hudItems(int expected) {
@@ -82,7 +82,7 @@ final class PolishSmoke {
                     var b = menu.menuBounds(); var start = pixel(b.right()*PixelScreen.UI_SCALE,b.bottom()*PixelScreen.UI_SCALE);
                     menu.mouseClicked(start,false); menu.mouseDragged(pixel((b.right()-120)*PixelScreen.UI_SCALE,(b.bottom()-70)*PixelScreen.UI_SCALE),0,0); menu.mouseReleased(start);
                 }
-                if (age == 16) { shot("scale" + (stage + 1) + "-minimum"); button("HUD").onPress(null); button("General").onPress(null); }
+                if (age == 16) { shot("scale" + (stage + 1) + "-minimum"); button("HUD editor").onPress(null); button("General").onPress(null); }
                 if (age < 24) return false;
                 shot("hud-scale" + (stage + 1));
                 check(mc.options.getMenuBackgroundBlurriness() == 0, "HUD placement does not override Minecraft backdrop settings");
@@ -107,18 +107,18 @@ final class PolishSmoke {
                 Neon.config.snapSensitivity = 10; Neon.config.editorSnap = false;
                 if (++stage < 4) setup(); else {
                     mc.options.getSoundSourceOptionInstance(SoundSource.MASTER).set(0.0); Neon.config.theme.soundVolume = .23;
-                    int before = SoundAudit.neonClicks; UiSounds.moduleEnabled();
-                    check(SoundAudit.neonClicks == before+1 && Math.abs(SoundAudit.lastVolume-.23)<.00001, "module sound uses Neon volume while Minecraft master is muted");
+                    int before = SoundAudit.neonEnables; UiSounds.moduleEnabled();
+                    check(SoundAudit.neonEnables == before+1 && Math.abs(SoundAudit.lastVolume-.23)<.00001, "module sound uses Neon volume while Minecraft master is muted");
                     age = 0;
                 }
                 return false;
             }
             if (age < 8) return false;
             if (stage == 4) {
-            var audio = UiSounds.class.getDeclaredField("clip"); audio.setAccessible(true);
-            check(audio.get(null) instanceof Clip clip && clip.isOpen() && clip.getFrameLength()>0, "original Neon waveform is loaded into an independent open audio device");
-            int quiet = SoundAudit.neonClicks; Neon.config.theme.soundVolume=0; UiSounds.moduleEnabled();
-            check(SoundAudit.neonClicks == quiet, "Neon volume zero silences enable cues independently");
+            var audio = UiSounds.class.getDeclaredField("CLIPS"); audio.setAccessible(true);
+            check(((java.util.Map<?,?>)audio.get(null)).isEmpty(), "verification intercepts audio before opening any device");
+            int quiet = SoundAudit.neonEnables; Neon.config.theme.soundVolume=0; UiSounds.moduleEnabled();
+            check(SoundAudit.neonEnables == quiet, "Neon volume zero silences enable cues independently");
             check(SoundAudit.vanillaClicks == 0, "no Minecraft menu sound was emitted");
             Neon.config.armor.visible = Neon.config.totems.visible = false; Neon.config.totemFloating = true;
             Neon.config.editorGuides = false; mc.gui.setScreen(new HudEditor(null)); key(GLFW.GLFW_KEY_H,0); hudItems(0);

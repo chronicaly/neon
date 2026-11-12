@@ -43,7 +43,7 @@ class MotionBlurTest {
 
     @Test void oldSettingsGainSafeDefaultsAndNewSettingsRoundTrip() throws Exception {
         NeonConfig old = ConfigStore.decode("{\"zoomFactor\":7}");
-        assertFalse(old.motionBlurEnabled); assertEquals(75, old.motionBlurStrength); assertTrue(old.motionBlurIncludeUi);
+        assertFalse(old.motionBlurEnabled); assertEquals(10, old.motionBlurStrength); assertTrue(old.motionBlurIncludeUi);
         old.motionBlurEnabled = true; old.motionBlurStrength = 83; old.motionBlurIncludeUi = false;
         ConfigStore store = new ConfigStore(directory.resolve("neon.json")); store.save(old);
         NeonConfig loaded = store.load();
@@ -58,7 +58,7 @@ class MotionBlurTest {
         config.leftIntervalTicks = 23;
         ProfileStore profiles = new ProfileStore(directory.resolve("profiles.json")); profiles.initialize(config);
         profiles.put("Motion", config); config.resetCamera();
-        assertFalse(config.motionBlurEnabled); assertEquals(75, config.motionBlurStrength); assertTrue(config.motionBlurIncludeUi);
+        assertFalse(config.motionBlurEnabled); assertEquals(10, config.motionBlurStrength); assertTrue(config.motionBlurIncludeUi);
         assertEquals(23, config.leftIntervalTicks);
         ProfileStore reopened = new ProfileStore(directory.resolve("profiles.json")); reopened.initialize(config);
         assertTrue(reopened.get("Motion").motionBlurEnabled); assertEquals(62, reopened.get("Motion").motionBlurStrength);

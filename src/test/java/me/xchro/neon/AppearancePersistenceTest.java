@@ -8,6 +8,22 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class AppearancePersistenceTest {
     @TempDir Path directory;
+    @Test void freelookDistanceMigratesPersistsAndRejectsInvalidValues() throws Exception {
+        NeonConfig config = ConfigStore.decode("{\"zoomFactor\":7.25}");
+        assertEquals(4, config.freelookDistance);
+        config.freelookDistance = 7.125;
+        ConfigStore store = new ConfigStore(directory.resolve("neon.json")); store.save(config);
+        assertEquals(7.125, store.load().freelookDistance);
+        ProfileStore profiles = new ProfileStore(directory.resolve("profiles.json")); profiles.initialize(config); profiles.put("Distance", config);
+        ProfileStore reloaded = new ProfileStore(directory.resolve("profiles.json")); reloaded.initialize(new NeonConfig());
+        assertEquals(7.125, reloaded.get("Distance").freelookDistance);
+        assertEquals(1, ConfigStore.decode("{\"freelookDistance\":-1}").freelookDistance);
+        assertEquals(16, ConfigStore.decode("{\"freelookDistance\":99}").freelookDistance);
+        for (double invalid : new double[]{Double.NaN, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY}) {
+            config.freelookDistance = invalid; config.sanitize(); assertEquals(4, config.freelookDistance);
+        }
+        config.freelookDistance = 9; config.resetCamera(); assertEquals(4, config.freelookDistance);
+    }
     @Test void independentHudAndAppearanceDefaultsMigrateAndProfilesPersistThem() throws Exception {
         NeonConfig old = ConfigStore.decode("{\"armor\":{\"x\":0.2,\"y\":0.6,\"scale\":1.4},\"armorAnchor\":\"CUSTOM\"}");
         assertEquals(1, old.hudScale); assertEquals(10, old.snapSensitivity);
@@ -32,7 +48,7 @@ class AppearancePersistenceTest {
     @Test void oldConfigurationsReceiveTheApprovedPaletteAndPreserveSettings() {
         NeonConfig old = ConfigStore.decode("{\"zoomFactor\":7.25,\"theme\":null}");
         assertEquals(7.25, old.zoomFactor);
-        assertEquals(0xff0e131b, old.theme.background);
+        assertEquals(0xff07090e, old.theme.background);
         assertEquals(0xff84dce6, old.theme.accent);
         NeonConfig partial = ConfigStore.decode("{\"theme\":{\"background\":1122867}}");
         assertEquals(0xff112233, partial.theme.background);

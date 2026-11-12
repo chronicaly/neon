@@ -29,7 +29,7 @@ final class DensitySmoke {
     DensitySmoke(Minecraft mc, int checks) {
         this.mc = mc; this.checks = checks; original = ConfigStore.copy(Neon.config);
         clearPlacement(); mc.options.guiScale().set(1); mc.getWindow().setWindowed(1280, 800); mc.resizeGui();
-        mc.player.setXRot(12); mc.player.setYRot(70); mc.gui.setScreen(new SettingsScreen(null));
+        mc.player.setXRot(12); mc.player.setYRot(70); mc.gui.setScreen(Menus.fresh(null));
     }
     int checks() { return checks; }
     private void clearPlacement() { try { new me.xchro.neon.config.MenuPlacement().queue(mc.gameDirectory.toPath().resolve("config/neon-window.json"), Neon.SAVES); Neon.SAVES.flush().join(); } catch (Exception e) { throw new AssertionError(e); } }
@@ -102,6 +102,11 @@ final class DensitySmoke {
                 check(button("Hold").active, "module settings open through transformed screen input");
                 click("Visuals", 0); click("Zoom", 0);
                 var menu = (SettingsScreen) mc.gui.screen();
+                var bounds = menu.menuBounds();
+                var corner = mouse(menu.guiCoordinate(bounds.right()), menu.guiCoordinate(bounds.bottom()), 0);
+                menu.mouseClicked(corner, false);
+                var smaller = mouse(menu.guiCoordinate(bounds.right()-120), menu.guiCoordinate(bounds.bottom()-70), 0);
+                menu.mouseDragged(smaller, smaller.x()-corner.x(), smaller.y()-corner.y()); menu.mouseReleased(smaller);
                 var scroll = widgets(menu).stream().filter(w -> w instanceof AbstractScrollArea).map(w -> (AbstractScrollArea) w).findFirst().orElseThrow();
                 check(menu.mouseScrolled(menu.guiCoordinate(scroll.getX() + 30), menu.guiCoordinate(scroll.getY() + 40), 0, -8), "wheel scrolling accepts transformed menu coordinates");
                 var visible = widgets(menu).stream().filter(w -> w instanceof Button && w.getY() >= scroll.getY() && w.getBottom() <= scroll.getBottom()).map(w -> (Button) w).findFirst().orElseThrow();
@@ -117,7 +122,7 @@ final class DensitySmoke {
                 var end = mouse(start.x() + menu.guiCoordinate(30), start.y() + menu.guiCoordinate(18), 0);
                 menu.mouseDragged(end, end.x() - start.x(), end.y() - start.y()); menu.mouseReleased(end);
                 check(menu.menuBounds().left() == b.left() + 30 && menu.menuBounds().top() == b.top() + 18, "header drag follows the scaled pointer at GUI scale 3");
-                mc.options.guiScale().set(2); mc.resizeGui(); mc.gui.setScreen(new HudEditor(new SettingsScreen(null))); next();
+                mc.options.guiScale().set(2); mc.resizeGui(); mc.gui.setScreen(new HudEditor(Menus.fresh(null))); next();
             }
             case 4 -> {
                 var editor = (HudEditor) mc.gui.screen();

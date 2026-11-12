@@ -21,6 +21,7 @@ final class UiFont {
     private static final int PAGE_SIZE = 1024;
     private static final Font MEDIUM = load("inter-medium.ttf"), SEMIBOLD = load("inter-semibold.ttf");
     private static final Map<Integer, Face> FACES = new HashMap<>();
+    private static final Map<Integer, Face> HUD_FACES = new HashMap<>();
     private static float density;
     private static long frame;
     private static boolean warmed;
@@ -52,14 +53,14 @@ final class UiFont {
         if (!warmed) {
             warmed = true;
             for (String label : new String[]{"Combat", "Visuals", "HUD", "Settings", "Autoclicker", "Freelook", "Zoom", "Motion blur", "Appearance", "Profiles", "Enabled", "Bind", "Advanced", "Hold", "Toggle", "Left", "Right", "Both", "Background", "Outline", "Accent", "Text"}) face(11).run(label);
-            for (String label : new String[]{"Armor", "Totems", "General", "Scale", "Guides", "Snap"}) face(10).run(label);
+            for (String label : new String[]{"Armor", "Totems", "FPS", "General", "Scale", "Guides", "Snap"}) face(10).run(label);
             for (String label : new String[]{"N", "E", "O", "Combat", "Visuals", "HUD", "Settings"}) face(13).run(label);
         }
     }
     private static void ensureDensity() {
         float next = prewarming || Minecraft.getInstance().gui.screen() instanceof PixelScreen ? PixelScreen.UI_SCALE
             : Math.max(1, Minecraft.getInstance().getWindow().getGuiScale());
-        if (density != next) { close(); density = next; }
+        if (density != next) { closeFaces(FACES); warmed = false; density = next; }
     }
     private static Face face(int size) {
         ensureDensity();
@@ -73,8 +74,32 @@ final class UiFont {
         draw(g, value, x, y, color, title ? 13 : 11);
     }
     static void draw(GuiGraphicsExtractor g, String value, int x, int y, int color, int size) {
+        draw(g, face(size), value, x, y, Ui.faded(color));
+    }
+    static void beginHudFrame() {
+        frame++;
+        // Scale dragging may visit many font sizes. Retire old faces only before extraction.
+        while (HUD_FACES.size() > 4) {
+            var oldest = HUD_FACES.entrySet().stream().min(Comparator.comparingLong(e -> e.getValue().lastUsed)).orElseThrow();
+            oldest.getValue().pages.forEach(page -> page.texture.close()); HUD_FACES.remove(oldest.getKey());
+        }
+        for (Face face : HUD_FACES.values()) while (face.pages.size() > 3) {
+            Page victim = face.pages.stream().min(Comparator.comparingLong(p -> p.lastUsed)).orElseThrow();
+            face.runs.values().removeIf(run -> run.page == victim);
+            face.pages.remove(victim); victim.texture.close();
+        }
+    }
+    private static Face hudFace(int pixels) {
+        Face face = HUD_FACES.computeIfAbsent(Math.clamp(pixels, 1, 96), size -> new Face(MEDIUM.deriveFont((float) size)));
+        face.lastUsed = frame; return face;
+    }
+    static int hudWidth(String text, int pixels) { return (int) Math.ceil(hudFace(pixels).advance(text)); }
+    static void drawHud(GuiGraphicsExtractor g, String text, int x, int y, int color, int pixels) {
+        draw(g, hudFace(pixels), text, x, y, color);
+    }
+    private static void draw(GuiGraphicsExtractor g, Face face, String value, int x, int y, int color) {
         if (value.isBlank()) return;
-        Face face = face(size); Run run = face.run(value);
+        Run run = face.run(value);
         if (run == null) return;
         Page page = run.page;
         int guiScale = Math.max(1, Minecraft.getInstance().getWindow().getGuiScale());
@@ -87,15 +112,20 @@ final class UiFont {
         g.guiRenderState.addGuiElement(new BlitRenderState(RenderPipelines.GUI_TEXTURED, texture, pose,
             run.left, top, run.left + run.w, top + run.h,
             run.u / (float) PAGE_SIZE, (run.u + run.w) / (float) PAGE_SIZE,
-            run.v / (float) PAGE_SIZE, (run.v + run.h) / (float) PAGE_SIZE, Ui.faded(color), g.scissorStack.peek()));
+            run.v / (float) PAGE_SIZE, (run.v + run.h) / (float) PAGE_SIZE, color, g.scissorStack.peek()));
+    }
+    private static void closeFaces(Map<Integer, Face> faces) {
+        faces.values().forEach(face -> face.pages.forEach(page -> page.texture.close())); faces.clear();
     }
     static void close() {
-        FACES.values().forEach(face -> face.pages.forEach(page -> page.texture.close()));
-        FACES.clear(); warmed = false;
+        closeFaces(FACES); closeFaces(HUD_FACES); warmed = false;
         if (uploadBuffer != null) { org.lwjgl.system.MemoryUtil.memFree(uploadBuffer); uploadBuffer = null; }
     }
     static void flush() {
-        for (Face face : FACES.values()) for (Page page : face.pages) if (page.dirtyX1 > page.dirtyX0) {
+        flush(FACES); flush(HUD_FACES);
+    }
+    private static void flush(Map<Integer, Face> faces) {
+        for (Face face : faces.values()) for (Page page : face.pages) if (page.dirtyX1 > page.dirtyX0) {
             int w = page.dirtyX1 - page.dirtyX0, h = page.dirtyY1 - page.dirtyY0;
             if (uploadBuffer == null) uploadBuffer = org.lwjgl.system.MemoryUtil.memAlloc(PAGE_SIZE * PAGE_SIZE * 4);
             uploadBuffer.clear();
@@ -122,6 +152,7 @@ final class UiFont {
     }
     private static final class Face {
         final Font font;
+        long lastUsed;
         final Map<String, Run> runs = new HashMap<>();
         final Map<String, Float> advances = new LinkedHashMap<>(128, .75f, true) {
             @Override protected boolean removeEldestEntry(Map.Entry<String, Float> entry) { return size() > 512; }

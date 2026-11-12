@@ -35,10 +35,13 @@ public abstract class InputMixin {
     private int neon$screenCooldown(int original) {
         return Neon.CLICKER.inScreen((Minecraft) (Object) this) ? Math.min(missTime, 10) : original;
     }
-    @Inject(method = "tick", at = @At("TAIL"))
+    @Inject(method = "tick", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/GameRenderer;tick()V"))
     private void neon$screenClicks(CallbackInfo ci) {
         Minecraft mc = (Minecraft) (Object) this;
         if (neon$handledInput || !Neon.CLICKER.inScreen(mc)) return;
+        // Run beside normal input, before player movement and the tick-end packet are sent.
+        // A tick-tail fallback sends world actions after those packets, unlike vanilla input.
+        neon$handledInput = true;
         // Screens do not run handleKeybinds. Drive only normal world attack/use methods;
         // never synthesize UI clicks, type text, or touch the screen's mouse/key queues.
         var clicks = Neon.CLICKER.clicks(mc, missTime <= 0, rightClickDelay <= 0);

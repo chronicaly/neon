@@ -16,6 +16,9 @@ public abstract class CameraMixin {
     private float neon$yaw(float original) { return Neon.CAMERA.yaw(original); }
     @ModifyExpressionValue(method = "alignWithEntity", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/Entity;getViewXRot(F)F"))
     private float neon$pitch(float original) { return Neon.CAMERA.pitch(original); }
+    // Change the requested distance before vanilla clips the camera against nearby blocks.
+    @ModifyArg(method = "alignWithEntity", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/Camera;getMaxZoom(F)F"), index = 0)
+    private float neon$distance(float original) { return Neon.CAMERA.ownsCamera() ? (float) Neon.config.freelookDistance : original; }
     @ModifyReturnValue(method = "calculateFov", at = @At("RETURN"))
     private float neon$zoom(float original) { return Neon.CAMERA.fov(original); }
 }

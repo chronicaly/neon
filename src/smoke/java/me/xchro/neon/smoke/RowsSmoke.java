@@ -28,14 +28,22 @@ final class RowsSmoke {
     private MouseButtonEvent pointer(double x,double y){return new MouseButtonEvent(menu.guiCoordinate(x),menu.guiCoordinate(y),new MouseButtonInfo(0,0));}
     private void click(AbstractWidget w){var e=pointer(w.getX()+w.getWidth()/2.0,w.getY()+w.getHeight()/2.0);check(menu.mouseClicked(e,false),"visible row target accepts native pointer: "+w.getMessage().getString());menu.mouseReleased(e);}
     private List<ExactSlider> numbers(){return widgets(menu).stream().filter(w->w instanceof ExactSlider).map(w->(ExactSlider)w).toList();}
+    private int sliderCoordinate(ExactSlider slider, String method) {
+        try { var coordinate = ExactSlider.class.getDeclaredMethod(method); coordinate.setAccessible(true); return (int) coordinate.invoke(slider); }
+        catch (ReflectiveOperationException failure) { throw new AssertionError(failure); }
+    }
+    private void sliderClick(ExactSlider slider, String coordinate) {
+        var p = pointer(sliderCoordinate(slider, coordinate), sliderCoordinate(slider, "compactTrackY"));
+        check(menu.mouseClicked(p, false), "compact slider accepts its visible track endpoint"); menu.mouseReleased(p);
+    }
     private void setup(){
         new MenuPlacement().queue(mc.gameDirectory.toPath().resolve("config/neon-window.json"),Neon.SAVES);Neon.SAVES.flush().join();
         mc.getWindow().setWindowed(1280,800);mc.options.guiScale().set(index/2+1);mc.resizeGui();mc.setLastInputType(InputType.MOUSE);
-        Neon.config=new NeonConfig();Neon.config.freelookEnabled=false;Neon.config.motionBlurEnabled=true;Neon.config.motionBlurStrength=6;
+        Neon.config=new NeonConfig();Neon.config.freelookEnabled=false;Neon.config.motionBlurEnabled=true;
         Neon.freelook.setKey(InputConstants.Type.KEYSYM.getOrCreate(GLFW.GLFW_KEY_C));Neon.zoom.setKey(InputConstants.Type.KEYSYM.getOrCreate(GLFW.GLFW_KEY_Z));KeyMapping.resetMapping();
         for(var key:mc.options.keyMappings)if(key!=Neon.freelook&&key!=Neon.zoom&&(key.same(Neon.freelook)||key.same(Neon.zoom)))key.setKey(InputConstants.UNKNOWN);
         KeyMapping.resetMapping();
-        mc.gui.setScreen(menu=new SettingsScreen(null));
+        mc.gui.setScreen(menu=Menus.fresh(null));
         if(index%2==1){var b=menu.menuBounds();var start=pointer(b.right()-1,b.bottom()-1);menu.mouseClicked(start,false);var end=pointer(b.right()-121,b.bottom()-71);menu.mouseDragged(end,end.x()-start.x(),end.y()-start.y());menu.mouseReleased(end);}
         click(button("Motion blur"));age=0;
     }
@@ -47,7 +55,7 @@ final class RowsSmoke {
                 if(age<10)return false;
                 var scroll=widgets(menu).stream().filter(w->w.getClass().getSimpleName().equals("UiScroll")).findFirst().orElseThrow();
                 var picker=widgets(menu).stream().filter(w->w.getClass().getSimpleName().equals("ColorPicker")).findFirst().orElseThrow();
-                check(picker.getRight()<=scroll.getRight()-8,"open color picker reflows when the game window shrinks");
+                check(picker.getX()>=0&&picker.getRight()<=menu.canvasWidth()&&picker.getBottom()<=menu.canvasHeight(),"floating color picker stays on-screen when the game window shrinks");
                 check(Neon.config.theme.outline==0xff73c8d3,"viewport resize preserves live color value");
                 Neon.freelook.setKey(InputConstants.getKey(lookKey));Neon.zoom.setKey(InputConstants.getKey(zoomKey));
                 otherKeys.forEach((key,value)->key.setKey(InputConstants.getKey(value)));KeyMapping.resetMapping();mc.options.save();
@@ -66,7 +74,7 @@ final class RowsSmoke {
             check(!Neon.CAMERA.looking()&&Math.abs(Neon.CAMERA.fov(90)-90)<.01,"disabling camera modules releases active perspective and zoom");
             Neon.freelook.setDown(false);Neon.zoom.setDown(false);
             new MenuPlacement().queue(mc.gameDirectory.toPath().resolve("config/neon-window.json"),Neon.SAVES);Neon.SAVES.flush().join();
-            mc.gui.setScreen(menu=new SettingsScreen(null));click(button("Settings"));click(button("Appearance"));click(button("Outline"));
+            mc.gui.setScreen(menu=Menus.fresh(null));click(button("Settings"));click(button("Colors"));click(button("Outline"));
             index=9;age=0;return false;
         }
         if(age==8){
@@ -74,15 +82,29 @@ final class RowsSmoke {
             check(button("Freelook").getY()<button("Zoom").getY()&&button("Zoom").getY()<button("Motion blur").getY(),"modules form one ordered vertical list");
             check(numbers().size()==1&&numbers().getFirst().getY()>button("Motion blur").getBottom(),"settings expand directly beneath the selected module");
             check(button("[Z]").getX()-button("Zoom").getRight()<=2,"binding sits immediately beside module name");
-            int quiet=SoundAudit.neonClicks;
+            int quiet=SoundAudit.neonEnables;
             click(toggle("Motion blur"));check(!Neon.config.motionBlurEnabled&&numbers().size()==1&&!numbers().getFirst().active,"square disables module without collapsing settings");
-            check(SoundAudit.neonClicks==quiet,"disabling row toggle is silent");
-            click(toggle("Motion blur"));check(Neon.config.motionBlurEnabled&&SoundAudit.neonClicks==quiet+1,"enabling row toggle plays exactly one sound");
-            click(button("[Z]"));menu.keyPressed(new KeyEvent(GLFW.GLFW_KEY_F8,0,0));check(Neon.zoom.saveString().endsWith("f8")&&numbers().getFirst().getMessage().getString().equals("6%"),"bind target captures without opening or toggling its module");
+            check(SoundAudit.neonEnables==quiet,"disabling a row never requests an enable cue");
+            click(toggle("Motion blur"));check(Neon.config.motionBlurEnabled&&SoundAudit.neonEnables==quiet+1,"enabling row toggle plays exactly one sound");
+            click(button("[Z]"));menu.keyPressed(new KeyEvent(GLFW.GLFW_KEY_F8,0,0));check(Neon.zoom.saveString().endsWith("f8")&&numbers().getFirst().getMessage().getString().equals("10%"),"bind target captures without opening or toggling its module; motion blur defaults to 10%");
             click(button("Zoom"));check(Neon.config.zoomEnabled&&numbers().size()==2&&numbers().getFirst().getMessage().getString().equals("4x"),"module name immediately opens direct settings without toggling");
+            check(widgets(menu).stream().noneMatch(w->w.getMessage().getString().equals("Reset")),"expanded modules have no Reset button");
+            check(widgets(menu).stream().noneMatch(w->w.getMessage().getString().equals("Bind")),"no expanded keybind row is present");
+            check(widgets(menu).stream().filter(w->w instanceof UiButton&&w.getMessage().getString().equals("[C]")).count()==1,"Freelook has exactly one header bind");
+            if(index%2==0)check(numbers().stream().allMatch(s->s.getHeight()==27),"default numeric controls keep label, track and value on one compact row");
+            sliderClick(numbers().getFirst(),"compactTrackLeft");check(Neon.config.zoomFactor==1,"left rendered track endpoint sets minimum");
+            sliderClick(numbers().getFirst(),"compactTrackRight");check(Neon.config.zoomFactor==16,"right rendered track endpoint sets maximum");
+            menu.keyPressed(new KeyEvent(GLFW.GLFW_KEY_Z,0,GLFW.GLFW_MOD_CONTROL));check(Neon.config.zoomFactor==1,"one Undo restores the preceding slider gesture");
+            menu.keyPressed(new KeyEvent(GLFW.GLFW_KEY_Z,0,GLFW.GLFW_MOD_CONTROL));check(Neon.config.zoomFactor==4,"second Undo restores the original slider value");
+            var exact = numbers().getFirst(); var valueClick = pointer(exact.getRight()-2,sliderCoordinate(exact,"compactTrackY"));
+            check(menu.mouseClicked(valueClick,false)&&exact.isEditing(),"clicking the adjacent value opens inline numeric editing");menu.mouseReleased(valueClick);
+            InlineInput.field(menu).setValue("5.123456");menu.keyPressed(new KeyEvent(GLFW.GLFW_KEY_ENTER,0,0));check(Neon.config.zoomFactor==5.123456,"compact inline input keeps exact decimals");
+            check(exact.getRight()-sliderCoordinate(exact,"compactTrackRight")>=Ui.width(exact.getMessage().getString())+9,"long exact values reserve enough room beside the slider track");
+            check(numbers().get(1).getY()>=exact.getBottom(),"a wrapped exact-value row reflows the following settings immediately");
+            menu.keyPressed(new KeyEvent(GLFW.GLFW_KEY_Z,0,GLFW.GLFW_MOD_CONTROL));
             click(button("Zoom"));check(numbers().isEmpty(),"second name click collapses inline settings");
             click(button("Motion blur"));check(numbers().size()==1,"rapid expansion remains responsive during animation");
-            check(SoundAudit.neonClicks==quiet+1,"binding and expansion actions remain silent");
+            check(SoundAudit.neonEnables==quiet+1,"binding and expansion never request enable cues");
             Neon.zoom.setKey(InputConstants.Type.KEYSYM.getOrCreate(GLFW.GLFW_KEY_Z));KeyMapping.resetMapping();
             menu.mouseMoved(-20,-20);
         }

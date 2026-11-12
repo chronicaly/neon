@@ -14,6 +14,7 @@ import net.minecraft.client.input.*;
 /** Deterministic production-JAR benchmark. All instrumentation lives in the test-only mod. */
 public final class PerformanceSmoke {
     private static final String[] CASES = {"gameplay", "motion-blur", "idle-menu", "navigation-scroll", "color-edit", "hud-placement", "font-churn"};
+    private static final int ONLY = Arrays.asList(CASES).indexOf(System.getProperty("neon.perf.scenario", ""));
     private static final int WARM = 240, SAMPLES = 480;
     private static final com.sun.management.ThreadMXBean CPU = (com.sun.management.ThreadMXBean) ManagementFactory.getThreadMXBean();
     private static PerformanceSmoke active;
@@ -25,6 +26,7 @@ public final class PerformanceSmoke {
     private boolean ready, done;
     private Minecraft mc;
     public void start() {
+        if (System.getProperty("neon.perf.scenario") != null && ONLY < 0) throw new IllegalArgumentException("Unknown performance scenario");
         try {
             Path jar = Path.of(Neon.class.getProtectionDomain().getCodeSource().getLocation().toURI());
             String hash = HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(jar)));
@@ -95,7 +97,8 @@ public final class PerformanceSmoke {
     }
     private void press(String text) { widgets(mc.gui.screen()).stream().filter(w -> w instanceof Button && w.getMessage().getString().equals(text)).map(w -> (Button) w).findFirst().orElseThrow().onPress(null); }
     private void next() {
-        if (++stage == CASES.length * 3) { finish(); return; }
+        do { stage++; } while (stage < CASES.length * 3 && ONLY >= 0 && stage % CASES.length != ONLY);
+        if (stage >= CASES.length * 3) { finish(); return; }
         frame = 0; previous = 0;
         Neon.config = new me.xchro.neon.config.NeonConfig();
         Neon.config.armorAnchor = me.xchro.neon.config.NeonConfig.ArmorAnchor.CUSTOM;
@@ -104,9 +107,9 @@ public final class PerformanceSmoke {
         int scenario = stage % CASES.length;
         if (scenario == 1) Neon.config.motionBlurEnabled = true;
         if (scenario >= 2 && scenario <= 4) {
-            mc.gui.setScreen(new SettingsScreen(null));
+            mc.gui.setScreen(Menus.fresh(null));
             if (scenario == 3) { press("Visuals"); press("Zoom"); }
-            if (scenario == 4) { press("Settings"); press("Appearance"); press("Outline"); }
+            if (scenario == 4) { press("Settings"); press("Colors"); press("Outline"); }
         }
         if (scenario == 5) mc.gui.setScreen(new HudEditor(null));
         if (scenario == 6) mc.gui.setScreen(new PixelScreen(net.minecraft.network.chat.Component.literal("Font verification")) {
@@ -150,7 +153,7 @@ public final class PerformanceSmoke {
         done = true;
         try {
             Files.writeString(mc.gameDirectory.toPath().resolve("neon-perf-" + System.getProperty("neon.perf.label", "after") + ".csv"), csv);
-            Files.writeString(mc.gameDirectory.toPath().resolve("neon-verification.txt"), "PASS performance: 3 warmed runs, " + CASES.length + " scenarios, 480 frames each\n");
+            Files.writeString(mc.gameDirectory.toPath().resolve("neon-verification.txt"), "PASS performance: 3 warmed runs, " + (ONLY >= 0 ? 1 : CASES.length) + " scenarios, 480 frames each\n");
         } catch (Exception e) { throw new RuntimeException(e); }
         mc.stop();
     }

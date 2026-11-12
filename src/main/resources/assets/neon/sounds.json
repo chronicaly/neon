@@ -1,3 +1,10 @@
 {
-  "ui.enable": {"sounds": [{"name": "neon:ui/enable", "preload": true}]}
+  "ui.hover": {"sounds": [{"name": "neon:ui/hover", "preload": true}]},
+  "ui.navigate": {"sounds": [{"name": "neon:ui/navigate", "preload": true}]},
+  "ui.back": {"sounds": [{"name": "neon:ui/back", "preload": true}]},
+  "ui.confirm": {"sounds": [{"name": "neon:ui/confirm", "preload": true}]},
+  "ui.enable": {"sounds": [{"name": "neon:ui/enable", "preload": true}]},
+  "ui.disable": {"sounds": [{"name": "neon:ui/disable", "preload": true}]},
+  "ui.chat_message": {"sounds": [{"name": "neon:ui/chat_message", "preload": true}]},
+  "ui.chat_mention": {"sounds": [{"name": "neon:ui/chat_mention", "preload": true}]}
 }

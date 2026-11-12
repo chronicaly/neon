@@ -38,7 +38,7 @@ class UiEditBox extends EditBox {
         String value = getValue();
         int cursor = Math.clamp(getCursorPosition(), viewStart, viewEnd), anchor = Math.clamp(state.neon$highlight(), viewStart, viewEnd);
         int caretX = getX() + Ui.width(value.substring(viewStart, cursor));
-        g.enableScissor(getX() - 1, getY() - 3, getRight() + 2, getY() + 18);
+        Ui.clip(g, getX() - 1, getY() - 3, getRight() + 2, getY() + 18);
         if (cursor != anchor) {
             int anchorX = getX() + Ui.width(value.substring(viewStart, anchor));
             Ui.rect(g, Math.min(caretX, anchorX), getY(), Math.abs(caretX - anchorX), 14, Ui.alpha(Ui.BLUE, 65));

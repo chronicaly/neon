@@ -45,11 +45,25 @@ public final class LiveSmoke implements ClientModInitializer {
     private HudConfigurationSmoke hudConfiguration;
     private QualitySmoke quality;
     private RowsSmoke rows;
+    private FreelookDistanceSmoke freelookDistance;
+    private FreelookSettingsSmoke freelookSettings;
     private PolishSmoke polish;
+    private ModuleFoldSmoke moduleFolds;
+    private HudUpgradeSmoke hudUpgrades;
+    private ColorPopupSmoke colorPopup;
+    private ModuleGridSmoke moduleGrid;
+    private HoverGlowSmoke hoverGlow;
+    private InteractionSmoke interactions;
+    private FpsHudSmoke fpsHud;
+    private TotemPopSmoke totemPops;
+    private UiSoundSmoke uiSounds;
+    private BetterChatSmoke betterChat;
+    private int interactionPhase;
     public static void optionsWrite() { QualitySmoke.optionsWrites++; }
     @Override public void onInitializeClient() {
         if (!Boolean.getBoolean("neon.smoke")) throw new IllegalStateException("Test mod outside verification run");
         Neon.config = new me.xchro.neon.config.NeonConfig();
+        if (Boolean.getBoolean("neon.smoke.numericOnly")) { new NumericTextSmoke().start(); return; }
         if (Boolean.getBoolean("neon.smoke.perfOnly")) { new PerformanceSmoke().start(); return; }
         if (Boolean.getBoolean("neon.smoke.clickerOnly")) { new PersistentClickerSmoke().start(); return; }
         ClientTickEvents.END_CLIENT_TICK.register(this::tick);
@@ -124,8 +138,26 @@ public final class LiveSmoke implements ClientModInitializer {
             int age = tick - stageTick;
             switch (stage) {
                 case 0 -> {
-                    if (age < 80 || mc.gui.screen() != null) return;
+                    if (age < 80) return;
+                    if(Boolean.getBoolean("neon.smoke.hoverOnly")){hoverGlow=new HoverGlowSmoke(mc,checks);stage=70;stageTick=tick;return;}
+                    if (Boolean.getBoolean("neon.smoke.chatOnly")) { betterChat=new BetterChatSmoke(mc,checks);stage=62;stageTick=tick;return; }
+                    if (Boolean.getBoolean("neon.smoke.gridOnly")) { moduleGrid=new ModuleGridSmoke(mc,checks);stage=61;stageTick=tick;return; }
+                    if (Boolean.getBoolean("neon.smoke.nxeOnly")) { uiSounds = new UiSoundSmoke(mc, checks); stage = 60; stageTick = tick; return; }
+                    if (Boolean.getBoolean("neon.smoke.totemPopsOnly")) { totemPops = new TotemPopSmoke(mc, checks); stage = 59; stageTick = tick; return; }
+                    if (Boolean.getBoolean("neon.smoke.fpsOnly")) { fpsHud = new FpsHudSmoke(mc, checks); stage = 58; stageTick = tick; return; }
+                    if (Boolean.getBoolean("neon.smoke.interactionOnly") || Boolean.getBoolean("neon.smoke.slidersOnly")) { interactions = new InteractionSmoke(mc, checks); stage = 57; stageTick = tick; return; }
+                    if (Boolean.getBoolean("neon.smoke.menuOnly")) { menu = new MenuSmoke(mc, checks); stage = 56; stageTick = tick; return; }
+                    if (Boolean.getBoolean("neon.smoke.hudOnly")) { hudUpgrades = new HudUpgradeSmoke(mc, checks); stage=55; stageTick=tick; return; }
+                    if (Boolean.getBoolean("neon.smoke.colorOnly")) { colorPopup = new ColorPopupSmoke(mc,checks); stage=54; stageTick=tick; return; }
+                    if (freelookDistance == null) {
+                        if (mc.gui.screen() != null) return;
+                        freelookDistance = new FreelookDistanceSmoke(mc, checks); return;
+                    }
+                    if (!freelookDistance.run()) return;
+                    checks = freelookDistance.checks();
+                    if (Boolean.getBoolean("neon.smoke.freelookOnly")) { freelookSettings = new FreelookSettingsSmoke(mc, checks); stage = 53; stageTick = tick; return; }
                     if (Boolean.getBoolean("neon.smoke.motionOnly")) { motion = new MotionBlurSmoke(mc, checks); stage = 49; stageTick = tick; return; }
+                    if (Boolean.getBoolean("neon.smoke.foldOnly")) { moduleFolds = new ModuleFoldSmoke(mc, checks); stage = 52; stageTick = tick; return; }
                     if (Boolean.getBoolean("neon.smoke.rowsOnly")) { rows=new RowsSmoke(mc,checks);stage=51;stageTick=tick;return; }
                     if (Boolean.getBoolean("neon.smoke.designOnly")) { stage = 24; stageTick = tick; mc.options.keyAttack.setDown(true); return; }
                     check(NeonHud.totems() == 3, "inventory and offhand total, main hand counted once");
@@ -203,7 +235,7 @@ public final class LiveSmoke implements ClientModInitializer {
                     check(!mc.options.keyAttack.isDown(), "synthetic attack does not stick");
                     check(((KeyAccessor)mc.options.keyAttack).neon$getClicks() == 0, "synthetic click queue does not leak");
                     Neon.config.toggleClicker = true;
-                    mc.gui.setScreen(new SettingsScreen(null)); next();
+                    mc.gui.setScreen(Menus.fresh(null)); next();
                 }
                 case 13 -> {
                     if (age < 8) return;
@@ -215,7 +247,7 @@ public final class LiveSmoke implements ClientModInitializer {
                     check(Neon.CLICKER.active(), "toggle continues after leaving settings");
                     Neon.autoclicker.setDown(false); Neon.config.clickerEnabled = false;
                     Neon.config.toggleClicker = false;
-                    mc.gui.setScreen(new HudEditor(new SettingsScreen(null))); next();
+                    mc.gui.setScreen(new HudEditor(Menus.fresh(null))); next();
                 }
                 case 15 -> {
                     if (age < 8) return;
@@ -330,13 +362,13 @@ public final class LiveSmoke implements ClientModInitializer {
                         Files.writeString(mc.gameDirectory.toPath().resolve("neon-verification.txt"), "PASS " + checks + " design checks\n");
                         stage = 50; stageTick = tick; return;
                     }
-                    mc.gui.setScreen(new SettingsScreen(null));
+                    mc.gui.setScreen(Menus.fresh(null));
                     button("Visuals").onPress(null); button("Zoom").onPress(null);
                     next();
                 }
                 case 25 -> {
                     if (age < 8) return;
-                    shot("camera-settings"); mc.gui.setScreen(new SettingsScreen(null));
+                    shot("camera-settings"); mc.gui.setScreen(Menus.fresh(null));
                     Neon.config.leftAction = LeftAction.CLICK;
                     button("Combat").onPress(null); button("Autoclicker").onPress(null); next();
                 }
@@ -354,11 +386,11 @@ public final class LiveSmoke implements ClientModInitializer {
                     check(Neon.config.leftAction == LeftAction.HOLD && !interval.active, "Hold action disables the click interval slider");
                     leftAction.onPress(null);
                     check(Neon.config.leftAction == LeftAction.CLICK && interval.active, "Click action enables the click interval slider");
-                    interval.mouseClicked(new MouseButtonEvent(interval.getRight() - 4, interval.getY() + 23, new MouseButtonInfo(0, 0)), false);
+                    InlineInput.clickTrack((ExactSlider) interval, true);
                     check(Neon.config.leftIntervalTicks == 60 && interval.getMessage().getString().equals("60 ticks"), "slider right end selects 60 ticks");
-                    interval.mouseClicked(new MouseButtonEvent(interval.getX() + 4, interval.getY() + 23, new MouseButtonInfo(0, 0)), false);
+                    InlineInput.clickTrack((ExactSlider) interval, false);
                     check(Neon.config.leftIntervalTicks == 0 && interval.getMessage().getString().equals("Vanilla (0)"), "slider left end selects vanilla timing");
-                    button("HUD").onPress(null);
+                    button("Visuals").onPress(null); button("HUD editor").onPress(null);
                     var armorEntry = button("Armor"); armorEntry.mouseClicked(new MouseButtonEvent(armorEntry.getX() + 5, armorEntry.getY() + 5, new MouseButtonInfo(1, 0)), false); next();
                 }
                 case 27 -> {
@@ -534,10 +566,147 @@ public final class LiveSmoke implements ClientModInitializer {
                     next();
                 }
                 case 50 -> { if (age >= 20) mc.stop(); }
+                case 60 -> {
+                    if (pages == null) {
+                        if (!uiSounds.run()) return;
+                        pages = new PageLayoutSmoke(mc, uiSounds.checks()); return;
+                    }
+                    if (!pages.run()) return;
+                    checks = pages.checks();
+                    Files.writeString(mc.gameDirectory.toPath().resolve("neon-verification.txt"), "PASS " + checks + " silent NXE sound and page-layout checks\n");
+                    stage = 50; stageTick = tick;
+                }
+                case 62 -> {
+                    if (pages == null) {
+                        if (!betterChat.run()) return;
+                        pages = new PageLayoutSmoke(mc, betterChat.checks()); return;
+                    }
+                    if (!pages.run()) return;
+                    checks = pages.checks();
+                    Files.writeString(mc.gameDirectory.toPath().resolve("neon-verification.txt"), "PASS " + checks + " silent Better Chat and page-layout checks\n");
+                    stage = 50; stageTick = tick;
+                }
+                case 59 -> {
+                    if (pages == null) {
+                        if (!totemPops.run()) return;
+                        pages = new PageLayoutSmoke(mc, totemPops.checks()); return;
+                    }
+                    if (!pages.run()) return;
+                    checks = pages.checks();
+                    Files.writeString(mc.gameDirectory.toPath().resolve("neon-verification.txt"), "PASS " + checks + " totem pop and page-layout checks\n");
+                    stage = 50; stageTick = tick;
+                }
+                case 58 -> {
+                    if (pages == null) {
+                        if (!fpsHud.run()) return;
+                        pages = new PageLayoutSmoke(mc, fpsHud.checks()); return;
+                    }
+                    if (!pages.run()) return;
+                    checks = pages.checks();
+                    Files.writeString(mc.gameDirectory.toPath().resolve("neon-verification.txt"), "PASS " + checks + " FPS HUD and page-layout checks\n");
+                    stage = 50; stageTick = tick;
+                }
+                case 57 -> {
+                    boolean done = switch (interactionPhase) {
+                        case 0 -> interactions.run();
+                        case 1 -> moduleFolds.run();
+                        case 2 -> colorPopup.run();
+                        case 3 -> hudUpgrades.run();
+                        default -> pages.run();
+                    };
+                    if (!done) return;
+                    checks = switch (interactionPhase) {
+                        case 0 -> interactions.checks();
+                        case 1 -> moduleFolds.checks();
+                        case 2 -> colorPopup.checks();
+                        case 3 -> hudUpgrades.checks();
+                        default -> pages.checks();
+                    };
+                    if (interactionPhase == 0 && Boolean.getBoolean("neon.smoke.slidersOnly")) interactionPhase = 3;
+                    switch (++interactionPhase) {
+                        case 1 -> moduleFolds = new ModuleFoldSmoke(mc, checks);
+                        case 2 -> colorPopup = new ColorPopupSmoke(mc, checks);
+                        case 3 -> hudUpgrades = new HudUpgradeSmoke(mc, checks);
+                        case 4 -> pages = new PageLayoutSmoke(mc, checks);
+                        default -> {
+                            Files.writeString(mc.gameDirectory.toPath().resolve("neon-verification.txt"), "PASS " + checks + (Boolean.getBoolean("neon.smoke.slidersOnly") ? " slider motion, precision input and page-layout checks\n" : " interaction, folds, colors, HUD and page-layout checks\n"));
+                            stage = 50; stageTick = tick;
+                        }
+                    }
+                }
+                case 56 -> {
+                    if (pages == null) {
+                        if (!menu.run()) return;
+                        pages = new PageLayoutSmoke(mc, menu.checks()); return;
+                    }
+                    if (!pages.run()) return;
+                    checks = pages.checks();
+                    Files.writeString(mc.gameDirectory.toPath().resolve("neon-verification.txt"), "PASS " + checks + " menu toggle and page-layout checks\n");
+                    stage = 50; stageTick = tick;
+                }
+                case 55 -> {
+                    if (pages != null) {
+                        if (!pages.run()) return;
+                        checks = pages.checks();
+                    } else if (hudConfiguration != null) {
+                        if (!hudConfiguration.run()) return;
+                        pages = new PageLayoutSmoke(mc,hudConfiguration.checks()); return;
+                    } else {
+                        if (!hudUpgrades.run()) return;
+                        checks = hudUpgrades.checks();
+                        if (Boolean.getBoolean("neon.smoke.hudAll")) { hudConfiguration = new HudConfigurationSmoke(mc,checks); return; }
+                    }
+                    Files.writeString(mc.gameDirectory.toPath().resolve("neon-verification.txt"), "PASS " + checks + " HUD upgrade checks\n");
+                    stage = 50; stageTick = tick;
+                }
+                case 53 -> {
+                    if (pages == null) {
+                        if (!freelookSettings.run()) return;
+                        pages = new PageLayoutSmoke(mc, freelookSettings.checks()); return;
+                    }
+                    if (!pages.run()) return;
+                    checks = pages.checks();
+                    Files.writeString(mc.gameDirectory.toPath().resolve("neon-verification.txt"), "PASS " + checks + " freelook and page-layout checks\n");
+                    stage = 50; stageTick = tick;
+                }
+                case 70 -> {
+                    if(!hoverGlow.run())return;
+                    checks=hoverGlow.checks();
+                    Files.writeString(mc.gameDirectory.toPath().resolve("neon-verification.txt"),"PASS "+checks+" button-hover GPU and layout checks\n");
+                    stage=50;stageTick=tick;
+                }
+                case 61 -> {
+                    if(colorPopup==null) { if(!moduleGrid.run())return; colorPopup=new ColorPopupSmoke(mc,moduleGrid.checks());return; }
+                    if(pages==null) { if(!colorPopup.run())return; pages=new PageLayoutSmoke(mc,colorPopup.checks());return; }
+                    if(!pages.run())return;
+                    checks=pages.checks();
+                    Files.writeString(mc.gameDirectory.toPath().resolve("neon-verification.txt"),"PASS "+checks+" module-grid, animated-border, color and page-layout checks\n");
+                    stage=50;stageTick=tick;
+                }
+                case 54 -> {
+                    if (pages == null) {
+                        if (!colorPopup.run()) return;
+                        pages = new PageLayoutSmoke(mc,colorPopup.checks()); return;
+                    }
+                    if (!pages.run()) return;
+                    checks=pages.checks();
+                    Files.writeString(mc.gameDirectory.toPath().resolve("neon-verification.txt"),"PASS "+checks+" floating color picker and page-layout checks\n");
+                    stage=50;stageTick=tick;
+                }
                 case 51 -> {
                     if(!rows.run())return;
                     checks=rows.checks();Files.writeString(mc.gameDirectory.toPath().resolve("neon-verification.txt"),"PASS "+checks+" expandable-row checks\n");
                     stage=50;stageTick=tick;
+                }
+                case 52 -> {
+                    if (pages == null) {
+                        if (!moduleFolds.run()) return;
+                        pages = new PageLayoutSmoke(mc, moduleFolds.checks()); return;
+                    }
+                    if (!pages.run()) return;
+                    checks = pages.checks();
+                    Files.writeString(mc.gameDirectory.toPath().resolve("neon-verification.txt"), "PASS " + checks + " module animation and page checks\n");
+                    stage = 50; stageTick = tick;
                 }
             }
         } catch (Throwable error) {

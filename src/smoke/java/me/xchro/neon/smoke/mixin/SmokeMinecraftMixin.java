@@ -13,13 +13,13 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(Minecraft.class)
 public abstract class SmokeMinecraftMixin {
     @Inject(method = "renderFrame", at = @At("HEAD"))
-    private void frameStart(CallbackInfo ci) { me.xchro.neon.smoke.PerformanceSmoke.frameStart(); }
+    private void frameStart(CallbackInfo ci) { me.xchro.neon.smoke.PerformanceSmoke.frameStart(); me.xchro.neon.smoke.NumericTextSmoke.frameStart(); }
     @Inject(method = "renderFrame", at = @At("RETURN"))
-    private void frameEnd(CallbackInfo ci) { me.xchro.neon.smoke.PerformanceSmoke.frameEnd(); }
+    private void frameEnd(CallbackInfo ci) { me.xchro.neon.smoke.PerformanceSmoke.frameEnd(); me.xchro.neon.smoke.NumericTextSmoke.frameEnd(); me.xchro.neon.smoke.InteractionSmoke.frameEnd(); me.xchro.neon.smoke.ModuleGridSmoke.frameEnd(); }
     @Shadow private int missTime;
     @Shadow private int rightClickDelay;
     @Inject(method = "tick", at = @At("HEAD"))
-    private void clock(CallbackInfo ci) { LiveSmoke.currentTick++; }
+    private void clock(CallbackInfo ci) { LiveSmoke.currentTick++; me.xchro.neon.smoke.ClickerPacketOrder.beginTick(); }
     @Inject(method = "isWindowActive", at = @At("HEAD"), cancellable = true)
     private void focus(CallbackInfoReturnable<Boolean> cir) { cir.setReturnValue(LiveSmoke.focused); }
     @Inject(method = "startAttack", at = @At("HEAD"))

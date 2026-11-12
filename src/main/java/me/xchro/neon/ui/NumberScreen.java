@@ -29,10 +29,10 @@ public final class NumberScreen extends PixelScreen {
         input.setResponder(value -> done.active = NumberValue.parse(value, min, max, integer).isPresent());
         setInitialFocus(input); input.moveCursorToEnd(false); input.setHighlightPos(0);
     }
-    private void commit() { NumberValue.parse(input.getValue(), min, max, integer).ifPresent(value -> { apply.accept(value); onClose(); }); }
-    @Override public boolean keyPressed(KeyEvent event) {
+    private void commit() { NumberValue.parse(input.getValue(), min, max, integer).ifPresent(value -> { apply.accept(value); minecraft.gui.setScreen(parent); if (value != current) UiSounds.cue(me.xchro.neon.core.UiSoundPolicy.Cue.CONFIRM); }); }
+    @Override protected boolean pixelKeyPressed(KeyEvent event) {
         if (event.key() == GLFW.GLFW_KEY_ENTER || event.key() == GLFW.GLFW_KEY_KP_ENTER) { commit(); return true; }
-        return super.keyPressed(event);
+        return super.pixelKeyPressed(event);
     }
     @Override protected void pixelBackground(GuiGraphicsExtractor g, int mx, int my, float delta) { Ui.background(g, canvasWidth(), canvasHeight()); }
     @Override protected void renderPixels(GuiGraphicsExtractor g, int mx, int my, float delta) {
@@ -42,5 +42,5 @@ public final class NumberScreen extends PixelScreen {
         renderWidgets(g, mx, my, delta);
         if (!done.active) Ui.text(g, "Enter a value within this range", x + 18, y + 98, Ui.RED);
     }
-    @Override public void onClose() { minecraft.gui.setScreen(parent); }
+    @Override public void onClose() { minecraft.gui.setScreen(parent); UiSounds.cue(me.xchro.neon.core.UiSoundPolicy.Cue.BACK); }
 }

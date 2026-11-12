@@ -62,7 +62,7 @@ public final class MotionBlurRenderer {
     public static void render(boolean beforeUi) {
         Minecraft mc = Minecraft.getInstance();
         var config = Neon.config;
-        if (!config.motionBlurEnabled || config.motionBlurStrength == 0 || mc.level == null || mc.player == null) {
+        if (!Neon.MODULE_BINDINGS.active(me.xchro.neon.module.ClientModule.MOTION_BLUR) || config.motionBlurStrength == 0 || mc.level == null || mc.player == null) {
             close(); return;
         }
         // Exactly one pass per rendered frame, on the selected side of vanilla's UI draw.

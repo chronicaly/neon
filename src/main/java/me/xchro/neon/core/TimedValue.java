@@ -15,4 +15,5 @@ public final class TimedValue {
         return value(now, durationNanos);
     }
     public void snap(double next) { from = target = next; started = Long.MIN_VALUE; }
+    public void shift(double delta) { from += delta; target += delta; }
 }

@@ -21,11 +21,13 @@ public final class ProfileStore {
     public void initialize(NeonConfig baseline) throws IOException {
         if (Files.exists(file)) {
             try {
-                Data loaded = GSON.fromJson(Files.readString(file), Data.class);
+                String json = Files.readString(file);
+                Data loaded = GSON.fromJson(json, Data.class);
                 if (loaded == null || loaded.profiles == null) throw new IllegalArgumentException("Empty profiles");
+                var saved = com.google.gson.JsonParser.parseString(json).getAsJsonObject().getAsJsonObject("profiles");
                 for (var entry : loaded.profiles.entrySet()) {
                     if (!entry.getKey().equals(validName(entry.getKey())) || entry.getValue() == null) throw new IllegalArgumentException("Invalid profile");
-                    entry.getValue().sanitize();
+                    entry.setValue(ConfigStore.decode(saved.get(entry.getKey()).toString()));
                 }
                 data = loaded; return;
             } catch (RuntimeException invalid) {

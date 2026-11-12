@@ -30,5 +30,5 @@ public final class ConfirmSheet extends PixelScreen {
         Ui.text(g, line, x + 18, lineY, Ui.MUTED);
         renderWidgets(g, mx, my, delta);
     }
-    @Override public void onClose() { minecraft.gui.setScreen(parent); }
+    @Override public void onClose() { minecraft.gui.setScreen(parent); UiSounds.cue(me.xchro.neon.core.UiSoundPolicy.Cue.BACK); }
 }

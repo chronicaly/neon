@@ -20,7 +20,7 @@ final class UiIcons {
     private static final int SIZE = 18, COUNT = 7, SAMPLE = 4;
     private static DynamicTexture atlas;
     private UiIcons() {}
-    static int category(String name) { return switch (name) { case "Combat" -> 0; case "Visuals" -> 1; case "HUD" -> 2; default -> 3; }; }
+    static int category(String name) { return switch (name) { case "Combat" -> 0; case "Visuals" -> 1; case "HUD", "HUD editor" -> 2; default -> 3; }; }
     private static void path(Graphics2D g, double... points) {
         var p = new Path2D.Double(); p.moveTo(points[0], points[1]);
         for (int i = 2; i < points.length; i += 2) p.lineTo(points[i], points[i + 1]);

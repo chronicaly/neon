@@ -23,7 +23,9 @@ public final class Neon implements ClientModInitializer {
     public static NeonConfig config = new NeonConfig();
     public static final CameraController CAMERA = new CameraController();
     public static final AutoClicker CLICKER = new AutoClicker();
-    public static KeyMapping settings, freelook, zoom, autoclicker;
+    public static final me.xchro.neon.render.TotemPopCounter TOTEM_POPS = new me.xchro.neon.render.TotemPopCounter();
+    public static KeyMapping settings, settingsAlternate, freelook, zoom, autoclicker, motionBlur, totemPops, betterChat;
+    public static final me.xchro.neon.input.ModuleBindings MODULE_BINDINGS = new me.xchro.neon.input.ModuleBindings();
     private static ConfigStore store;
     public static ProfileStore profiles;
     public static final QueuedSave SAVES = new QueuedSave((path, failure) -> {
@@ -38,21 +40,29 @@ public final class Neon implements ClientModInitializer {
         try { profiles.initialize(config); } catch (Exception e) { LOG.error("Could not load Neon profiles", e); }
         var category = KeyMapping.Category.register(Identifier.fromNamespaceAndPath("neon", "controls"));
         settings = key("settings", category, GLFW.GLFW_KEY_P);
+        settingsAlternate = key("settings_alternate", category, GLFW.GLFW_KEY_RIGHT_SHIFT);
         freelook = key("freelook", category, GLFW.GLFW_KEY_UNKNOWN);
         zoom = key("zoom", category, GLFW.GLFW_KEY_UNKNOWN);
         autoclicker = key("autoclicker", category, GLFW.GLFW_KEY_UNKNOWN);
+        motionBlur = key("motion_blur", category, GLFW.GLFW_KEY_UNKNOWN);
+        totemPops = key("totem_pops", category, GLFW.GLFW_KEY_UNKNOWN);
+        betterChat = key("better_chat", category, GLFW.GLFW_KEY_UNKNOWN);
         ClientTickEvents.START_CLIENT_TICK.register(mc -> {
-            while (settings.consumeClick()) {
+            // Drain both queues together so simultaneous shortcuts cannot reopen the menu later.
+            while (settings.consumeClick() | settingsAlternate.consumeClick()) {
                 if (mc.player != null && mc.gui.screen() == null && mc.gui.overlay() == null)
                     mc.gui.setScreen(new SettingsScreen(null));
             }
             CAMERA.checkContext(mc);
+            MODULE_BINDINGS.tick(mc);
+            me.xchro.neon.chat.BetterChat.tick(mc);
             CLICKER.tick(mc);
+            TOTEM_POPS.tick(mc.level);
         });
         HudElementRegistry.addLast(Identifier.fromNamespaceAndPath("neon", "equipment"), (graphics, delta) -> NeonHud.draw(graphics, false));
         net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents.CLIENT_STARTED.register(mc -> {me.xchro.neon.ui.Ui.warmFonts();me.xchro.neon.ui.UiSounds.warm();});
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register((handler, mc) -> mc.execute(() -> {
-            save(); SAVES.flush(); CAMERA.reset(mc, true); CLICKER.resetTiming(); MotionBlurRenderer.close();
+            save(); SAVES.flush(); CAMERA.reset(mc, true); CLICKER.resetTiming(); MODULE_BINDINGS.reset(); TOTEM_POPS.clear(); MotionBlurRenderer.close();
         }));
         net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents.CLIENT_STOPPING.register(mc -> {
             save(); try { SAVES.close(); } catch (java.util.concurrent.CompletionException failure) { LOG.error("Final settings flush failed", failure); }
@@ -77,6 +87,7 @@ public final class Neon implements ClientModInitializer {
         Minecraft mc = Minecraft.getInstance(); CAMERA.reset(mc, true);
         MotionBlurRenderer.resetHistory();
         config = ConfigStore.copy(settings);
+        MODULE_BINDINGS.reset();
         if (!config.clickerEnabled) CLICKER.cancel(mc);
         else CLICKER.resetTiming();
         return save();

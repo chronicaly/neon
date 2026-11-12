@@ -28,7 +28,7 @@ final class FeatureSmoke {
     private int oldInterval;
     FeatureSmoke(Minecraft mc, int checks) {
         this.mc = mc; this.checks = checks;
-        mc.gui.setScreen(new SettingsScreen(null)); button("Visuals").onPress(null); button("Zoom").onPress(null);
+        mc.gui.setScreen(Menus.fresh(null)); button("Visuals").onPress(null); button("Zoom").onPress(null);
     }
     int checks() { return checks; }
     private void check(boolean condition, String name) {
@@ -77,11 +77,9 @@ final class FeatureSmoke {
                     shot("exact-value-entry");
                     number("4.125"); check(Neon.config.zoomFactor == 4.125, "exact zoom preserves decimals between slider steps");
                     undo(); check(Neon.config.zoomFactor == oldZoom, "Undo restores the previous numeric value");
-                    button("Reset").onPress(null);
-                    check(Neon.config.zoomFactor == 4 && Neon.config.leftIntervalTicks == oldInterval && Neon.config.armor.x == armorX, "page reset changes Camera only");
-                    undo(); check(Neon.config.zoomFactor == oldZoom, "Undo reverses a section reset");
+                    check(widgets().stream().noneMatch(w -> w.getMessage().getString().equals("Reset")), "modules expose no Reset button");
                     var drag = (AbstractSliderButton) widgets().stream().filter(w -> w instanceof AbstractSliderButton).findFirst().orElseThrow();
-                    drag.mouseClicked(mouse(drag.getRight() - 4, drag.getY() + 23), false); drag.onRelease(mouse(drag.getRight() - 4, drag.getY() + 23));
+                    InlineInput.clickTrack((ExactSlider) drag, true);
                     return false;
                 }
                 if (age < 14) return false;
@@ -103,7 +101,7 @@ final class FeatureSmoke {
             }
             case 1 -> {
                 if (age < 8) return false;
-                shot("profiles"); button("HUD").onPress(null);
+                shot("profiles"); button("Visuals").onPress(null); button("HUD editor").onPress(null);
                 var entry = button("Armor"); entry.mouseClicked(new MouseButtonEvent(entry.getX() + 5, entry.getY() + 5, new MouseButtonInfo(1, 0)), false);
                 HudBounds original = NeonHud.bounds(mc.gui.screen().width, mc.gui.screen().height, true);
                 var canvas = (HudEditor) mc.gui.screen();

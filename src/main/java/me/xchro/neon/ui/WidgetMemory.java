@@ -42,6 +42,8 @@ final class WidgetMemory {
             AbstractWidget old = previous.get(key);
             if (old == null) return;
             if (widget instanceof ExactSlider slider && old instanceof ExactSlider was) slider.inherit(was);
+            else if (widget instanceof UiModuleRow row && old instanceof UiModuleRow was) row.inherit(was);
+            else if (widget instanceof UiModuleTile tile && old instanceof UiModuleTile was) tile.inherit(was);
             else if (widget instanceof UiButton button && old instanceof UiButton was) button.inherit(was);
             else if (drafts && widget instanceof UiEditBox edit && old instanceof UiEditBox was) edit.inherit(was);
             if (old.isFocused()) widget.setFocused(true);

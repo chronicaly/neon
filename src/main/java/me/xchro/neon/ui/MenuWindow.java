@@ -38,6 +38,9 @@ final class MenuWindow {
         return -1;
     }
     void begin(int kind, double mx, double my) { gesture = kind; start = bounds(); mouseX = mx; mouseY = my; }
+    void beginVisible(int kind,double mx,double my,int visibleX) {
+        x=visibleX; begin(kind,mx,my);
+    }
     void drag(double mx, double my) {
         int dx = (int) Math.round(mx - mouseX), dy = (int) Math.round(my - mouseY);
         if (gesture == 4) {

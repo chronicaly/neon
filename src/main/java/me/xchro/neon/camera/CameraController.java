@@ -26,8 +26,8 @@ public final class CameraController {
         checkContext(mc);
         long now = System.nanoTime();
         boolean safe = Neon.ready(mc);
-        boolean nextLook = lookKey.update(safe && Neon.config.freelookEnabled, Neon.freelook.isDown(), false);
-        zooming = zoomKey.update(safe && Neon.config.zoomEnabled, Neon.zoom.isDown(), Neon.config.zoomToggle);
+        boolean nextLook = lookKey.update(safe && Neon.config.freelookEnabled && !Neon.freelook.isUnbound(), Neon.freelook.isDown(), Neon.config.freelookMode);
+        zooming = zoomKey.update(safe && Neon.config.zoomEnabled && !Neon.zoom.isUnbound(), Neon.zoom.isDown(), Neon.config.zoomMode());
         if (nextLook && !looking) {
             original = mc.options.getCameraType();
             owned = original.isFirstPerson() ? CameraType.THIRD_PERSON_BACK : original;

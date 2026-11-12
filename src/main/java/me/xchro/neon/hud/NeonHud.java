@@ -24,8 +24,8 @@ public final class NeonHud {
     private static final List<ItemStack> normalFrame = new ArrayList<>(4), previewFrame = new ArrayList<>(4);
     private static boolean extracting, normalReady, previewReady;
     private static int frameTotems = -1;
-    public static void beginFrame() { extracting = true; normalReady = previewReady = false; frameTotems = -1; }
-    public static void endFrame() { extracting = false; }
+    public static void beginFrame() { extracting = true; normalReady = previewReady = false; frameTotems = -1; me.xchro.neon.ui.HudText.beginFrame(); }
+    public static void endFrame() { extracting = false; me.xchro.neon.ui.HudText.flush(); }
     public static List<ItemStack> armor(boolean preview) {
         if (extracting && (preview ? previewReady : normalReady)) return preview ? previewFrame : normalFrame;
         Minecraft mc = Minecraft.getInstance();
@@ -110,6 +110,7 @@ public final class NeonHud {
         drawPixels(graphics,preview,mc.getWindow().getWidth(),mc.getWindow().getHeight());graphics.pose().popMatrix();
     }
     public static void drawPixels(GuiGraphicsExtractor graphics,boolean preview,int width,int height){
+        FpsHud.draw(graphics, width, height);
         if (Neon.config.armor.visible) {
             List<ItemStack> armor = armor(preview);
             if (!armor.isEmpty()) drawItems(graphics, armor,width,height);

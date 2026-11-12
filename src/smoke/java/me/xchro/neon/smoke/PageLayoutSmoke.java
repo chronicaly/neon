@@ -29,13 +29,14 @@ final class PageLayoutSmoke {
         mc.options.guiScale().set(1); mc.getWindow().setWindowed(1280, 800); mc.resizeGui(); mc.setLastInputType(InputType.MOUSE);
         Neon.autoclicker.setKey(InputConstants.Type.KEYSYM.getOrCreate(GLFW.GLFW_KEY_DELETE));
         Neon.config.clickerEnabled = true; Neon.config.leftClick = Neon.config.rightClick = true; Neon.config.motionBlurEnabled = true;
-        for (String[] entry : new String[][]{{"Combat", "Autoclicker"}, {"Visuals", "Freelook"}, {"Visuals", "Zoom"}, {"Visuals", "Motion blur"}, {"Settings", "Appearance"}, {"Settings", "Profiles"}}) {
+        Neon.config.motionBlurStrength = new NeonConfig().motionBlurStrength;
+        for (String[] entry : new String[][]{{"Combat", "Autoclicker"}, {"Visuals", "Freelook"}, {"Visuals", "Zoom"}, {"Visuals", "Motion blur"}, {"Visuals", "Totem pops"}, {"Visuals", "Better chat"}, {"Settings", "Colors"}, {"Settings", "Appearance"}, {"Settings", "Profiles"}}) {
             views.add(new View(entry[0], entry[1], false, false, ""));
             views.add(new View(entry[0], entry[1], true, true, ""));
         }
-        for (String color : new String[]{"Background", "Outline", "Accent", "Text", "Cards", "Secondary outline", "Muted text"}) {
-            views.add(new View("Settings", "Appearance", true, false, color));
-            views.add(new View("Settings", "Appearance", true, true, color));
+        for (String color : new String[]{"Theme", "Background", "Outline", "Accent", "Text", "Cards", "Secondary outline", "Muted text"}) {
+            views.add(new View("Settings", "Colors", true, false, color));
+            views.add(new View("Settings", "Colors", true, true, color));
         }
         setup();
     }
@@ -48,11 +49,12 @@ final class PageLayoutSmoke {
     }
     private Button button(String name) { return widgets(mc.gui.screen()).stream().filter(w -> w instanceof Button && w.getMessage().getString().equals(name)).map(w -> (Button) w).findFirst().orElseThrow(); }
     private AbstractScrollArea scroll() { return widgets(mc.gui.screen()).stream().filter(w -> w.getClass().getSimpleName().equals("UiScroll")).map(w -> (AbstractScrollArea) w).findFirst().orElseThrow(); }
+    private AbstractScrollArea pageScroll() { return widgets(mc.gui.screen()).stream().filter(w -> w.getClass().getSimpleName().equals("UiScroll")).map(w -> (AbstractScrollArea) w).reduce((a,b)->b).orElseThrow(); }
     private MouseButtonEvent mouse(double x, double y) { return new MouseButtonEvent(x, y, new MouseButtonInfo(0, 0)); }
     private void setup() {
         mc.options.guiScale().set(index / (views.size() * 2) + 1); mc.resizeGui();
         try { new me.xchro.neon.config.MenuPlacement().queue(mc.gameDirectory.toPath().resolve("config/neon-window.json"), Neon.SAVES); Neon.SAVES.flush().join(); } catch (Exception e) { throw new AssertionError(e); }
-        mc.gui.setScreen(new SettingsScreen(null));
+        mc.gui.setScreen(Menus.fresh(null));
         var screen = (SettingsScreen) mc.gui.screen();
         if ((index / views.size()) % 2 == 1) {
             var b = screen.menuBounds();
@@ -63,70 +65,72 @@ final class PageLayoutSmoke {
             check(screen.menuBounds().width() == 320 && screen.menuBounds().height() == 210, "page audit uses minimum resizable window");
         }
         View v = views.get(index % views.size());
-        button(v.category).onPress(null); button(v.module).onPress(null);
+        button(v.category).onPress(null); Menus.configure(screen,v.module);
         check(widgets(mc.gui.screen()).stream().noneMatch(w -> w.getMessage().getString().equals("Advanced")), "page exposes its controls without Advanced folds");
         if (!v.color.isEmpty()) button(v.color).onPress(null);
-        else scroll().setScrollAmount(v.bottom ? scroll().maxScrollAmount() : 0);
+        else pageScroll().setScrollAmount(v.bottom ? pageScroll().maxScrollAmount() : 0);
         age = 0; capturePending = captureDone = false;
     }
     private void geometry() {
         var bounds=((SettingsScreen)mc.gui.screen()).menuBounds(); boolean narrow=(index/views.size())%2==1;
         check(bounds.width()==(narrow?320:440) && bounds.height()==(narrow?210:280),"captured page retains its requested window size: "+bounds);
         var scroll = scroll(); var all = widgets((ContainerEventHandler) scroll);
-        for (var w : all) {
-            check(w.getWidth() > 0 && w.getX() >= scroll.getX() && w.getRight() <= scroll.getRight() - 8,
-                w.getClass().getSimpleName() + " " + w.getMessage().getString() + " fits inside control column");
-            if (w instanceof StringWidget) check(Ui.width(w.getMessage().getString()) <= w.getWidth(), "setting label is complete: " + w.getMessage().getString());
-            if (w instanceof UiButton) {
-                try {
-                    var kindField = UiButton.class.getDeclaredField("kind"); kindField.setAccessible(true);
-                    var smallField = UiButton.class.getDeclaredField("small"); smallField.setAccessible(true);
-                    var kind = (UiButton.Kind) kindField.get(w);
-                    if (kind == UiButton.Kind.SWITCH || kind == UiButton.Kind.SWATCH || kind == UiButton.Kind.MODULE_TOGGLE) continue;
-                    int size = kind == UiButton.Kind.NAV ? 11 : smallField.getBoolean(w) || kind == UiButton.Kind.SEGMENT || w.getHeight() <= 24 ? 10 : 11;
-                    int inset = kind == UiButton.Kind.KEY ? 2 : kind == UiButton.Kind.SEGMENT || w.getHeight() <= 24 ? 6 : 8;
-                    int available = w.getWidth() - (kind == UiButton.Kind.CARD ? 13 : inset * 2);
-                    if(kind==UiButton.Kind.MODULE)available=w.getWidth()-2;
-                    if(kind==UiButton.Kind.NAV)available=w.getWidth()-26;
-                    if(kind==UiButton.Kind.DISCLOSURE){available=w.getWidth()-19;size=11;}
-                    if(w.getMessage().getString().isEmpty())continue;
-                    var measure = Class.forName("me.xchro.neon.ui.UiFont").getDeclaredMethod("width", String.class, int.class); measure.setAccessible(true);
-                    var wrapped = UiButton.class.getDeclaredField("wrapped"); wrapped.setAccessible(true);
-                    if(wrapped.getBoolean(w)) {
-                        var textLines=UiButton.class.getDeclaredField("textLines"); textLines.setAccessible(true);
-                        @SuppressWarnings("unchecked") var lines=(List<String>)textLines.get(w);
-                        check(String.join("",lines).replace(" ","").equals(w.getMessage().getString().replace(" ","")),"wrapped profile preserves its complete name");
-                        for(String line:lines)check((int)measure.invoke(null,line,11)<=w.getWidth()-18,"wrapped profile line fits its column");
-                        continue;
-                    }
-                    check((int) measure.invoke(null, w.getMessage().getString(), size) <= available, "control text fits without ellipsis: " + w.getMessage().getString());
-                } catch (ReflectiveOperationException e) { throw new AssertionError(e); }
-            }
+        var settings = button("Settings");
+        var editor = button("HUD editor");
+        check(editor.getBottom() == bounds.bottom() - 12 && settings.getBottom() + 2 == editor.getY(),
+            "Settings and HUD editor stay stacked at the sidebar bottom");
+        check(editor.getX() == settings.getX() && editor.getWidth() == settings.getWidth() && editor.getHeight() == settings.getHeight(),
+            "bottom sidebar actions have matching geometry");
+        check(editor.getRight() < scroll.getX() && editor.getX() >= bounds.left() && Ui.width("HUD editor") + 19 <= editor.getWidth(),
+            "HUD icon and complete label fit beside every category viewport");
+        check(widgets(mc.gui.screen()).stream().filter(w -> w.getMessage().getString().equals("HUD editor")).count() == 1,
+            "every category has exactly one HUD editor action");
+        check(scroll.getBottom() == bounds.bottom() - 12, "module grid uses the former footer space");
+        check(widgets(mc.gui.screen()).stream().noneMatch(w -> w.getMessage().getString().equals("HUD")), "HUD editor is an action rather than a fourth category");
+        boolean visuals = views.get(index % views.size()).category.equals("Visuals");
+        var tiles=all.stream().filter(w->w.getClass().getSimpleName().equals("UiModuleTile")).toList();
+        check(!tiles.isEmpty()&&tiles.stream().map(AbstractWidget::getWidth).distinct().count()==1,"all module buttons have equal compact widths");
+        if(!narrow&&(visuals||views.get(index%views.size()).category.equals("Settings")))check(tiles.stream().map(AbstractWidget::getX).distinct().count()==2,"default Visuals uses two compact grid columns");
+        for(var tile:tiles) {
+            check(tile.getWidth()<200 && tile.getHeight()==26,"module button keeps compact dimensions");
+            check(tile.getX()>=scroll.getX() && tile.getRight()<=scroll.getRight(),"grid button fits viewport");
+            var nested=widgets((ContainerEventHandler)tile);
+            for(var bind:nested.stream().filter(w->w.getClass().getSimpleName().equals("UiBindButton")).toList())
+                check(bind.getX()>tile.getX() && bind.getRight()<tile.getRight(),"bind stays on its module button");
         }
+        var detail=widgets(mc.gui.screen()).stream().filter(w->w.getClass().getSimpleName().equals("UiScroll")).skip(1).findFirst().orElseThrow();
+        var controls=widgets((ContainerEventHandler)detail);
+        if(views.get(index%views.size()).bottom)check(controls.stream().mapToInt(AbstractWidget::getBottom).max().orElse(detail.getY())<=detail.getBottom(),"last drawer setting is reachable by scrolling");
+        for(var w:controls)check(w.getX()>=detail.getX()&&w.getRight()<=detail.getRight(),"drawer control fits: "+w.getMessage().getString()+" ["+w.getX()+","+w.getRight()+"] within ["+detail.getX()+","+detail.getRight()+"]");
+        check(controls.stream().noneMatch(w->w.getMessage().getString().startsWith("[")||Set.of("Activation","Toggle","Reset").contains(w.getMessage().getString())),"bind and activation mode remain exclusively on module buttons");
+        check(((SettingsScreen)mc.gui.screen()).expandedBounds().right()<=((SettingsScreen)mc.gui.screen()).canvasWidth()-13,"combined outline fits display");
         View v = views.get(index % views.size());
-        if (v.bottom && v.color.isEmpty()) {
-            int last = all.stream().mapToInt(AbstractWidget::getBottom).max().orElse(scroll.getY());
-            check(last <= scroll.getBottom(), "bottom of " + v.module + " is reachable (last=" + last + ", viewport=" + scroll.getBottom() + ", scroll=" + scroll.scrollAmount() + "/" + scroll.maxScrollAmount() + ")");
-        }
         if (!v.color.isEmpty()) {
-            var shade = all.stream().filter(w -> w.getMessage().getString().equals("Saturation and brightness")).findFirst().orElseThrow();
+            var screen=(SettingsScreen)mc.gui.screen();
+            var popup=widgets(screen).stream().filter(w->w.getClass().getSimpleName().equals("ColorPicker")).findFirst().orElseThrow();
+            var shade = widgets(screen).stream().filter(w -> w.getMessage().getString().equals("Saturation and brightness")).findFirst().orElseThrow();
             check(shade.getWidth() == shade.getHeight(), "Unity picker uses a square saturation/brightness surface");
-            if (v.bottom) check(button("Paste").getBottom() <= scroll.getBottom() && button("Paste").getY() >= scroll.getY(), "bottom picker actions remain reachable without a scrollbar");
-            else check(button(v.color).getY() >= scroll.getY() && shade.getY() >= scroll.getY(), "opening reveals the color name and gradient: " + v.color);
+            check(popup.getX()>=0&&popup.getY()>=0&&popup.getRight()<=screen.canvasWidth()&&popup.getBottom()<=screen.canvasHeight(),"floating picker fits the display at every menu size");
+            check(!all.contains(popup),"picker is outside the settings scroll viewport");
+            check(button("Paste").getBottom() <= popup.getBottom() && button("Paste").getY() >= popup.getY(), "picker actions are always visible without scrolling");
+            check(shade.getX()>=popup.getX()&&shade.getRight()<=popup.getRight(),"gradient stays inside the floating panel");
             check(all.stream().noneMatch(w -> Set.of("Apply", "Cancel").contains(w.getMessage().getString())), "no color dialog buttons");
         }
     }
     private void capture() {
         capturePending = true;
-        var b = ((SettingsScreen) mc.gui.screen()).menuBounds();
+        var b = ((SettingsScreen) mc.gui.screen()).expandedBounds();
+        var popup=widgets(mc.gui.screen()).stream().filter(w->w.getClass().getSimpleName().equals("ColorPicker")).findFirst().orElse(null);
+        if(popup!=null){int left=Math.min(b.left(),popup.getX()),top=Math.min(b.top(),popup.getY());b=new net.minecraft.client.gui.navigation.ScreenRectangle(left,top,Math.max(b.right(),popup.getRight())-left,Math.max(b.bottom(),popup.getBottom())-top);}
+        final var captureBounds=b;
         View v = views.get(index % views.size());
         String name = String.format("neon-quality-page-%03d-scale%d-%s-%s%s.png", index, mc.getWindow().getGuiScale(), (index / views.size()) % 2 == 0 ? "default" : "narrow", v.module.replace(' ', '-'), v.color.isEmpty() ? v.advanced ? "-advanced" : "" : "-" + v.color.replace(' ', '-') + (v.bottom ? "-bottom" : ""));
-        var lastAction = v.bottom ? widgets(mc.gui.screen()).stream().filter(w -> w instanceof Button && w.getMessage().getString().equals(v.color.isEmpty() ? "Reset" : "Paste")).findFirst().orElse(null) : null;
+        var lastAction = v.bottom ? widgets(mc.gui.screen()).stream().filter(w -> w instanceof Button && w.getMessage().getString().equals(v.color.isEmpty() ? "Reset" : "Paste") && w.getY() >= scroll().getY() && w.getBottom() <= scroll().getBottom()).findFirst().orElse(null) : null;
         lastTextCoverage = -1;
         Screenshot.takeScreenshot(mc.gameRenderer.mainRenderTarget(), image -> {
             try (image) {
-                int x = Math.round(b.left() * PixelScreen.UI_SCALE), y = Math.round(b.top() * PixelScreen.UI_SCALE);
-                int width = Math.round(b.right() * PixelScreen.UI_SCALE) - x, height = Math.round(b.bottom() * PixelScreen.UI_SCALE) - y;
+                int x = Math.round(captureBounds.left() * PixelScreen.UI_SCALE), y = Math.round(captureBounds.top() * PixelScreen.UI_SCALE);
+                int width = Math.round(captureBounds.right() * PixelScreen.UI_SCALE) - x, height = Math.round(captureBounds.bottom() * PixelScreen.UI_SCALE) - y;
                 BufferedImage crop = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
                 // The presented framebuffer is opaque; its unused alpha channel is not display coverage.
                 for (int cy = 0; cy < height; cy++) for (int cx = 0; cx < width; cx++) crop.setRGB(cx, cy, image.getPixel(x + cx, y + cy) | 0xff000000);
@@ -146,13 +150,19 @@ final class PageLayoutSmoke {
         age++;
         if (age == 8) {
             View v = views.get(index % views.size());
-            if (v.bottom && !v.color.isEmpty()) {
-                var scroll = scroll();
-                mc.gui.screen().mouseScrolled(((SettingsScreen)mc.gui.screen()).guiCoordinate(scroll.getX()+10),((SettingsScreen)mc.gui.screen()).guiCoordinate(scroll.getY()+10),0,0);
-                scroll.setScrollAmount(scroll.scrollAmount()+button("Paste").getBottom()-scroll.getBottom());
-            }
+            if (v.bottom && v.color.isEmpty()) pageScroll().setScrollAmount(pageScroll().maxScrollAmount());
+            if (v.bottom && !v.color.isEmpty()) pageScroll().setScrollAmount(pageScroll().maxScrollAmount());
         }
         if (age < 10) return false;
+        View settledView = views.get(index % views.size());
+        if (settledView.bottom && settledView.color.isEmpty()) pageScroll().setScrollAmount(pageScroll().maxScrollAmount());
+        try {
+            var field=SettingsScreen.class.getDeclaredField("frame");field.setAccessible(true);
+            var frame=(me.xchro.neon.core.ExpandingMenu.Frame)field.get(mc.gui.screen());
+            if(frame.drawerWidth()<frame.fullDrawerWidth()-.01) {
+                check(age<200,"drawer animation completes before page capture"); return false;
+            }
+        } catch (ReflectiveOperationException failure) { throw new AssertionError(failure); }
         if (!capturePending) { geometry(); capture(); return false; }
         if (!captureDone) return false;
         if (lastTextCoverage >= 0) check(lastTextCoverage > 15, "last scrolled action text is visible in GPU readback (" + lastTextCoverage + " pixels)");

@@ -15,13 +15,14 @@ import org.lwjgl.glfw.GLFW;
 final class HudConfigurationSmoke {
     private final Minecraft mc;
     private final NeonConfig original;
-    private int stage, age, checks;
+    private int stage = -1, age, checks;
     private SettingsScreen parent;
     private HudBounds beforeDrag;
     HudConfigurationSmoke(Minecraft mc, int checks) {
         this.mc = mc; this.checks = checks; original = ConfigStore.copy(Neon.config);
+        new HudPanelPlacement().queue(mc.gameDirectory.toPath().resolve("config/neon-hud-window.json"),Neon.SAVES); Neon.SAVES.flush().join();
         Neon.config.resetHud(); mc.options.guiScale().set(2); mc.getWindow().setWindowed(1280, 800); mc.resizeGui();
-        mc.gui.setScreen(parent = new SettingsScreen(null));
+        mc.gui.setScreen(parent = Menus.fresh(null));
     }
     int checks() { return checks; }
     private void check(boolean ok, String name) { if (!ok) throw new AssertionError("HUD config stage " + stage + ": " + name); checks++; System.out.println("NEON_CHECK " + name); }
@@ -56,8 +57,14 @@ final class HudConfigurationSmoke {
     boolean run() {
         age++; if (age < 9) return false;
         switch (stage) {
+            case -1 -> {
+                click("HUD editor", 0); check(mc.gui.screen() instanceof HudEditor, "Visuals button opens the HUD editor with no intermediary page"); next();
+            }
             case 0 -> {
-                click("HUD", 0); check(mc.gui.screen() instanceof HudEditor, "HUD sidebar opens the editor with no intermediary page");
+                shot("collapsed");
+                var panel = ((HudEditor) mc.gui.screen()).inspectorBounds();
+                check(button("Armor").getWidth() == panel.width() - 2 && button("Totems").getRight() == panel.right() - 1,
+                    "Unity HUD rows fill the column to its quiet border");
                 click("Armor", 1); next();
             }
             case 1 -> {
@@ -68,20 +75,31 @@ final class HudConfigurationSmoke {
                 click("Layout: Horizontal", 0); check(Neon.config.armorVertical, "editor changes armor orientation"); click("Layout: Vertical", 0);
                 click("Order: Helmet first", 0); check(Neon.config.armorReverse, "editor changes armor order");
                 click("Warnings", 0); check(!Neon.config.armorWarnings, "editor toggles durability warnings"); click("Warnings", 0);
-                click(slider("Scale"), 0, true);
-                check(mc.gui.screen() instanceof HudEditor && slider("Scale").isEditing(), "HUD exact values edit in the row without a dialog");
+                click(slider("Scale"), 1, false);
+                check(mc.gui.screen() instanceof HudEditor && slider("Scale").isEditing(), "Unity right click anywhere on a numeric row edits its exact value inline");
                 type("2.25"); next();
             }
             case 2 -> {
                 shot("inline-number"); key(GLFW.GLFW_KEY_ENTER, 0);
                 check(Neon.config.armor.scale == 2.25 && !slider("Scale").isEditing(), "inline scale commits exact native input");
                 undo(); check(Neon.config.armor.scale == 1, "one Undo restores the inline scale edit");
-                click(slider("Scale"), 0, true); type("9"); key(GLFW.GLFW_KEY_ENTER, 0);
+                var editor = (HudEditor) mc.gui.screen(); var scale = slider("Scale");
+                var start = mouse(editor.guiCoordinate(scale.getX() + 1), editor.guiCoordinate(scale.getY() + 8), 0);
+                check(editor.mouseClicked(start, false) && !scale.isEditing() && Neon.config.armor.scale == .5,
+                    "Unity full-row left drag starts at the slider minimum");
+                var end = mouse(editor.guiCoordinate(scale.getRight() + 8), start.y(), 0);
+                editor.mouseDragged(end, 0, 0); editor.mouseReleased(end);
+                check(Neon.config.armor.scale == 3, "Unity full-row slider clamps at its maximum beyond the row edge");
+                undo(); check(Neon.config.armor.scale == 1, "one Undo restores the whole full-row slider gesture");
+                click(slider("Scale"), 1, true); type("9"); key(GLFW.GLFW_KEY_ENTER, 0);
                 check(Neon.config.armor.scale == 1 && slider("Scale").isEditing(), "out-of-range inline number stays uncommitted");
                 key(GLFW.GLFW_KEY_ESCAPE, 0); check(mc.gui.screen() instanceof HudEditor && !slider("Scale").isEditing(), "Escape cancels inline number editing without leaving the editor");
-                click(slider("Spacing"), 0, true); type("3"); key(GLFW.GLFW_KEY_ENTER, 0); check(Neon.config.armorGap == 3, "editor applies exact armor spacing");
-                click("Totems", 1); click("Mode: Offhand", 0); check(Neon.config.totemFloating, "totem placement mode is configured inside the editor");
-                click("General", 0); next();
+                click(slider("Spacing"), 1, true); type("3"); key(GLFW.GLFW_KEY_ENTER, 0); check(Neon.config.armorGap == 3, "editor applies exact armor spacing");
+                click("Totems", 1); stage=20; age=0;
+            }
+            case 20 -> {
+                click("Mode: Offhand", 0); check(Neon.config.totemFloating, "totem placement mode is configured inside the editor");
+                click("General", 0); stage=3; age=0;
             }
             case 3 -> {
                 shot("all-options");
@@ -89,7 +107,7 @@ final class HudConfigurationSmoke {
                 check(Neon.save(), "unified HUD settings save"); Neon.SAVES.flush().join();
                 try { var saved = new ConfigStore(mc.gameDirectory.toPath().resolve("config/neon.json")).load(); check(saved.armorGap == 3 && !saved.armorSlots && saved.armorReverse && saved.totemFloating, "all editor settings survive configuration reload"); } catch (Exception e) { throw new AssertionError(e); }
                 key(GLFW.GLFW_KEY_ESCAPE, 0); check(mc.gui.screen() == parent, "Escape returns to the same menu placement and page");
-                click("HUD", 0); click("Totems", 1); next();
+                click("HUD editor", 0); click("Totems", 1); next();
             }
             case 4 -> {
                 shot("totem-options"); var editor = (HudEditor) mc.gui.screen(); beforeDrag = NeonHud.totemBounds(editor.width, editor.height);
@@ -107,6 +125,10 @@ final class HudConfigurationSmoke {
                 scroll.setScrollAmount(scroll.maxScrollAmount()); next();
             }
             case 6 -> {
+                var scroll = widgets(mc.gui.screen()).stream().filter(w -> w.getClass().getSimpleName().equals("UiScroll")).map(w -> (AbstractScrollArea) w).findFirst().orElseThrow();
+                scroll.setScrollAmount(scroll.maxScrollAmount()); next();
+            }
+            case 7 -> {
                 shot("small-viewport"); var editor = (HudEditor) mc.gui.screen();
                 check(editor.inspectorBounds().bottom() <= editor.canvasHeight() - 8 && button("General").getBottom() <= editor.inspectorBounds().bottom(), "complete HUD configuration stays reachable in a small viewport");
                 Neon.applyConfig(original); mc.gui.setScreen(null); mc.resizeGui(); return true;

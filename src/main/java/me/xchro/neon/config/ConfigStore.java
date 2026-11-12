@@ -14,6 +14,8 @@ public final class ConfigStore {
         NeonConfig config = GSON.fromJson(json, NeonConfig.class);
         if (config == null) throw new IllegalArgumentException("Empty config");
         var document = com.google.gson.JsonParser.parseString(json).getAsJsonObject();
+        if (config.theme != null && document.has("theme") && document.get("theme").isJsonObject()
+            && !document.getAsJsonObject("theme").has("paletteVersion")) config.theme.upgradeSurfaces();
         if (!document.has("armorAnchor") && document.has("armor") && document.get("armor").isJsonObject()) {
             var armor = document.getAsJsonObject("armor");
             if (armor.has("x") || armor.has("y")) config.armorAnchor = NeonConfig.ArmorAnchor.CUSTOM;

@@ -37,7 +37,7 @@ final class QualitySmoke {
         this.mc = mc; this.checks = checks; original = ConfigStore.copy(Neon.config);
         new MenuPlacement().queue(mc.gameDirectory.toPath().resolve("config/neon-window.json"), Neon.SAVES); Neon.SAVES.flush().join();
         mc.options.guiScale().set(2); mc.getWindow().setWindowed(1280,800); mc.resizeGui();
-        mc.gui.setScreen(menu = new SettingsScreen(null)); press("Visuals"); press("Zoom");
+        mc.gui.setScreen(menu = Menus.fresh(null)); press("Visuals"); press("Zoom");
     }
     int checks() { return checks; }
     private void check(boolean ok, String name) { if (!ok) throw new AssertionError("Quality stage " + stage + ": " + name); checks++; System.out.println("NEON_CHECK " + name); }
@@ -64,14 +64,17 @@ final class QualitySmoke {
                         var id=net.minecraft.resources.Identifier.fromNamespaceAndPath("neon","ui."+sound);
                         check(mc.getSoundManager().getSoundEvent(id)!=null,"packaged custom sound resolves: "+sound);
                     }
-                    int quiet=SoundAudit.neonClicks;
+                    int quiet=SoundAudit.neonEnables;
                     press("Visuals"); press("Motion blur");
-                    check(SoundAudit.neonClicks==quiet,"menu navigation stays silent");
+                    check(SoundAudit.neonEnables==quiet,"menu navigation never requests enable cues");
                     Neon.config.motionBlurEnabled=false; press("Visuals"); press("Motion blur");
                     var blurToggle=(UiButton)widgets().stream().filter(w->w instanceof UiButton b&&b.hint().equals("Enable Motion blur")).findFirst().orElseThrow();
-                    blurToggle.onPress(null); check(SoundAudit.neonClicks==quiet+1,"enabling a module plays one custom sound");
-                    blurToggle.onPress(null); check(SoundAudit.neonClicks==quiet+1,"disabling a module stays silent");
+                    blurToggle.onPress(null); check(SoundAudit.neonEnables==quiet+1,"enabling a module plays one custom sound");
+                    blurToggle.onPress(null); check(SoundAudit.neonEnables==quiet+1,"disabling a module never requests an enable cue");
                     press("Visuals"); press("Zoom");
+                    // Compact Zoom fits the default window; exercise wheel motion at minimum size.
+                    var bounds = menu.menuBounds(); var corner = mouse(bounds.right(), bounds.bottom());
+                    menu.mouseClicked(corner, false); menu.mouseDragged(mouse(bounds.right()-120, bounds.bottom()-70), -120, -70); menu.mouseReleased(corner);
                     scroller=widgets().stream().filter(w -> w instanceof AbstractScrollArea).map(w -> (AbstractScrollArea)w).findFirst().orElseThrow();
                     scroller.setScrollAmount(0); startScroll=scroller.scrollAmount();
                     check(menu.mouseScrolled(menu.guiCoordinate(scroller.getX()+10),menu.guiCoordinate(scroller.getY()+10),0,-1),"wheel accepted immediately");
@@ -124,7 +127,7 @@ final class QualitySmoke {
                     var runs=face.getClass().getDeclaredField("runs"); runs.setAccessible(true);
                     check(((List<?>)pages.get(face)).size()<=3 && !((Map<?,?>)runs.get(face)).isEmpty(),"atlas evicts bounded pages between frames without resetting every cache");
                     shot("cache-after-reload");
-                    for(int i=0;i<20;i++){ mc.gui.setScreen(null); mc.gui.setScreen(new SettingsScreen(null)); }
+                    for(int i=0;i<20;i++){ mc.gui.setScreen(null); mc.gui.setScreen(Menus.fresh(null)); }
                     check(mc.gui.screen() instanceof SettingsScreen,"twenty repeated menu openings retain valid resources");
                     press("Settings"); press("Appearance"); driveTier(1); next();
                 }
@@ -133,7 +136,7 @@ final class QualitySmoke {
                     driveTier(2); next();
                 }
                 case 6 -> {
-                    check(SoundAudit.neonClicks>0 && SoundAudit.vanillaClicks==0,"Neon interactions play custom sounds without Minecraft menu clicks");
+                    check(SoundAudit.neonEnables>0 && SoundAudit.vanillaClicks==0,"Neon interactions play custom sounds without Minecraft menu clicks");
                     check(adaptive().tier()==2 && !effect("blur") && !effect("glow"),"adaptive tier two also disables decorative glow"); shot("adaptive-no-glow");
                     var q=adaptive(); long now=System.nanoTime()+10_000_000_000L;
                     for(int i=0;i<650;i++)q.frame(now+=8_340_000,1e9/120,true,false);
@@ -141,10 +144,10 @@ final class QualitySmoke {
                     press("Full"); check(effect("blur")&&effect("glow"),"Full overrides adaptive reductions immediately");
                     q.frame(System.nanoTime(),1e9/120,false,true);
                     new MenuPlacement().queue(mc.gameDirectory.toPath().resolve("config/neon-window.json"),Neon.SAVES);
-                    mc.gui.setScreen(menu=new SettingsScreen(null));
+                    mc.gui.setScreen(menu=Menus.fresh(null));
                     var b=menu.menuBounds(); var corner=mouse(b.right(),b.bottom()); menu.mouseClicked(corner,false);
                     menu.mouseDragged(mouse(b.right()-120,b.bottom()-70),-120,-70); menu.mouseReleased(corner);
-                    press("Settings"); press("Appearance"); press("Background"); next();
+                    press("Settings"); press("Colors"); press("Background"); next();
                 }
                 case 7 -> {
                     scroller=widgets().stream().filter(w -> w.getClass().getSimpleName().equals("UiScroll")).map(w -> (AbstractScrollArea)w).findFirst().orElseThrow();
@@ -152,10 +155,10 @@ final class QualitySmoke {
                     mc.setLastInputType(InputType.MOUSE); double before=scroller.scrollAmount();
                     var e=mouse(shade.getX()+12,shade.getY()+12);
                     check(menu.mouseClicked(e,false),"visible gradient accepts mouse input in the minimum menu"); menu.mouseReleased(e);
-                    check(scroller.scrollAmount()==before,"clicking a tall color fold does not scroll it out from under the pointer");
+                    check(scroller.scrollAmount()==before,"clicking the floating picker leaves the settings scroll unchanged");
                     mc.setLastInputType(InputType.KEYBOARD_TAB);
                     for(int i=0;i<20 && !button("Paste").isFocused();i++)key(GLFW.GLFW_KEY_TAB,0);
-                    check(button("Paste").isFocused() && button("Paste").getY()>=scroller.getY() && button("Paste").getBottom()<=scroller.getBottom(),"keyboard focus reveals the last inline picker action immediately without a scrollbar (focused="+button("Paste").isFocused()+", y="+button("Paste").getY()+".."+button("Paste").getBottom()+", viewport="+scroller.getY()+".."+scroller.getBottom()+")");
+                    check(button("Paste").isFocused() && button("Paste").getY()>=0 && button("Paste").getBottom()<=menu.canvasHeight(),"keyboard reaches the floating picker actions without scrolling the menu");
                     shot("minimum-picker-keyboard");
                     Neon.applyConfig(original); Neon.SAVES.flush().join(); mc.gui.setScreen(null); return true;
                 }
