@@ -2,6 +2,10 @@ The current module grid and earlier interface revisions are documented below. Ea
 
 # Neon verification
 
+## HUD contact and chat indicator — 16 November 2026
+
+Version 0.5.4 replaces stroked-curve HUD merging with polygon joins and translation-independent caching, and adds Better chat's Message bar toggle. See [contact-results.md](contact-results.md) for the packaged checks, actual default/minimum settings views, comparison against 0.5.3, and the installed artifact identity. The release gate verifies both native chat rendering paths and the retained shared HUD contour. Performance cases `gameplay,hud-contact,hud-joined` cover ordinary play, repeated contact/overlap and stationary joined panels.
+
 ## Centered HUD and smooth menu corners — 16 November 2026
 
 Version 0.5.2 centers HUD glyph bounds, balances the FPS field and gives the menu, Settings and HUD editor consistent surfaces and corners. Settings includes local installed-font selection; bottom HUD groups animate clear of native chat input. See [corners-results.md](corners-results.md) for framebuffer evidence, measured frame times/allocations and installation identity. Focused suites are `prodSmoke -PalignmentOnly`, `-PfontOnly` and `-PchatLiftOnly`; the complete installing suite includes all three. Historical results below retain their original scope.

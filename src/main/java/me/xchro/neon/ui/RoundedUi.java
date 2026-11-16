@@ -20,8 +20,8 @@ final class RoundedUi {
     private static final Map<Long,HudGlassGeometry.Mesh> CACHE=new LinkedHashMap<>(64,.75f,true){
         protected boolean removeEldestEntry(Map.Entry<Long,HudGlassGeometry.Mesh> entry){return size()>96;}
     };
-    private record Rect(int x,int y,int w,int h,int scale,Matrix3x2f pose,ScreenRectangle clip,ScreenRectangle bounds){}
-    private static Rect rect(GuiGraphicsExtractor g,float x,float y,float w,float h){
+    record Rect(int x,int y,int w,int h,int scale,Matrix3x2f pose,ScreenRectangle clip,ScreenRectangle bounds){}
+    static Rect rect(GuiGraphicsExtractor g,float x,float y,float w,float h){
         int scale=Math.max(1,Minecraft.getInstance().getWindow().getGuiScale());
         var a=g.pose().transformPosition(x,y,new Vector2f());var b=g.pose().transformPosition(x+w,y+h,new Vector2f());
         int left=Math.round(a.x*scale),top=Math.round(a.y*scale),width=Math.round(b.x*scale)-left,height=Math.round(b.y*scale)-top;

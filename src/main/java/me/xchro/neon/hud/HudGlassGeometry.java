@@ -1,10 +1,9 @@
 package me.xchro.neon.hud;
 
-import java.awt.BasicStroke;
 import java.awt.geom.*;
 import java.util.*;
 
-/** Cached physical-pixel union: close small gaps, then restore the original outside edge. */
+/** Physical-pixel polygon union with bounded six-pixel joins; no stroked-curve closing. */
 public final class HudGlassGeometry {
     public record Box(int x,int y,int width,int height) {}
     public record Quad(float leftTop,float rightTop,float top,float leftBottom,float rightBottom,float bottom) {}
@@ -21,12 +20,29 @@ public final class HudGlassGeometry {
         Area result=new Area();
         for(var b:boxes)if(b.width>0&&b.height>0) {
             float radius=Math.min(cornerRadius,Math.min(b.width,b.height)/4f);
-            result.add(new Area(new RoundRectangle2D.Float(b.x,b.y,b.width,b.height,radius*2,radius*2)));
+            var rounded=new RoundRectangle2D.Float(b.x,b.y,b.width,b.height,radius*2,radius*2);
+            if(boxes.size()==1)result.add(new Area(rounded));
+            else {
+                // Flatten BEFORE union: coincident cubic corners otherwise cause expensive curve intersections.
+                var polygon=new Path2D.Float();polygon.append(rounded.getPathIterator(null,.18),false);result.add(new Area(polygon));
+            }
         }
-        if(boxes.size()>1&&!result.isEmpty()) {
-            var bridge=new BasicStroke(8,BasicStroke.CAP_ROUND,BasicStroke.JOIN_ROUND);
-            result.add(new Area(bridge.createStrokedShape(result)));
-            result.subtract(new Area(bridge.createStrokedShape(result)));
+        for(int i=0;i<boxes.size();i++)for(int j=0;j<i;j++) {
+            var a=boxes.get(i);var b=boxes.get(j);
+            if(a.width<=0||a.height<=0||b.width<=0||b.height<=0)continue;
+            var left=a.x<=b.x?a:b;var right=left==a?b:a;
+            int gap=right.x-left.x-left.width,top=Math.max(a.y,b.y),bottom=Math.min(a.y+a.height,b.y+b.height);
+            float reach=Math.min(cornerRadius,Math.min(Math.min(a.width,a.height),Math.min(b.width,b.height))/4f);
+            if(gap>=-2*reach&&gap<=6&&bottom>top) {
+                float x=Math.min(left.x+left.width,right.x)-reach;
+                result.add(new Area(new Rectangle2D.Float(x,top,Math.abs(gap)+2*reach,bottom-top)));
+            }
+            var upper=a.y<=b.y?a:b;var lower=upper==a?b:a;
+            gap=lower.y-upper.y-upper.height;int start=Math.max(a.x,b.x),end=Math.min(a.x+a.width,b.x+b.width);
+            if(gap>=-2*reach&&gap<=6&&end>start) {
+                float y=Math.min(upper.y+upper.height,lower.y)-reach;
+                result.add(new Area(new Rectangle2D.Float(start,y,end-start,Math.abs(gap)+2*reach)));
+            }
         }
         return result;
     }

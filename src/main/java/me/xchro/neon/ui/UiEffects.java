@@ -154,26 +154,31 @@ final class UiEffects {
     /** A broad violet Gaussian with a cool cyan shoulder, reserved for hovered grid buttons. */
     static void buttonGlow(GuiGraphicsExtractor g,int x,int y,int w,int h,double amount) {
         if(amount<=.001 || !MenuEffects.glow())return;
+        var r=RoundedUi.rect(g,x,y,w,h);if(r==null||r.w()<6||r.h()<6)return;
         if(buttonBloom==null) {
-            var pixels=new NativeImage(64,64,true);
-            for(int py=0;py<64;py++)for(int px=0;px<64;px++) {
-                double dx=Math.max(0,Math.max(16-px,px-47)),dy=Math.max(0,Math.max(16-py,py-47));
-                pixels.setPixel(px,py,(int)Math.round(160*Math.exp(-(dx*dx+dy*dy)/64))<<24|0xffffff);
+            // The nine-slice corners include the three pixels INSIDE the box that its rounded
+            // surface cuts away. A square center cutout leaves dark pinholes at those corners.
+            var pixels=new NativeImage(76,76,true);
+            for(int py=0;py<76;py++)for(int px=0;px<76;px++) {
+                double dx=Math.abs(px+.5-38)-19,dy=Math.abs(py+.5-38)-19;
+                double distance=Math.hypot(Math.max(dx,0),Math.max(dy,0))+Math.min(Math.max(dx,dy),0)-3;
+                double outside=Math.max(0,distance),coverage=Math.clamp(distance+.5,0,1);
+                pixels.setPixel(px,py,(int)Math.round(160*Math.exp(-outside*outside/64)*coverage)<<24|0xffffff);
             }
             buttonBloom=new DynamicTexture(()->"Neon button hover bloom",pixels);
         }
-        int radius=12;
-        int[] xs={x-radius,x,x+w,x+w+radius},ys={y-radius,y,y+h,y+h+radius};
+        // Use exactly the surface's snapped physical bounds, independent of Minecraft GUI scale.
+        int[] xs={r.x()-16,r.x()+3,r.x()+r.w()-3,r.x()+r.w()+16},ys={r.y()-16,r.y()+3,r.y()+r.h()-3,r.y()+r.h()+16};
         float[] uv={0,.25f,.75f,1};
         var texture=TextureSetup.singleTexture(buttonBloom.getTextureView(),RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR));
-        var pose=new Matrix3x2f(g.pose());var scissor=g.scissorStack.peek();
+        var pose=r.pose();var scissor=r.clip();
         for(int iy=0;iy<3;iy++)for(int ix=0;ix<3;ix++) {
             if(ix==1&&iy==1)continue;
             var bounds=new ScreenRectangle(xs[ix],ys[iy],xs[ix+1]-xs[ix],ys[iy+1]-ys[iy]).transformMaxBounds(pose);
             if(scissor!=null)bounds=bounds.intersection(scissor);
             if(bounds==null)continue;
-            int left=mix(Ui.BLUE,hoverViolet(),.4+.6*Math.clamp((xs[ix]-x)/(double)w,0,1));
-            int right=mix(Ui.BLUE,hoverViolet(),.4+.6*Math.clamp((xs[ix+1]-x)/(double)w,0,1));
+            int left=mix(Ui.BLUE,hoverViolet(),.4+.6*Math.clamp((xs[ix]-r.x())/(double)r.w(),0,1));
+            int right=mix(Ui.BLUE,hoverViolet(),.4+.6*Math.clamp((xs[ix+1]-r.x())/(double)r.w(),0,1));
             left=Ui.faded(Ui.alpha(left,(int)Math.round((left>>>24)*amount)));
             right=Ui.faded(Ui.alpha(right,(int)Math.round((right>>>24)*amount)));
             g.guiRenderState.addGuiElement(new Bloom(pose,xs[ix],ys[iy],xs[ix+1],ys[iy+1],uv[ix],uv[iy],uv[ix+1],uv[iy+1],left,right,texture,scissor,bounds));

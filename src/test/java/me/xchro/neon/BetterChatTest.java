@@ -29,6 +29,7 @@ class BetterChatTest {
     @Test void oldConfigsGainChatDefaultsWithoutChangingSavedAudio() {
         var old = ConfigStore.decode("{\"theme\":{\"soundVolume\":0.23}}");
         assertTrue(old.betterChat.enabled); assertTrue(old.betterChat.messagePing); assertTrue(old.betterChat.mentionPing);
+        assertTrue(old.betterChat.messageBar);
         assertEquals(.4, old.betterChat.volume); assertEquals(.23, old.theme.soundVolume);
         assertEquals(120, old.betterChat.animationMillis); assertEquals(0xffffcd5a, old.betterChat.mentionColor);
     }
@@ -40,5 +41,7 @@ class BetterChatTest {
         var invalid = ConfigStore.decode("{\"betterChat\":{\"volume\":5,\"animationMillis\":-3,\"mode\":null}}").betterChat;
         assertEquals(1, invalid.volume); assertEquals(50, invalid.animationMillis); assertEquals(BindMode.TOGGLE, invalid.mode);
         assertNotNull(ConfigStore.decode("{\"betterChat\":null}").betterChat);
+        config.betterChat.messageBar=false;
+        assertFalse(ConfigStore.copy(config).betterChat.messageBar);
     }
 }

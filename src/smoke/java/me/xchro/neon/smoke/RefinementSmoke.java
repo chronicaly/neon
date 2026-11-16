@@ -84,6 +84,16 @@ final class RefinementSmoke {
         check(editor.mouseClicked(event,false),label+" responds through its real HUD row");editor.mouseReleased(event);
     }
     private void controls() throws Exception {
+        Object previousMesh=null;
+        for(int offset=0;offset<120;offset++) {
+            var state=new net.minecraft.client.renderer.state.gui.GuiRenderState();
+            var g=new GuiGraphicsExtractor(mc,state,0,0);
+            HudGlassRenderer.draw(g,List.of(
+                new HudGlassRenderer.Surface(new HudBounds(100+offset,100+offset,87,24),0x80204060,0xff50f0e0,0xff8060ff,true,true),
+                new HudGlassRenderer.Surface(new HudBounds(193+offset,100+offset,313,134),0x80204060,0xff50f0e0,0xff8060ff,true,true)),0,true);
+            Object[] mesh={null};state.forEachElement(element->{try{var f=element.getClass().getDeclaredField("fillMesh");f.setAccessible(true);mesh[0]=f.get(element);}catch(Exception e){throw new AssertionError(e);}},net.minecraft.client.renderer.state.gui.GuiRenderState.TraverseRange.ALL);
+            check(mesh[0]!=null&&(previousMesh==null||mesh[0]==previousMesh),"moving a joined cluster reuses its tessellation");previousMesh=mesh[0];
+        }
         var editor=(HudEditor)mc.gui.screen();click(editor,"General",1);click(editor,"HUD surfaces",0);
         check(!Neon.config.hudSurfaces&&Neon.config.fpsBorder&&Neon.config.hud(HudKind.COORDINATES).border,"master toggle preserves local outline choices");
         editor.keyPressed(new KeyEvent(GLFW.GLFW_KEY_Z,0,GLFW.GLFW_MOD_CONTROL));check(Neon.config.hudSurfaces,"master surface toggle supports Undo");

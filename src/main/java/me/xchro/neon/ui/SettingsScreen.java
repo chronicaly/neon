@@ -239,6 +239,7 @@ public final class SettingsScreen extends PixelScreen {
                 var chat = c.betterChat;
                 toggle("Client font", () -> chat.clientFont, v -> chat.clientFont = v);
                 toggle("Input frame", () -> chat.inputFrame, v -> chat.inputFrame = v);
+                toggle("Message bar", () -> chat.messageBar, v -> chat.messageBar = v);
                 toggle("Message ping", () -> chat.messagePing, v -> chat.messagePing = v);
                 toggle("Mention ping", () -> chat.mentionPing, v -> chat.mentionPing = v);
                 slider("Ping volume", chat.volume * 100, 0, 100, 1, "%", v -> chat.volume = v / 100);

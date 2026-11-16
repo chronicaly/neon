@@ -4,9 +4,11 @@ A customizable **Minecraft 26.2 / Java 25** Fabric client with a consistent cyan
 
 ![Neon modules with attached settings and color controls](docs/images/neon-corners-menu.png)
 
-[Download](https://github.com/chronicaly/neon/releases/latest) · [User guide](docs/user-guide.md) · [Research](docs/client-research.md) · [Release notes](docs/release-0.5.3.md)
+[Download](https://github.com/chronicaly/neon/releases/latest) · [User guide](docs/user-guide.md) · [Research](docs/client-research.md) · [Release notes](docs/release-0.5.4.md)
 
-**0.5.3 brings Unity-style chat and easier HUD clusters.** Widget edges catch at six-pixel spacing and align before overlapping; push farther to overlap deliberately, or hold Alt to bypass snapping. Clicking a canvas widget smoothly opens its settings. The HUD editor and its attached color drawer have one continuous animated neon outline again. Armor stays fixed beneath chat, and Coordinates no longer adds dimension text.
+**0.5.4 reduces the rendering cost when HUD panels meet**, fixes dark dots at button-glow corners, and adds **Visuals → Better chat → Message bar** to hide the white stripe beside chat. Joined backgrounds and animated outlines remain continuous, and translating a cluster reuses its geometry. Chat signatures, links and warning icons remain intact.
+
+Widget edges catch at six-pixel spacing and align before overlapping; push farther to overlap deliberately, or hold Alt to bypass snapping. Clicking a canvas widget smoothly opens its settings. The HUD editor and its attached color drawer share one animated neon outline. Armor stays fixed beneath chat, and Coordinates no longer adds dimension text.
 
 The **HUD editor and Settings** now share Neon's translucent dark panels, native headings, light-glass controls and rounded fields. Panel surfaces use 84% of the saved background alpha/opacity; text and controls remain clear. HUD options use the familiar cyan switches and aligned values while keeping the compact draggable column and direct canvas placement.
 
@@ -14,7 +16,7 @@ The **HUD editor and Settings** now share Neon's translucent dark panels, native
 
 ## Install
 
-Use Minecraft **26.2**, **Java 25**, Fabric Loader **0.19.5+**, and Fabric API for 26.2. This release is built against **Fabric API 0.161.0+26.2**. Put the runnable `neon-0.5.3.jar` in your instance's `minecraft/mods` folder. Keep one Neon JAR; the sources JAR is for development. [Mod Menu](https://modrinth.com/mod/modmenu) is optional.
+Use Minecraft **26.2**, **Java 25**, Fabric Loader **0.19.5+**, and Fabric API for 26.2. This release is built against **Fabric API 0.161.0+26.2**. Put the runnable `neon-0.5.4.jar` in your instance's `minecraft/mods` folder. Keep one Neon JAR; the sources JAR is for development. [Mod Menu](https://modrinth.com/mod/modmenu) is optional.
 
 Open Neon with your saved menu key (**Insert** in the supplied Vanilla setup), **Right Shift**, or Mod Menu. A fresh configuration uses **P** as its primary key. Updates preserve saved keys, palette, alpha and custom HUD placements. New 0.5.0 modules and HUD widgets start disabled.
 
@@ -94,7 +96,7 @@ Requires JDK 25. The project uses unobfuscated Fabric Loom.
 ./tools/build.ps1 -SkipInstall
 ```
 
-On this development setup, `./tools/build.ps1` also runs the silent packaged release suite and installs only its exact checked runnable JAR into PrismLauncher's Vanilla instance. The prepared verification world is isolated from user instances. See [verification](docs/verification.md) and [0.5.3 results](docs/chat-hud-results.md).
+On this development setup, `./tools/build.ps1` also runs the silent packaged release suite and installs only its exact checked runnable JAR into PrismLauncher's Vanilla instance. The prepared verification world is isolated from user instances. See [verification](docs/verification.md) and [0.5.4 results](docs/contact-results.md).
 
 Performance instrumentation and sound/clipboard interception live only in the verification mod, excluded from releases. Measurements report allocations and frame times with their limits; no FPS increase is promised.
 

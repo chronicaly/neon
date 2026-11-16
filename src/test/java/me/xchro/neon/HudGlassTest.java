@@ -23,6 +23,28 @@ class HudGlassTest {
         assertTrue(area>5900&&area<6001,"150 by 40 union, never 200 by 40 alpha accumulation");
         assertTrue(mesh.edge().stream().noneMatch(e->e.x0()>65&&e.x0()<105&&e.y0()>12&&e.y0()<48));
     }
+    @Test void joiningAtOffsetsKeepsMeshComplexityBounded() {
+        for(int gap=-8;gap<=8;gap++)for(int dy=-3;dy<=3;dy++) {
+            var boxes=List.of(box(0,0,87,24),box(87+gap,dy,313,134));
+            var mesh=HudGlassGeometry.build(boxes);
+            assertTrue(mesh.fill().size()<80,"bounded fill strips at gap "+gap+", offset "+dy);
+            assertTrue(mesh.edge().size()<65,"bounded outside contour");
+            for(var q:mesh.fill()) {
+                assertTrue(Float.isFinite(q.leftTop())&&Float.isFinite(q.rightBottom()));
+                assertTrue(q.rightTop()>=q.leftTop()-.001&&q.rightBottom()>=q.leftBottom()-.001);
+            }
+            if(gap>0&&gap<=6)assertTrue(HudGlassGeometry.shape(boxes).contains(87+gap/2.,12));
+            if(gap>6)assertFalse(HudGlassGeometry.shape(boxes).contains(87+gap/2.,12));
+        }
+    }
+    @Test void translatingClusterPreservesGeometryAndHoles() {
+        var mesh=HudGlassGeometry.build(List.of(box(0,0,87,24),box(93,0,313,134)));
+        var shifted=HudGlassGeometry.build(List.of(box(1600,900,87,24),box(1693,900,313,134)));
+        assertEquals(mesh.fill().size(),shifted.fill().size());assertEquals(mesh.edge().size(),shifted.edge().size());
+        assertEquals(mesh.bounds().getWidth(),shifted.bounds().getWidth(),.001);
+        var diagonal=HudGlassGeometry.shape(List.of(box(0,0,24,24),box(28,28,24,24)));
+        assertFalse(diagonal.contains(26,26),"corner-only proximity does not create an unrelated bridge");
+    }
     @Test void joiningDoesNotFillTheHoleInARing() {
         var area=HudGlassGeometry.shape(List.of(box(10,10,140,20),box(10,110,140,20),box(10,30,20,80),box(130,30,20,80)));
         assertFalse(area.contains(80,70));assertTrue(area.contains(20,70));

@@ -56,6 +56,33 @@ final class BetterChatSmoke {
         check(toggle("Message ping").active&&toggle("Mention ping").active,"both ping controls are available");
     }
     private void shot(String name){Screenshot.grab(mc.gameDirectory,"neon-chat-"+name+".png",mc.gameRenderer.mainRenderTarget(),1,c->{});}
+    private void messageBars()throws Exception {
+        int cues=SoundAudit.cues.size();var originals=List.copyOf(history());
+        for(String name:new String[]{"DrawingBackgroundGraphicsAccess","DrawingFocusedGraphicsAccess"}) {
+            var type=Class.forName("net.minecraft.client.gui.components.ChatComponent$"+name);
+            var tag=type.getDeclaredMethod("handleTag",int.class,int.class,int.class,int.class,float.class,GuiMessageTag.class);tag.setAccessible(true);
+            for(int mode=0;mode<3;mode++) {
+                Neon.config.betterChat.messageBar=mode==0;Neon.config.betterChat.enabled=mode!=2;
+                var state=new net.minecraft.client.renderer.state.gui.GuiRenderState();
+                var g=new net.minecraft.client.gui.GuiGraphicsExtractor(mc,state,-100,-100);
+                var constructor=type.getDeclaredConstructors()[0];constructor.setAccessible(true);
+                var access=name.contains("Background")?constructor.newInstance(g):constructor.newInstance(g,mc.font,-100,-100,false);
+                tag.invoke(access,20,20,22,40,1f,GuiMessageTag.system());
+                int[] count={0};state.forEachElement(e->count[0]++,net.minecraft.client.renderer.state.gui.GuiRenderState.TraverseRange.ALL);
+                check(count[0]==(mode==1?0:1),name+" draws message bar only when allowed, mode "+mode);
+                if(mode==1&&name.contains("Focused")) {
+                    var modified=GuiMessageTag.chatModified("Original signed message");
+                    var icon=type.getDeclaredMethod("handleTagIcon",int.class,int.class,boolean.class,GuiMessageTag.class,GuiMessageTag.Icon.class);icon.setAccessible(true);
+                    icon.invoke(access,30,20,true,modified,modified.icon());
+                    count[0]=0;state.forEachElement(e->count[0]++,net.minecraft.client.renderer.state.gui.GuiRenderState.TraverseRange.ALL);
+                    check(count[0]>0,"native message warning icon survives hidden bar");
+                }
+            }
+        }
+        Neon.config.betterChat.enabled=Neon.config.betterChat.messageBar=true;
+        check(history().equals(originals),"bar visibility never changes original chat history or signatures");
+        check(cues==SoundAudit.cues.size(),"bar changes and redraws stay silent");
+    }
     boolean run()throws Exception{
         if(++age<15)return false;age=0;
         switch(stage++){
@@ -102,9 +129,9 @@ final class BetterChatSmoke {
                 Neon.config.betterChat=new NeonConfig.BetterChat();expect(()->BetterChat.tick(mc));
                 check(visible().contains("[x3]"),"reenabling rebuilds duplicate display without pinging");
                 var audio=UiSounds.class.getDeclaredField("CLIPS");audio.setAccessible(true);check(((Map<?,?>)audio.get(null)).isEmpty(),"silent interception never opens audio clips");
-                setup(false,1);
+                messageBars();setup(false,1);
             }
-            case 2->{geometry();shot("scale1-default");expect(()->click(toggle("Message ping")),Cue.DISABLE);check(!Neon.config.betterChat.messagePing,"native toggle changes message pings");menu.keyPressed(new KeyEvent(GLFW.GLFW_KEY_Z,0,GLFW.GLFW_MOD_CONTROL));check(Neon.config.betterChat.messagePing,"Undo restores chat setting");setup(true,1);}
+            case 2->{geometry();shot("scale1-default");expect(()->click(toggle("Message bar")),Cue.DISABLE);check(!Neon.config.betterChat.messageBar,"native toggle hides the message bar");var profiles=new ProfileStore(mc.gameDirectory.toPath().resolve("config/neon-chat-bar-profiles.json"));profiles.initialize(Neon.config);profiles.put("Bar hidden",Neon.config);check(!profiles.get("Bar hidden").betterChat.messageBar,"message bar preference survives profiles");menu.keyPressed(new KeyEvent(GLFW.GLFW_KEY_Z,0,GLFW.GLFW_MOD_CONTROL));check(Neon.config.betterChat.messageBar,"Undo restores message bar");expect(()->click(toggle("Message ping")),Cue.DISABLE);check(!Neon.config.betterChat.messagePing,"native toggle changes message pings");menu.keyPressed(new KeyEvent(GLFW.GLFW_KEY_Z,0,GLFW.GLFW_MOD_CONTROL));check(Neon.config.betterChat.messagePing,"Undo restores chat setting");setup(true,1);}
             case 3->{geometry();shot("scale1-minimum");drawer().setScrollAmount(drawer().maxScrollAmount());}
             case 4->{shot("scale1-minimum-bottom");var color=widgets(menu).stream().filter(w->w instanceof Button&&w.getMessage().getString().equals("Mention color")).findFirst().orElseThrow();click(color);}
             case 5->{var popup=widgets(menu).stream().filter(w->w.getClass().getSimpleName().equals("ColorPicker")).findFirst().orElseThrow();check(popup.getX()>=0&&popup.getRight()<=menu.canvasWidth()&&popup.getBottom()<=menu.canvasHeight(),"mention popup fits minimum menu");shot("mention-color");menu.keyPressed(new KeyEvent(GLFW.GLFW_KEY_ESCAPE,0,0));setup(false,2);}

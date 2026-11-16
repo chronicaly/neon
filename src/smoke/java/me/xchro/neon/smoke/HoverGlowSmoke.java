@@ -42,14 +42,15 @@ public final class HoverGlowSmoke {
     private void capture(){
         pending=true;var tile=target();float scale=PixelScreen.UI_SCALE;
         int x=Math.round(tile.getX()*scale),y=Math.round(tile.getY()*scale),right=Math.round(tile.getRight()*scale),bottom=Math.round(tile.getBottom()*scale);
-        int[][] samples={{x-3,(y+bottom)/2},{right+2,(y+bottom)/2},{(x+right)/2,y-5},{(x+right)/2,bottom+1}};
+        int[][] samples={{x-3,(y+bottom)/2},{right+2,(y+bottom)/2},{(x+right)/2,y-5},{(x+right)/2,bottom+1},
+            {x,y-2},{right-1,y-2},{x,bottom-3},{right-1,bottom-3}};
         var bounds=menu.expandedBounds();String name="neon-hover-"+(variant<2?"modules":"settings")+"-"+(variant%2==0?"default":"minimum")+"-"+new String[]{"idle","hover","leave"}[stage]+".png";
         Screenshot.takeScreenshot(mc.gameRenderer.mainRenderTarget(),image->{
             try(image){
                 int[] colors=new int[samples.length];for(int i=0;i<colors.length;i++)colors[i]=image.getPixel(samples[i][0],samples[i][1]);
                 if(stage==0)idle=colors;
                 else if(stage==1){
-                    for(int i=0;i<colors.length;i++)check(gain(colors[i],idle[i])>12,"soft bloom remains visible outside button edge "+i+" (gain "+gain(colors[i],idle[i])+")");
+                    for(int i=0;i<colors.length;i++)check(gain(colors[i],idle[i])>12,(i<4?"soft bloom remains visible outside button edge ":"rounded corner has no dark gap ")+i+" (gain "+gain(colors[i],idle[i])+")");
                     check(channel(colors[0],8)>channel(colors[1],8)+8,"hover bloom transitions from cyan to violet across the button");
                 }else for(int i=0;i<colors.length;i++)check(Math.abs(gain(colors[i],idle[i]))<=4,"hover bloom fades completely at edge "+i);
                 int left=Math.round(bounds.left()*scale),top=Math.round(bounds.top()*scale),w=Math.round(bounds.right()*scale)-left,h=Math.round(bounds.bottom()*scale)-top;

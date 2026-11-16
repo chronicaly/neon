@@ -13,7 +13,7 @@ import net.minecraft.client.input.*;
 
 /** Deterministic production-JAR benchmark. All instrumentation lives in the test-only mod. */
 public final class PerformanceSmoke {
-    private static final String[] CASES = {"gameplay", "motion-blur", "idle-menu", "navigation-scroll", "color-edit", "hud-placement", "font-churn", "first-open", "drawer-reversals", "category-switch", "continuous-color", "menu-resize", "hud-catalog", "chat-visible"};
+    private static final String[] CASES = {"gameplay", "motion-blur", "idle-menu", "navigation-scroll", "color-edit", "hud-placement", "font-churn", "first-open", "drawer-reversals", "category-switch", "continuous-color", "menu-resize", "hud-catalog", "chat-visible", "hud-contact", "hud-joined"};
     private static final Set<String> ONLY = System.getProperty("neon.perf.scenario") == null ? Set.of()
         : new LinkedHashSet<>(Arrays.asList(System.getProperty("neon.perf.scenario").split(",")));
     private static final int WARM = 240, SAMPLES = 480;
@@ -135,13 +135,27 @@ public final class PerformanceSmoke {
                     .withClickEvent(new net.minecraft.network.chat.ClickEvent.SuggestCommand("/help")))),null,null);
             mc.gui.setScreen(new net.minecraft.client.gui.screens.ChatScreen("/",false));
         }
+        if(scenario>=14) {
+            Neon.config.armor.visible=Neon.config.totems.visible=false;
+            Neon.config.fps.visible=Neon.config.fpsBackground=Neon.config.fpsBorder=true;
+            Neon.config.hud(me.xchro.neon.hud.HudKind.INVENTORY).placement.visible=true;
+            contact(6,0);
+        }
         System.out.println("NEON_PERF run=" + (stage / CASES.length + 1) + " scenario=" + CASES[scenario]);
+    }
+    private void contact(int gap,int offset) {
+        int w=mc.getWindow().getWidth(),h=mc.getWindow().getHeight();
+        var item=me.xchro.neon.hud.HudWidgets.get(me.xchro.neon.hud.HudKind.INVENTORY).bounds(w,h,false);
+        item.move(Neon.config.hud(me.xchro.neon.hud.HudKind.INVENTORY).placement,600,450,w,h);
+        var fps=me.xchro.neon.hud.FpsHud.bounds(w,h);
+        fps.move(Neon.config.fps,600-gap-fps.width(),450+offset,w,h);
     }
     private void step() {
         // Synthetic screen events bypass the native input callback; keep the benchmark out of AFK throttling.
         mc.getFramerateLimitTracker().onInputReceived();
         int scenario = stage % CASES.length;
         event="";
+        if(scenario==14){contact((int)Math.round(6+18*Math.sin(frame*.067)),frame%7-3);event="contact";}
         if(scenario>=12)return;
         mc.player.setYRot(scenario == 1 ? (float) (Math.sin(frame * .007) * 20) : 0); mc.player.setXRot(0);
         // Allow the attached color drawer to become a pointer target before the first gesture.

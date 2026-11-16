@@ -1,5 +1,13 @@
 # Neon design language
 
+## HUD contact and chat indicator — 16 November 2026
+
+Button hover bloom follows the same three-display-pixel rounded contour as its surface. Include the rounded corner cutouts in the Gaussian texture and snap its bounds to the surface's native pixels; never leave a square inner cutout that exposes dark corner dots. Keep the cyan/violet gradient, broad falloff, transparent interior, fixed hitbox, two-pixel lift and reversible fade. Apply consistently to module and Settings grid buttons.
+
+Joining panels must not trigger stroked-curve boolean operations. Flatten rounded contours before union, connect facing edges across the six-display-pixel snap spacing, preserve holes and render one fill/outer contour. Cache meshes relative to their origin so translating a cluster reuses tessellation; keep the bounded cache and framebuffer-space outline phase. Single-panel/menu corner geometry stays unchanged. Deliberate overlaps, local FPS colors and chat lift remain supported.
+
+Visuals → Better chat adds Message bar, on by default to preserve existing configurations. Turning it off removes only the native left-hand indicator stripe in both focused and unfocused chat. Keep original tags, trust/signature data, warning icons, hover details, history and clickable styles. Store the preference in settings/profiles and support Undo.
+
 ## Unity chat and HUD editing — 16 November 2026
 
 The latest request restores the HUD editor's animated cyan/violet outline. Its column and attached color drawer share the menu's single rounded contour, traveling highlight and localized bloom, preserving physical edge position through expansion and reversal. This supersedes all earlier quiet/static column-border directions below. Canvas widgets still have no selection outlines, handles or floating labels.
