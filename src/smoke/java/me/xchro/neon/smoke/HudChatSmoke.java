@@ -37,7 +37,7 @@ final class HudChatSmoke {
     private void setup(){
         mc.gui.setScreen(null);mc.getWindow().setWindowed(variant==3?640:1280,variant==3?360:800);
         mc.options.guiScale().set(variant%3+1);mc.options.framerateLimit().set(120);mc.resizeGui();
-        Neon.applyConfig(new NeonConfig());var c=Neon.config;c.armor.visible=c.totems.visible=false;
+        Neon.applyConfig(new NeonConfig());var c=Neon.config;c.armor.visible=true;c.totems.visible=false;
         c.fps.visible=c.fpsBackground=true;c.fps.x=variant==3?.36:.5;c.fps.y=variant==3?1:.08;
         var coords=c.hud(HudKind.COORDINATES);coords.placement.visible=true;coords.placement.x=.02;coords.placement.y=1;
         var inventory=c.hud(HudKind.INVENTORY);inventory.placement.visible=true;inventory.placement.x=.98;inventory.placement.y=1;
@@ -64,7 +64,7 @@ final class HudChatSmoke {
         switch(stage){
             case 0->{setup();stage++;age=0;}
             case 1->{
-                if(age<7)return false;resting=rendered(false);check(resting.size()==4,"chat fixture renders FPS, coordinates, joined compass and inventory");
+                if(age<7)return false;resting=rendered(false);check(resting.size()==5,"chat fixture renders FPS, coordinates, joined compass, inventory and fixed armor");
                 chat();check(rendered(false).equals(resting),"chat opening begins at the existing rendered position");stage++;age=0;
             }
             case 2->{
@@ -72,12 +72,14 @@ final class HudChatSmoke {
                 check(shift>0&&shift<clearance,"chat opens through an intermediate HUD position");
                 check(lift(drawn,2)==shift,"joined compass and coordinate panels keep their relative spacing");
                 check(lift(drawn,3)==shift,"inventory and coordinate panels move together");
+                check(drawn.get(4).equals(resting.get(4)),"armor panel stays fixed while chat opens");
                 if(variant<3)check(drawn.getFirst().equals(resting.getFirst()),"top-edge FPS stays still while chat opens");
                 stage++;age=0;
             }
             case 3->{
                 if(age<7)return false;var drawn=rendered(false);
                 for(int i=variant==3?0:1;i<4;i++)check(lift(drawn,i)==clearance,"bottom HUD clears native chat input at GUI scale "+NeonHud.gameScale());
+                check(drawn.get(4).equals(resting.get(4)),"armor remains underneath open chat at its saved position");
                 preserved();Screenshot.grab(mc.gameDirectory,"neon-chat-lift-"+variant+".png",mc.gameRenderer.mainRenderTarget(),1,message->{});
                 mc.gui.setScreen(null);check(rendered(false).equals(drawn),"chat closing starts without a position jump");stage++;age=0;
             }

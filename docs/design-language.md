@@ -1,5 +1,17 @@
 # Neon design language
 
+## Unity chat and HUD editing — 16 November 2026
+
+The latest request restores the HUD editor's animated cyan/violet outline. Its column and attached color drawer share the menu's single rounded contour, traveling highlight and localized bloom, preserving physical edge position through expansion and reversal. This supersedes all earlier quiet/static column-border directions below. Canvas widgets still have no selection outlines, handles or floating labels.
+
+A canvas click reveals that element's settings in the column with the existing smooth fold animation and scroll reveal. Ignore pointer jitter up to three physical pixels. A real move/resize gesture hides the column and never opens a fold on release. Existing right-click settings, keyboard editing, gesture Undo and cancellation remain.
+
+Enabled widgets catch adjacent edges at six physical pixels and align their perpendicular edges/centers. Edge resistance is always available; General → Snap controls the additional general alignment. Hold the caught edge until the pointer moves beyond the breakaway distance, then permit overlap without pulling the widget back out. Fast crossings catch once too. Alt bypasses snapping, existing overlaps remain movable, and hidden widgets never attract snaps.
+
+Armor is excluded from chat clearance: its panel, outline and native items remain fixed beneath chat. Other bottom information groups keep smooth chat lift and their relative spacing. Attached totems remain on the actual offhand slot. Coordinates removes both dimension text and its toggle; inline Nether conversion remains.
+
+Better chat adapts Unity's proportional font layout, clickable-style collection, native chat placement and input frame. Client font uses the selected installed family and can be disabled independently. Preserve original history, signatures, styled links, source filtering, native fading and scroll state. Reflow on font changes without new-message pings. Input framing preserves native editing and suggestions. The optional Chat HUD starts disabled, exposes ordinary scale/background/border/shadow rows, uses the native messages and click transform, and never inserts preview messages into history. Hide the chat scrollbar while these enhancements are active; retain wheel and keyboard scrolling. All verification audio remains intercepted and muted.
+
 ## Installed fonts and chat clearance — 16 November 2026
 
 Settings now includes Fonts alongside Colors, Appearance and Profiles. List all locally installed families with search and a live preview inside the existing right-hand drawer. Apply the chosen family to menu typography and Client-mode HUD text; bundled Inter remains the default and fallback. Keep Minecraft/resource-pack HUD rendering as the separate General choice. Store family names in settings and profiles and support Undo. Missing families fall back without replacing their saved name. Retain native-resolution shaping, centered HUD ink, safe text fitting and bounded atlas caches; invalidate recorded text presentations when a family changes. This supersedes the earlier requirement that menu text always use Inter.

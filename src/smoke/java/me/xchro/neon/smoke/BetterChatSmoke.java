@@ -86,7 +86,10 @@ final class BetterChatSmoke {
                 var signature=new MessageSignature(new byte[256]);expect(()->chat.addPlayerMessage(styled,signature,null),Cue.CHAT_MENTION);
                 check(history().getFirst().content()==styled&&history().getFirst().signature()==signature,"original content and signature stay untouched");
                 Neon.config.betterChat.mentions=false;expect(()->player("<Alex> "+name),Cue.CHAT_MENTION);
-                check(BetterChat.display(styled,GuiMessageSource.PLAYER)==styled,"highlight can be disabled independently of mentions");
+                check(BetterChat.display(styled,GuiMessageSource.PLAYER).getString().equals(styled.getString()),"highlight can be disabled independently of mentions");
+                Neon.config.betterChat.clientFont=false;
+                check(BetterChat.display(styled,GuiMessageSource.PLAYER)==styled,"native font and disabled highlight retain the original component");
+                Neon.config.betterChat.clientFont=true;
                 Neon.config.betterChat.messagePing=false;expect(()->player("<Alex> normal"));expect(()->player("<Alex> "+name),Cue.CHAT_MENTION);
                 Neon.config.betterChat.mentionPing=false;expect(()->player("<Alex> "+name));
                 Neon.config.betterChat.messagePing=true;expect(()->player("<Alex> "+name),Cue.CHAT_MESSAGE);

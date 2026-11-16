@@ -13,7 +13,7 @@ import net.minecraft.client.input.*;
 
 /** Deterministic production-JAR benchmark. All instrumentation lives in the test-only mod. */
 public final class PerformanceSmoke {
-    private static final String[] CASES = {"gameplay", "motion-blur", "idle-menu", "navigation-scroll", "color-edit", "hud-placement", "font-churn", "first-open", "drawer-reversals", "category-switch", "continuous-color", "menu-resize", "hud-catalog"};
+    private static final String[] CASES = {"gameplay", "motion-blur", "idle-menu", "navigation-scroll", "color-edit", "hud-placement", "font-churn", "first-open", "drawer-reversals", "category-switch", "continuous-color", "menu-resize", "hud-catalog", "chat-visible"};
     private static final Set<String> ONLY = System.getProperty("neon.perf.scenario") == null ? Set.of()
         : new LinkedHashSet<>(Arrays.asList(System.getProperty("neon.perf.scenario").split(",")));
     private static final int WARM = 240, SAMPLES = 480;
@@ -108,6 +108,7 @@ public final class PerformanceSmoke {
         Neon.config.armorAnchor = me.xchro.neon.config.NeonConfig.ArmorAnchor.CUSTOM;
         Neon.config.totemFloating = true;
         mc.gui.setScreen(null); mc.player.setYRot(0); mc.player.setXRot(0);
+        mc.gui.hud.getChat().clearMessages(false);
         int scenario = stage % CASES.length;
         if (scenario == 1) Neon.config.motionBlurEnabled = true;
         if (scenario >= 2 && scenario <= 4) {
@@ -127,6 +128,13 @@ public final class PerformanceSmoke {
             Neon.config.fpsBackground=Neon.config.fpsBorder=true;
             // Empty potion/scoreboard data correctly draws nothing during gameplay.
         }
+        if(scenario==13) {
+            for(int i=0;i<24;i++)mc.gui.hud.getChat().addPlayerMessage(net.minecraft.network.chat.Component.literal("<Player"+i+"> ")
+                .withColor(0x84dce6).append(net.minecraft.network.chat.Component.literal("Chat rendering: coordinates 123, 64, 456 and a ").withColor(0xffffff))
+                .append(net.minecraft.network.chat.Component.literal("clickable link").withStyle(s->s.withColor(0x9985cc).withUnderlined(true)
+                    .withClickEvent(new net.minecraft.network.chat.ClickEvent.SuggestCommand("/help")))),null,null);
+            mc.gui.setScreen(new net.minecraft.client.gui.screens.ChatScreen("/",false));
+        }
         System.out.println("NEON_PERF run=" + (stage / CASES.length + 1) + " scenario=" + CASES[scenario]);
     }
     private void step() {
@@ -134,7 +142,7 @@ public final class PerformanceSmoke {
         mc.getFramerateLimitTracker().onInputReceived();
         int scenario = stage % CASES.length;
         event="";
-        if(scenario==12)return;
+        if(scenario>=12)return;
         mc.player.setYRot(scenario == 1 ? (float) (Math.sin(frame * .007) * 20) : 0); mc.player.setXRot(0);
         // Allow the attached color drawer to become a pointer target before the first gesture.
         if((scenario==4||scenario==10)&&frame<60)return;

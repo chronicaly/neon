@@ -21,7 +21,8 @@ public enum HudKind {
     WORLD_TIME("World time", .5, .18),
     ITEM_COUNTER("Item counter", .5, .76),
     SCOREBOARD("Scoreboard", 1, .45),
-    MEMORY("Memory", .5, .28);
+    MEMORY("Memory", .5, .28),
+    CHAT("Chat", 0, .9);
     public final String label;
     public final double x, y;
     HudKind(String label, double x, double y) { this.label=label; this.x=x; this.y=y; }

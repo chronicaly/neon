@@ -4,6 +4,8 @@ import java.util.List;
 import java.util.function.Predicate;
 import me.xchro.neon.Neon;
 import me.xchro.neon.chat.BetterChat;
+import me.xchro.neon.hud.ChatHud;
+import com.llamalad7.mixinextras.injector.v2.WrapWithCondition;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.components.ChatComponent;
@@ -19,9 +21,20 @@ abstract class BetterChatMixin {
     @Final @Shadow private List<GuiMessage> allMessages;
     @Final @Shadow private List<GuiMessage.Line> trimmedMessages;
     @Shadow private Predicate<GuiMessage> visibleMessageFilter;
+    @Shadow private int chatScrollbarPos;
+    @Shadow public abstract int getLinesPerPage();
     @Shadow private void addMessageToDisplayQueue(GuiMessage message) {}
     @Shadow private void refreshTrimmedMessages() {}
     @Unique private long neon$messageTime;
+
+    @WrapWithCondition(method="extractRenderState(Lnet/minecraft/client/gui/components/ChatComponent$ChatGraphicsAccess;IILnet/minecraft/client/gui/components/ChatComponent$DisplayMode;)V",at={
+        @At(value="INVOKE",target="Lnet/minecraft/client/gui/components/ChatComponent$ChatGraphicsAccess;fill(IIIII)V",ordinal=2),
+        @At(value="INVOKE",target="Lnet/minecraft/client/gui/components/ChatComponent$ChatGraphicsAccess;fill(IIIII)V",ordinal=3)})
+    private boolean neon$hideScrollbar(ChatComponent.ChatGraphicsAccess graphics,int x1,int y1,int x2,int y2,int color){return !BetterChat.active()&&!ChatHud.enabled();}
+    @Inject(method="extractRenderState(Lnet/minecraft/client/gui/components/ChatComponent$ChatGraphicsAccess;IILnet/minecraft/client/gui/components/ChatComponent$DisplayMode;)V",at=@At("HEAD"))
+    private void neon$position(ChatComponent.ChatGraphicsAccess graphics,int height,int ticks,ChatComponent.DisplayMode mode,CallbackInfo ci){graphics.updatePose(pose->ChatHud.transform(pose,height));}
+    @ModifyVariable(method="extractRenderState(Lnet/minecraft/client/gui/components/ChatComponent$ChatGraphicsAccess;IILnet/minecraft/client/gui/components/ChatComponent$DisplayMode;)V",at=@At("STORE"),ordinal=2)
+    private float neon$background(float opacity){return ChatHud.enabled()?0:opacity;}
 
     @ModifyVariable(method="addMessageToDisplayQueue", at=@At("HEAD"), argsOnly=true)
     private GuiMessage neon$style(GuiMessage message) {
@@ -61,6 +74,7 @@ abstract class BetterChatMixin {
             double progress = Math.clamp((System.nanoTime() - neon$messageTime) / 1e6 / Neon.config.betterChat.animationMillis, 0, 1);
             g.pose().translate(0, (float) (Math.pow(1 - progress, 3) * 9));
         }
+        ChatHud.frame(g,ticks,mode,trimmedMessages,chatScrollbarPos,getLinesPerPage());
     }
     @Inject(method="extractRenderState(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/client/gui/Font;IIILnet/minecraft/client/gui/components/ChatComponent$DisplayMode;Z)V", at=@At("TAIL"))
     private void neon$animationEnd(GuiGraphicsExtractor g, Font font, int ticks, int mx, int my, ChatComponent.DisplayMode mode, boolean cursors, CallbackInfo ci) { g.pose().popMatrix(); }

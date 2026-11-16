@@ -78,7 +78,7 @@ final class FpsHudSmoke {
     private void fitsColor() {
         var shell=editor.inspectorBounds();var picker=named("Color picker");
         check(shell.left()>=8 && shell.top()>=8 && shell.right()<=editor.canvasWidth()-8 && shell.bottom()<=editor.canvasHeight()-8,"HUD color drawer stays inside the display");
-        check(picker.getX()>shell.left() && picker.getRight()<shell.right() && named("Paste").getBottom()<shell.bottom(),"compact color actions fit inside the quiet shared HUD border");
+        check(picker.getX()>shell.left() && picker.getRight()<shell.right() && named("Paste").getBottom()<shell.bottom(),"compact color actions fit inside the shared animated HUD border");
     }
     private HudBounds bounds() { return FpsHud.bounds(mc.getWindow().getWidth(), mc.getWindow().getHeight()); }
     private void shot(String suffix) { Screenshot.grab(mc.gameDirectory, "neon-fps-" + scenario + "-" + suffix + ".png", mc.gameRenderer.mainRenderTarget(), 1, message -> {}); }

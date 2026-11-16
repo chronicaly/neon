@@ -7,8 +7,12 @@ public final class HudText {
     private HudText() {}
     public static void beginFrame() { UiFont.beginHudFrame(); }
     public static void flush() { UiFont.flush(); }
+    public interface Batch extends AutoCloseable { @Override void close(); }
+    /** Submit a glyph layer together while retaining each glyph's snapped display-pixel origin. */
+    public static Batch batch(GuiGraphicsExtractor g){return UiFont.beginHudBatch(g);}
     public static int width(String text, int pixels) { return UiFont.hudWidth(text, pixels); }
     public static int width(String text,int pixels,boolean bold,boolean italic) { return UiFont.hudWidth(text,pixels,bold,italic); }
+    public static float advance(String text,int pixels,boolean bold,boolean italic) { return UiFont.hudAdvance(text,pixels,bold,italic); }
     public static int lineHeight(int pixels){return (int)Math.ceil(pixels*1.2);}
     public static int baseline(String text,int pixels){return UiFont.hudBaseline(text,pixels);}
     public static void draw(GuiGraphicsExtractor g, String text, int x, int y, int color, int pixels, boolean shadow) {

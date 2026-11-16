@@ -23,7 +23,7 @@ import org.lwjgl.glfw.GLFW;
 
 /** Unity HudEditorScreen's root/group/bool/range row model, adapted to Neon's widgets and renderer. */
 public final class HudEditor extends PixelScreen {
-    private enum Element { ARMOR, TOTEMS, FPS, COORDINATES, COMPASS, PING, SPEED, CPS, KEYSTROKES, POTIONS, INVENTORY, HELD_ITEM, CLOCK, SESSION, BIOME, LIGHT, PACKS, SERVER, MOVEMENT, WORLD_TIME, ITEM_COUNTER, SCOREBOARD, MEMORY }
+    private enum Element { ARMOR, TOTEMS, FPS, COORDINATES, COMPASS, PING, SPEED, CPS, KEYSTROKES, POTIONS, INVENTORY, HELD_ITEM, CLOCK, SESSION, BIOME, LIGHT, PACKS, SERVER, MOVEMENT, WORLD_TIME, ITEM_COUNTER, SCOREBOARD, MEMORY, CHAT }
     private static final int COLLAPSED_HEIGHT = 23 + Math.min(7,Element.values().length + 1) * 22;
     private enum Gesture { NONE, MOVE, RESIZE, PANEL }
     private final Screen parent;
@@ -42,11 +42,13 @@ public final class HudEditor extends PixelScreen {
     private boolean initialFocusSet;
     private Element selected = Element.ARMOR;
     private Gesture gesture = Gesture.NONE;
-    private boolean toolbar = true, damagePreview;
+    private boolean toolbar = true, damagePreview, dragMoved;
     private int px = 12, py = 12, pw = 188, ph, panelOriginX, panelOriginY;
     private double startX, startY, startScale, panelGrabX, panelGrabY;
     private HudBounds origin;
     private HudResize resizeGesture;
+    private final HudSnap.Drag dragSnap=new HudSnap.Drag();
+    private final me.xchro.neon.core.OutlineTravel outlineTravel=new me.xchro.neon.core.OutlineTravel();
     private int resizeCorner;
     private double guideX = -1, guideY = -1;
     private String error = "";
@@ -71,7 +73,7 @@ public final class HudEditor extends PixelScreen {
         // Screen rebuilds otherwise select the first row and reveal it after restoring scroll.
         if (!initialFocusSet) { initialFocusSet = true; super.setInitialFocus(); }
     }
-    public boolean controlsVisible() { return toolbar && gesture != Gesture.MOVE && gesture != Gesture.RESIZE; }
+    public boolean controlsVisible() { return toolbar && (!dragMoved || gesture != Gesture.MOVE && gesture != Gesture.RESIZE); }
     public ScreenRectangle inspectorBounds() { return new ScreenRectangle(shellX, shellY, shellWidth, shellHeight); }
     private NeonConfig.Widget widget() { return widget(selected); }
     private NeonConfig.Widget widget(Element element) {
@@ -141,7 +143,6 @@ public final class HudEditor extends PixelScreen {
                 bool(out,e+":border","Border",1,appearance.border,()->appearance.border=!appearance.border);
                 bool(out,e+":shadow","Shadow",1,appearance.shadow,()->appearance.shadow=!appearance.shadow);
                 if(e==Element.COORDINATES) {
-                    bool(out,e+":dimension","Dimension",1,c.coordinatesDimension,()->c.coordinatesDimension=!c.coordinatesDimension);
                     bool(out,e+":conversion","Nether conversion",1,c.coordinatesConversion,()->c.coordinatesConversion=!c.coordinatesConversion);
                 }
                 if(e==Element.COMPASS) bool(out,e+":degrees","Degrees",1,c.compassDegrees,()->c.compassDegrees=!c.compassDegrees);
@@ -314,7 +315,7 @@ public final class HudEditor extends PixelScreen {
         NeonHud.drawPixels(g, true, hudWidth(), hudHeight());
         if (Neon.config.totems.visible && !Neon.config.totemFloating && (minecraft.player == null || !minecraft.player.getOffhandItem().is(net.minecraft.world.item.Items.TOTEM_OF_UNDYING))) NeonHud.drawTotemPixels(g, true, hudWidth(), hudHeight());
         g.pose().popMatrix();
-        boolean moving = gesture == Gesture.MOVE || gesture == Gesture.RESIZE;
+        boolean moving = dragMoved&&(gesture == Gesture.MOVE || gesture == Gesture.RESIZE);
         if (moving && Neon.config.editorGuides) {
             g.pose().pushMatrix(); g.pose().scale(1 / UI_SCALE);
             Ui.rect(g, hudWidth() / 2, 0, 1, hudHeight(), 0x30ffffff);
@@ -325,7 +326,7 @@ public final class HudEditor extends PixelScreen {
         }
         if (controlsVisible()) {
             RoundedUi.panel(g,shellX,shellY,shellWidth,shellHeight,-1);
-            int edge=Ui.faded(UiEffects.mix(Ui.LINE,Ui.OUTLINE,.28));RoundedUi.stroke(g,shellX,shellY,shellWidth,shellHeight,edge,edge,6);
+            UiEffects.outline(g,shellX,shellY,shellWidth,shellHeight,outlineTravel);
             Ui.title(g,"HUD editor",shellX+10,shellY+5);
             refresh(); renderWidgets(g, mx, my, delta);
             var picker = colorPicker != null ? colorPicker : closingPicker;
@@ -364,11 +365,11 @@ public final class HudEditor extends PixelScreen {
     private void move(double x, double y, boolean snap) {
         detachTotem();
         HudBounds b = bounds(); guideX = guideY = -1;
-        if (snap && Neon.config.editorSnap) {
+        if (snap) {
             var neighbors = Arrays.stream(Element.values()).filter(e -> e != selected && visible(e)).map(this::bounds).toList();
-            var snapped = HudSnap.move(b, neighbors, hudWidth(), hudHeight(), x, y, Neon.config.snapSensitivity);
+            var snapped = dragSnap.move(b, neighbors, hudWidth(), hudHeight(), x, y, Neon.config.snapSensitivity,Neon.config.editorSnap);
             x = snapped.x(); y = snapped.y(); guideX = snapped.guideX(); guideY = snapped.guideY();
-        }
+        } else dragSnap.clear();
         b.move(widget(), x, y, hudWidth(), hudHeight());
         if (selected == Element.ARMOR) Neon.config.armorAnchor = ArmorAnchor.CUSTOM;
     }
@@ -416,6 +417,7 @@ public final class HudEditor extends PixelScreen {
         return false;
     }
     private void start(MouseButtonEvent e, Gesture type) {
+        dragSnap.clear();dragMoved=false;
         session.begin(); gesture = type; origin = bounds(); startX = e.x(); startY = e.y();
         startScale = selected == Element.TOTEMS && !Neon.config.totemFloating ? detachedScale() : widget().scale;
     }
@@ -428,6 +430,8 @@ public final class HudEditor extends PixelScreen {
         }
         if (gesture != Gesture.MOVE && gesture != Gesture.RESIZE) return super.pixelMouseDragged(e, dx, dy);
         e = new MouseButtonEvent(hudCoordinate(e.x()), hudCoordinate(e.y()), e.buttonInfo());
+        if(!dragMoved&&Math.hypot(e.x()-startX,e.y()-startY)<=3)return true;
+        dragMoved=true;
         if (gesture == Gesture.MOVE) { move(origin.x() + e.x() - startX, origin.y() + e.y() - startY, (e.modifiers() & GLFW.GLFW_MOD_ALT) == 0); refresh(); return true; }
         if (gesture == Gesture.RESIZE) {
             detachTotem();
@@ -443,8 +447,13 @@ public final class HudEditor extends PixelScreen {
         if (gesture == Gesture.PANEL) {
             placement.capture(px, py, canvasWidth(), canvasHeight()); placement.queue(placementFile, Neon.SAVES);
         }
+        boolean open=(gesture==Gesture.MOVE||gesture==Gesture.RESIZE)&&!dragMoved;
         boolean handled = gesture != Gesture.NONE; gesture = Gesture.NONE; guideX = guideY = -1; session.end();
-        boolean control = super.pixelMouseReleased(e); if (handled) rebuildWidgets(); return handled || control;
+        boolean control = super.pixelMouseReleased(e);
+        if(open){boolean expandedNow=expanded.add(selected.name());animateRows=expandedNow;boolean show=expandedNow||!toolbar;toolbar=true;if(show)UiSounds.cue(Cue.NAVIGATE);}
+        if (handled) rebuildWidgets();
+        if(open)column.children().stream().filter(w->w instanceof HudEntry entry&&entry.identity().equals(selected.name())).findFirst().ifPresent(w->column.reveal(w.getY(),w.getBottom()+22));
+        return handled || control;
     }
     @Override protected boolean pixelMouseScrolled(double x, double y, double dx, double dy) {
         if (colorPicker != null && colorPicker.isMouseOver(x,y)) return true;

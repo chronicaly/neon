@@ -51,7 +51,7 @@ public abstract class HudCard {
         int w=Math.min(width,(int)Math.ceil((contentWidth()+4)*scale)),h=Math.min(height,(int)Math.ceil((contentHeight()+2)*scale));
         return new HudBounds((int)Math.round(placement.x*(width-w)),(int)Math.round(placement.y*(height-h)),w,h);
     }
-    public final void draw(GuiGraphicsExtractor g,int width,int height,boolean preview) {
+    public void draw(GuiGraphicsExtractor g,int width,int height,boolean preview) {
         var options = Neon.config.hud(kind);
         if (!options.placement.visible || !hasContent(preview)) return;
         var b=HudChatLift.place(bounds(width,height,preview));
@@ -61,7 +61,7 @@ public abstract class HudCard {
         renderContent(g,preview);
         g.pose().popMatrix();
     }
-    public final void surface(GuiGraphicsExtractor g,int width,int height,boolean preview) {
+    public void surface(GuiGraphicsExtractor g,int width,int height,boolean preview) {
         var options=Neon.config.hud(kind);
         if(options.placement.visible&&hasContent(preview))chrome.panel(g,HudChatLift.place(bounds(width,height,preview)),options.background,options.border);
     }

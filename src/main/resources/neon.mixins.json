@@ -2,6 +2,6 @@
   "required": true,
   "package": "me.xchro.neon.mixin",
   "compatibilityLevel": "JAVA_25",
-  "client": ["CameraMixin", "MouseMixin", "InputMixin", "KeyAccessor", "PlayerVisibilityMixin", "TotemPopPacketMixin", "TotemPopNameMixin", "BetterChatMixin", "ScreenshotMixin", "HudMixin", "MotionBlurMixin", "FpsMixin", "UiWidgetMixin", "UiOptionsMixin", "MenuPresentationMixin", "EditBoxAccessor", "ToggleKeyMixin", "ToggleKeyAccessor", "FovEffectsMixin", "CameraEffectsMixin", "FireOverlayMixin", "ViewmodelMixin", "RenderOptionsMixin", "HitColorMixin", "VisualTimeMixin", "WeatherMixin", "FullbrightMixin", "CleanViewMixin", "BlockOutlineMixin"],
+  "client": ["CameraMixin", "MouseMixin", "InputMixin", "KeyAccessor", "PlayerVisibilityMixin", "TotemPopPacketMixin", "TotemPopNameMixin", "BetterChatMixin", "ChatFontMixin", "ChatGraphicsAccessor", "ChatTextCollectorMixin", "ChatInputMixin", "ScreenshotMixin", "HudMixin", "MotionBlurMixin", "FpsMixin", "UiWidgetMixin", "UiOptionsMixin", "MenuPresentationMixin", "EditBoxAccessor", "ToggleKeyMixin", "ToggleKeyAccessor", "FovEffectsMixin", "CameraEffectsMixin", "FireOverlayMixin", "ViewmodelMixin", "RenderOptionsMixin", "HitColorMixin", "VisualTimeMixin", "WeatherMixin", "FullbrightMixin", "CleanViewMixin", "BlockOutlineMixin"],
   "injectors": {"defaultRequire": 1}
 }

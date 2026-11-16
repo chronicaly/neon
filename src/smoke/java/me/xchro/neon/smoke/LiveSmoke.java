@@ -66,6 +66,7 @@ public final class LiveSmoke implements ClientModInitializer {
     private TotemPopSmoke totemPops;
     private UiSoundSmoke uiSounds;
     private BetterChatSmoke betterChat;
+    private HudPolishSmoke hudPolish;
     private BetterScreenshotSmoke betterScreenshot;
     private int interactionPhase;
     public static void optionsWrite() { QualitySmoke.optionsWrites++; }
@@ -157,6 +158,7 @@ public final class LiveSmoke implements ClientModInitializer {
                     if(Boolean.getBoolean("neon.smoke.refinementOnly")){refinement=new RefinementSmoke(mc,checks);stage=76;stageTick=tick;return;}
                     if(Boolean.getBoolean("neon.smoke.alignmentOnly")){alignment=new HudAlignmentSmoke(mc,checks);stage=77;stageTick=tick;return;}
                     if(Boolean.getBoolean("neon.smoke.chatLiftOnly")){chatLift=new HudChatSmoke(mc,checks);stage=78;stageTick=tick;return;}
+                    if(Boolean.getBoolean("neon.smoke.hudPolishOnly")){hudPolish=new HudPolishSmoke(mc,checks);stage=80;stageTick=tick;return;}
                     if(Boolean.getBoolean("neon.smoke.fontOnly")){fonts=new FontSystemSmoke(mc,checks);stage=79;stageTick=tick;return;}
                     if(System.getProperty("neon.smoke.pageIndex")!=null){pages=new PageLayoutSmoke(mc,checks);stage=72;stageTick=tick;return;}
                     if(Boolean.getBoolean("neon.smoke.premiumOnly")){premium=new PremiumSmoke(mc,checks);stage=71;stageTick=tick;return;}
@@ -723,6 +725,10 @@ public final class LiveSmoke implements ClientModInitializer {
                 case 78 -> {
                     if(!chatLift.run())return;checks=chatLift.checks();
                     Files.writeString(mc.gameDirectory.toPath().resolve("neon-verification.txt"),"PASS "+checks+" chat lift checks\n");stage=50;stageTick=tick;
+                }
+                case 80 -> {
+                    if(!hudPolish.run())return;checks=hudPolish.checks();
+                    Files.writeString(mc.gameDirectory.toPath().resolve("neon-verification.txt"),"PASS "+checks+" Unity chat and HUD polish checks\n");stage=50;stageTick=tick;
                 }
                 case 79 -> {
                     if(!fonts.run())return;checks=fonts.checks();

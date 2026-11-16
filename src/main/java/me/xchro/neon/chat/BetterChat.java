@@ -9,10 +9,10 @@ import net.minecraft.client.multiplayer.chat.*;
 import net.minecraft.network.chat.*;
 import net.minecraft.network.chat.contents.TranslatableContents;
 
-/** Adapted from Unity BetterChatModule at 5bbd639; preserves vanilla font and signed history. */
+/** Adapted from Unity BetterChatModule; the display copy retains native signed history and links. */
 public final class BetterChat {
     private BetterChat() {}
-    private record DisplayState(boolean enabled, boolean duplicates, boolean mentions, int color) {}
+    private record DisplayState(boolean enabled, boolean duplicates, boolean mentions, int color,boolean font,String family) {}
     private static DisplayState previous;
     public static boolean active() { return Neon.MODULE_BINDINGS.active(ClientModule.BETTER_CHAT); }
     private static String name() {
@@ -31,9 +31,9 @@ public final class BetterChat {
         return ChatMentions.ranges(text, name);
     }
     public static Component display(Component original, GuiMessageSource source) {
-        if (!active() || !Neon.config.betterChat.mentions) return original;
-        var ranges = ranges(original, source);
-        if (ranges.isEmpty()) return original;
+        if (!active()) return original;
+        var ranges = Neon.config.betterChat.mentions?ranges(original, source):List.<ChatMentions.Range>of();
+        if (ranges.isEmpty()&&!ChatText.enabled()) return original;
         boolean[] highlight = new boolean[original.getString().length()];
         for (var range : ranges) Arrays.fill(highlight, range.start(), range.end(), true);
         MutableComponent result = Component.empty(); int[] offset = {0};
@@ -43,8 +43,9 @@ public final class BetterChat {
             while (start < part.length()) {
                 boolean marked = highlight[offset[0] + start]; int end = start + 1;
                 while (end < part.length() && highlight[offset[0] + end] == marked) end++;
+                Style base=ChatText.style(style);
                 result.append(Component.literal(part.substring(start, end)).setStyle(marked
-                    ? style.withColor(Neon.config.betterChat.mentionColor & 0xffffff) : style));
+                    ? base.withColor(Neon.config.betterChat.mentionColor & 0xffffff) : base));
                 start = end;
             }
             offset[0] += part.length(); return Optional.empty();
@@ -61,7 +62,7 @@ public final class BetterChat {
     }
     public static void tick(Minecraft mc) {
         var c = Neon.config.betterChat;
-        var next = new DisplayState(active(), c.duplicates, c.mentions, c.mentionColor);
+        var next = new DisplayState(active(), c.duplicates, c.mentions, c.mentionColor,c.clientFont,Neon.config.clientFont);
         if (!next.equals(previous)) {
             previous = next;
             if (mc.gui != null && mc.gui.hud != null) mc.gui.hud.getChat().rescaleChat();

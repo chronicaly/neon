@@ -15,6 +15,10 @@ import net.minecraft.client.renderer.state.gui.BlitRenderState;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import org.joml.Matrix3x2f;
 import org.joml.Vector2f;
+import com.mojang.blaze3d.pipeline.RenderPipeline;
+import com.mojang.blaze3d.vertex.VertexConsumer;
+import net.minecraft.client.gui.navigation.ScreenRectangle;
+import net.minecraft.client.renderer.state.gui.GuiElementRenderState;
 
 /** Whole text runs, shaped once and composited at 1:1 framebuffer resolution. */
 final class UiFont {
@@ -30,6 +34,7 @@ final class UiFont {
     private static boolean warmed;
     private static boolean prewarming;
     private static java.nio.ByteBuffer uploadBuffer;
+    private static HudBatch activeBatch;
     private UiFont() {}
     static void warmNative() {
         prewarming = true;
@@ -111,6 +116,7 @@ final class UiFont {
         face.lastUsed = frame; return face;
     }
     static int hudWidth(String text, int pixels) { return (int) Math.ceil(hudFace(pixels).advance(text)); }
+    static float hudAdvance(String text,int pixels,boolean bold,boolean italic) { return hudFace(pixels,bold,italic).advance(text); }
     static int hudWidth(String text,int pixels,boolean bold,boolean italic) { return (int)Math.ceil(hudFace(pixels,bold,italic).advance(text)); }
     static int hudBaseline(String text,int pixels) { return hudFace(pixels).baseline(text); }
     static void drawHud(GuiGraphicsExtractor g, String text, int x, int y, int color, int pixels) {
@@ -131,6 +137,12 @@ final class UiFont {
         if (run == null) return;
         Page page = run.page;
         int guiScale = Math.max(1, Minecraft.getInstance().getWindow().getGuiScale());
+        if(activeBatch!=null&&activeBatch.graphics==g){
+            var matrix=g.pose();
+            int px=(int)Math.floor((matrix.m00()*x+matrix.m10()*y+matrix.m20())*guiScale+.5001);
+            int py=(int)Math.floor((matrix.m01()*x+matrix.m11()*y+matrix.m21())*guiScale+.5001);
+            activeBatch.add(page,run,px,py+baseline,color);return;
+        }
         var point = g.pose().transformPosition(x, y, new Vector2f());
         int px = (int) Math.floor(point.x * guiScale + .5001), py = (int) Math.floor(point.y * guiScale + .5001);
         var pose = new Matrix3x2f().translate(px / (float) guiScale, py / (float) guiScale).scale(1f / guiScale);
@@ -141,6 +153,46 @@ final class UiFont {
             run.left, top, run.left + run.w, top + run.h,
             run.u / (float) PAGE_SIZE, (run.u + run.w) / (float) PAGE_SIZE,
             run.v / (float) PAGE_SIZE, (run.v + run.h) / (float) PAGE_SIZE, color, g.scissorStack.peek()));
+    }
+    static HudText.Batch beginHudBatch(GuiGraphicsExtractor graphics){
+        if(activeBatch!=null)throw new IllegalStateException("Nested HUD glyph batch");
+        return activeBatch=new HudBatch(graphics);
+    }
+    private record GlyphQuad(int x,int y,Run run,int color){}
+    private static final class HudBatch implements HudText.Batch {
+        final GuiGraphicsExtractor graphics;
+        Page page;
+        ArrayList<GlyphQuad> quads=new ArrayList<>();
+        int minX=Integer.MAX_VALUE,minY=Integer.MAX_VALUE,maxX=Integer.MIN_VALUE,maxY=Integer.MIN_VALUE;
+        HudBatch(GuiGraphicsExtractor graphics){this.graphics=graphics;}
+        void add(Page next,Run run,int x,int y,int color){
+            // Preserve style order even when adjacent fonts live in different atlas pages.
+            if(page!=null&&page!=next)submit();page=next;
+            quads.add(new GlyphQuad(x+run.left,y+run.top,run,color));
+            minX=Math.min(minX,x+run.left);minY=Math.min(minY,y+run.top);
+            maxX=Math.max(maxX,x+run.left+run.w);maxY=Math.max(maxY,y+run.top+run.h);
+        }
+        void submit(){
+            if(quads.isEmpty())return;
+            var pose=new Matrix3x2f().scale(1f/Math.max(1,Minecraft.getInstance().getWindow().getGuiScale()));
+            var clip=graphics.scissorStack.peek();var bounds=new ScreenRectangle(minX,minY,maxX-minX,maxY-minY).transformMaxBounds(pose);
+            if(clip!=null)bounds=bounds.intersection(clip);
+            var texture=TextureSetup.singleTexture(page.texture.getTextureView(),RenderSystem.getSamplerCache().getClampToEdge(FilterMode.NEAREST));
+            if(bounds!=null)graphics.guiRenderState.addGuiElement(new GlyphBatchState(pose,texture,quads,clip,bounds));
+            quads=new ArrayList<>();minX=minY=Integer.MAX_VALUE;maxX=maxY=Integer.MIN_VALUE;
+        }
+        @Override public void close(){try{submit();}finally{activeBatch=null;}}
+    }
+    private record GlyphBatchState(Matrix3x2f pose,TextureSetup textureSetup,List<GlyphQuad> quads,ScreenRectangle scissorArea,ScreenRectangle bounds) implements GuiElementRenderState {
+        public RenderPipeline pipeline(){return RenderPipelines.GUI_TEXTURED;}
+        public void buildVertices(VertexConsumer vertices){
+            for(var glyph:quads){var run=glyph.run;float left=run.u/(float)PAGE_SIZE,right=(run.u+run.w)/(float)PAGE_SIZE,top=run.v/(float)PAGE_SIZE,bottom=(run.v+run.h)/(float)PAGE_SIZE;
+                vertices.addVertexWith2DPose(pose,glyph.x,glyph.y).setUv(left,top).setColor(glyph.color);
+                vertices.addVertexWith2DPose(pose,glyph.x,glyph.y+run.h).setUv(left,bottom).setColor(glyph.color);
+                vertices.addVertexWith2DPose(pose,glyph.x+run.w,glyph.y+run.h).setUv(right,bottom).setColor(glyph.color);
+                vertices.addVertexWith2DPose(pose,glyph.x+run.w,glyph.y).setUv(right,top).setColor(glyph.color);
+            }
+        }
     }
     private static void closeFaces(Map<Integer, Face> faces) {
         faces.values().forEach(face -> face.pages.forEach(page -> page.texture.close())); faces.clear();

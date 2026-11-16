@@ -14,7 +14,6 @@ final class CoordinatesHud extends HudCard {
         var dimension=mc.level.dimension();
         double factor=Neon.config.coordinatesConversion?(dimension.equals(Level.NETHER)?8:dimension.equals(Level.OVERWORLD)?.125:1):1;
         rows.add("XYZ  "+HudNumbers.coordinates(p.getX(),p.getY(),p.getZ(),factor));
-        if(Neon.config.coordinatesDimension) rows.add(dimension.equals(Level.OVERWORLD) ? "Overworld" : dimension.equals(Level.NETHER) ? "The Nether" : dimension.equals(Level.END) ? "The End" : dimension.identifier().getPath());
         lines=rows.toArray(String[]::new);
     }
 }

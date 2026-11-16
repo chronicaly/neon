@@ -72,9 +72,16 @@ theme colors, normalized HUD placement, profiles and Undo. Unity remains untouch
 At the author's explicit request, Better Chat adapts BetterChatModule.java and
 the duplicate grouping, styled name highlighting, and entry animation from
 MixinChatComponent.java in Unity revision 5bbd639. Neon retains vanilla chat
-fonts, links, signatures and original history, adds server-chat mention support,
+links, signatures and original history, adds server-chat mention support,
 and supplies independent message/mention pings and native settings. Unity's
 checkout and installed artifacts are not modified.
+
+At the author's request, 0.5.3 also adapts Unity revision 5bbd639's ChatHud.java,
+ChatText.java, MixinChatFont.java, MixinChatTextCollector.java and MixinChatInput.java.
+Native message wrapping and clickable styles share the transformed chat placement
+and glyph advances. Neon uses its own installed-font atlas, panel renderer,
+settings, Undo and editor integration. The optional Chat HUD retains native
+message history, source filtering, links, signatures, fading and scroll state.
 
 At the author's explicit request, Better Screenshot ports ExtraScreenshotModule.java,
 MixinScreenshot.java and WindowsImageClipboard.java from Unity revision 5bbd639.

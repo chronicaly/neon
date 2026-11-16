@@ -24,6 +24,7 @@ final class ReleaseSmoke {
     private HudAlignmentSmoke alignment;
     private HudChatSmoke chatLift;
     private FontSystemSmoke fonts;
+    private HudPolishSmoke hudPolish;
     ReleaseSmoke(Minecraft mc,int checks)throws Exception{
         this.mc=mc;this.checks=checks;
         production=Path.of(Neon.class.getProtectionDomain().getCodeSource().getLocation().toURI());
@@ -49,6 +50,7 @@ final class ReleaseSmoke {
             case 9->{if(alignment==null)alignment=new HudAlignmentSmoke(mc,checks);if(!alignment.run())return false;checks=alignment.checks();}
             case 10->{if(chatLift==null)chatLift=new HudChatSmoke(mc,checks);if(!chatLift.run())return false;checks=chatLift.checks();}
             case 11->{if(fonts==null)fonts=new FontSystemSmoke(mc,checks);if(!fonts.run())return false;checks=fonts.checks();}
+            case 12->{if(hudPolish==null)hudPolish=new HudPolishSmoke(mc,checks);if(!hudPolish.run())return false;checks=hudPolish.checks();}
             default->{
                 if(!hash(production).equals(productionHash)||!hash(verification).equals(verificationHash))throw new AssertionError("Loaded artifacts changed during verification");
                 var proof=new com.google.gson.JsonObject();proof.addProperty("schema",1);proof.addProperty("passed",true);proof.addProperty("suite","release");

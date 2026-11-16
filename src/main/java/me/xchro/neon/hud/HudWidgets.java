@@ -17,6 +17,7 @@ public final class HudWidgets {
         register(new ItemCounterHud());
         register(new ScoreboardHud());
         register(new MemoryHud());
+        register(new ChatHud());
     }
     private HudWidgets() {}
     private static void register(HudCard card) { CARDS.put(card.kind,card); }

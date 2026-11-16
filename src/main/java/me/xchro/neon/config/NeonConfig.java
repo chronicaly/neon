@@ -63,6 +63,7 @@ public final class NeonConfig {
     public static final class BetterChat {
         public boolean enabled = true, duplicates = true, animation = true, mentions = true;
         public boolean messagePing = true, mentionPing = true;
+        public boolean clientFont = true, inputFrame = true;
         public int animationMillis = 120, mentionColor = 0xffffcd5a;
         public double volume = .4;
         public BindMode mode = BindMode.TOGGLE;
