@@ -39,7 +39,7 @@ final class UiModuleTile extends AbstractContainerWidget {
             @Override protected void extractContents(GuiGraphicsExtractor g, int mx, int my, float delta) {
                 String title=binding==null||wrapped?buttonLabel:Ui.fit(buttonLabel,Math.max(1,binding.textLeft()-getX()-15));
                 Ui.text(g, title, getX() + 10, getY() + 7, module == null ? Ui.TEXT : UiEffects.mix(Ui.MUTED, Ui.TEXT, Math.max(on, amount)));
-                if (isFocused() && Minecraft.getInstance().getLastInputType().isKeyboard()) Ui.stroke(g,getX(),getY(),getWidth(),getHeight(),Ui.BLUE);
+                if (isFocused() && Minecraft.getInstance().getLastInputType().isKeyboard()) RoundedUi.stroke(g,getX(),getY(),getWidth(),getHeight(),Ui.faded(Ui.BLUE),Ui.faded(Ui.BLUE));
             }
             @Override public boolean mouseClicked(MouseButtonEvent event, boolean twice) {
                 if (event.button() == 1 && isMouseOver(event.x(), event.y())) { feedback(event); UiSounds.input(configure); return true; }
@@ -100,11 +100,11 @@ final class UiModuleTile extends AbstractContainerWidget {
             double emphasis=Math.max(amount,selected.getAsBoolean()?1:0);
             int cyan=Ui.buttonSurface(UiEffects.mix(Ui.FIELD,Ui.BLUE,.045*on+.12*amount),emphasis);
             int violet=Ui.buttonSurface(UiEffects.mix(Ui.FIELD,UiEffects.hoverViolet(),.045*on+.22*amount),emphasis);
-            UiEffects.gradient(g,getX(),getY(),getWidth(),getHeight(),cyan,violet,violet,cyan);
+            RoundedUi.gradient(g,getX(),getY(),getWidth(),getHeight(),cyan,violet,violet,cyan,3);
             int idleEdge=UiEffects.mix(Ui.LINE,UiEffects.mix(Ui.BLUE,Ui.VIOLET,.25),Math.max(.25*on,selected.getAsBoolean()?.42:0));
             int leftEdge=UiEffects.mix(idleEdge,UiEffects.mix(Ui.BLUE,UiEffects.hoverViolet(),.18),amount);
             int rightEdge=UiEffects.mix(idleEdge,UiEffects.hoverViolet(),amount);
-            UiEffects.stroke(g,getX(),getY(),getWidth(),getHeight(),Ui.faded(leftEdge),Ui.faded(rightEdge));
+            RoundedUi.stroke(g,getX(),getY(),getWidth(),getHeight(),Ui.faded(leftEdge),Ui.faded(rightEdge));
             if(module != null) Ui.rect(g,getX()+4,getY()+8,1,10,UiEffects.mix(Ui.LINE,Ui.BLUE,on));
             body.extractRenderState(g,mx,my,delta);
             if(binding != null) binding.extractRenderState(g,mx,my,delta);

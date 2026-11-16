@@ -1,0 +1,11 @@
+{
+    "schema": 1,
+    "passed": true,
+    "suite": "release",
+    "minecraft": "26.2",
+    "java": 25,
+    "checks": 19911,
+    "productionSha256": "77c904ba95376ea31cb4d80c1e478a583e406244568515286ec4c25828f36dab",
+    "verificationSha256": "73fd1ab610921d05fbfd37c1394e28403fadc9e7d6585e508428c56d6e7ef4ac",
+    "completedAt": "2026-11-16T17:39:30.141710400Z"
+}

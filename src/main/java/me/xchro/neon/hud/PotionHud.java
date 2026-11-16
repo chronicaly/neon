@@ -39,8 +39,8 @@ final class PotionHud extends HudCard {
             int y=3+i*(text.height()+1),width=contentWidth();
             g.fill(5,y+1,7,y+text.height()-1,colors[i]);
             int timeWidth=text.width(timers[i]);
-            text.draw(g,text.trim(lines[i],width-6-(timeWidth==0?0:timeWidth+8)),11,y,theme.color(ThemeColor.TEXT),shadow);
-            text.draw(g,timers[i],5+width-timeWidth,y,theme.color(ThemeColor.ACCENT),shadow);
+            text.draw(g,text.trim(lines[i],width-6-(timeWidth==0?0:timeWidth+8)),11,y,theme.color(ThemeColor.TEXT),shadow,lines[i]);
+            text.draw(g,timers[i],5+width-timeWidth,y,theme.color(ThemeColor.ACCENT),shadow,lines[i]);
         }
     }
 }

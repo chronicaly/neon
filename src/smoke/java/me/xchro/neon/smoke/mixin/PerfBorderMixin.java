@@ -3,6 +3,7 @@ import me.xchro.neon.smoke.PerformanceSmoke;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.*;
 import org.spongepowered.asm.mixin.injection.callback.*;
+@org.spongepowered.asm.mixin.Pseudo
 @Mixin(targets = "me.xchro.neon.ui.UiEffects$Border", remap = false)
 public abstract class PerfBorderMixin {
     @org.spongepowered.asm.mixin.Shadow @org.spongepowered.asm.mixin.Final private int x,y,w,h;

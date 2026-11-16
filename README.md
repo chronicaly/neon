@@ -2,15 +2,19 @@
 
 A customizable **Minecraft 26.2 / Java 25** Fabric client with a consistent cyan/violet interface, **22 modules** and **23 HUD elements**. Neon focuses on everyday play, camera comfort, useful information and visual customization.
 
-![Neon modules and the Crosshair drawer](docs/images/neon-expansion-modules.png)
+![Neon modules with attached settings and color controls](docs/images/neon-corners-menu.png)
 
-[Download](https://github.com/chronicaly/neon/releases/latest) · [User guide](docs/user-guide.md) · [Research](docs/client-research.md) · [Release notes](docs/release-0.5.1.md)
+[Download](https://github.com/chronicaly/neon/releases/latest) · [User guide](docs/user-guide.md) · [Research](docs/client-research.md) · [Release notes](docs/release-0.5.2.md)
 
-**0.5.1 refines the HUD and visual modules:** tight glass panels join when placed together, every outline shares one animation, and FPS matches the other widgets. General has a master surface switch plus separate background/outline switches. Block outline now adapts Unity's silhouette, fill and bloom renderer; Low fire transforms the final fire geometry correctly.
+**0.5.2 fixes HUD alignment and softens the menu:** coordinate and FPS text is vertically centered from actual glyph bounds, and the FPS value uses the right edge of its stable four-digit field. The menu, attached drawers, buttons and quiet HUD column now use matching antialiased corners, retaining the continuous neon outline and existing interactions.
+
+The **HUD editor and Settings** now share Neon's translucent dark panels, native headings, light-glass controls and rounded fields. Panel surfaces use 84% of the saved background alpha/opacity; text and controls remain clear. HUD options use the familiar cyan switches and aligned values while keeping the compact draggable column and direct canvas placement.
+
+**Settings → Fonts** lists the fonts installed on your PC, including Papyrus when available, with search and a live preview. Selection applies to Neon menus and Client-mode HUD text, persists in profiles, and supports Undo. Bottom HUD elements now move smoothly above the chat input and return on close; joined widgets keep their spacing and saved positions stay unchanged.
 
 ## Install
 
-Use Minecraft **26.2**, **Java 25**, Fabric Loader **0.19.5+**, and Fabric API for 26.2. This release is built against **Fabric API 0.161.0+26.2**. Put the runnable `neon-0.5.1.jar` in your instance's `minecraft/mods` folder. Keep one Neon JAR; the sources JAR is for development. [Mod Menu](https://modrinth.com/mod/modmenu) is optional.
+Use Minecraft **26.2**, **Java 25**, Fabric Loader **0.19.5+**, and Fabric API for 26.2. This release is built against **Fabric API 0.161.0+26.2**. Put the runnable `neon-0.5.2.jar` in your instance's `minecraft/mods` folder. Keep one Neon JAR; the sources JAR is for development. [Mod Menu](https://modrinth.com/mod/modmenu) is optional.
 
 Open Neon with your saved menu key (**Insert** in the supplied Vanilla setup), **Right Shift**, or Mod Menu. A fresh configuration uses **P** as its primary key. Updates preserve saved keys, palette, alpha and custom HUD placements. New 0.5.0 modules and HUD widgets start disabled.
 
@@ -52,7 +56,7 @@ Open **HUD editor** directly beneath Settings. Each element has its own visibili
 
 Panels fit their content with tight padding and gently rounded corners. Bringing enabled panels within the editor's six-pixel spacing joins their glass backgrounds and outside contours; moving them apart separates them. Overlaps do not double the background opacity, and joined surfaces have no internal border. All outlines share one cyan/violet animation and the saved palette/alpha.
 
-General offers **HUD surfaces** (master for both backgrounds and outlines), independent **Backgrounds** and **Outlines**, **Animated outline**, and **Equipment panels**. These switches preserve each widget's local preferences. Native-resolution **Inter** or pixel-snapped **Minecraft** text adapts Unity's font sizing, origin snapping and shadow ordering. FPS uses the same padding, label/value styling and outline renderer, retaining four independent colors and per-color **Sync**. Minecraft mode follows resource-pack fonts; item models and decorations remain native.
+General offers **HUD surfaces** (master for both backgrounds and outlines), independent **Backgrounds** and **Outlines**, **Animated outline**, and **Equipment panels**. These switches preserve each widget's local preferences. **Client** text uses the native-resolution font selected in Settings, defaulting to bundled Inter; **Minecraft** retains pixel-snapped resource-pack text. Font sizing, origin snapping and shadow ordering adapt Unity's fixes. FPS uses the same padding, label/value styling and outline renderer, retaining four independent colors and per-color **Sync**. Item models and decorations remain native.
 
 ![Joined HUD surfaces and the General controls](docs/images/neon-glass-hud.png)
 
@@ -66,13 +70,18 @@ Drag enabled widgets directly, resize at invisible corners, or use the wheel to 
 
 - **Left-click a module:** toggle it. **Right-click:** open its settings drawer.
 - **Click its bracketed bind:** assign a key or mouse button. **Right-click the bind:** cycle activation mode; hover shows the full mode name.
-- **Settings:** Colors, Appearance and Profiles use the same button grid and drawers. Either mouse button opens a section.
+- **Settings:** Colors, Appearance, Fonts and Profiles use the same button grid and drawers. Either mouse button opens a section. All four sidebar actions share aligned icon/text columns; selection uses a faint tint without a boxed outline.
+- **Fonts:** search installed families, select one for a live preview, or choose Inter. An unavailable saved font falls back to Inter while retaining its name for another PC.
 - **Colors:** live HSV/opacity, original/current previews, hex, Copy/Paste and Sync. Escape/outside click keeps the applied color. Narrow windows temporarily give the attached color drawer the settings pane's space.
 - **Numbers:** drag, Shift-drag for precision, or right-click for exact entry. **Ctrl+Z** reverses settings, bindings, profile loads and complete gestures.
 - **Window:** drag the header; resize from invisible corners. Menu size is independent of Minecraft GUI scale. Smooth scrolling uses no scrollbars.
 - **Escape:** cancels the active edit/gesture, then closes a color drawer, settings drawer or menu in order.
 
-The default menu is 582×370 display pixels with native-resolution Inter text, light-glass buttons and one continuous cyan/violet outline. Press feedback keeps hitboxes fixed; animation reversals preserve motion; closing releases gameplay immediately. Copied/Saved acknowledgements appear after success. UI volume is independent of Minecraft audio; continuous adjustments stay silent.
+The default menu is 582×370 display pixels with native-resolution Inter text, light-glass buttons and one continuous cyan/violet outline. Its six-pixel outer corners and three-pixel button corners stay at native display resolution across GUI scales. Attached drawers share the same rounded shell. Press feedback keeps hitboxes fixed; animation reversals preserve motion; closing releases gameplay immediately. Copied/Saved acknowledgements appear after success. UI volume is independent of Minecraft audio; continuous adjustments stay silent.
+
+![Installed fonts with Papyrus selected](docs/images/neon-system-fonts.png)
+
+![Themed HUD editor with attached color controls](docs/images/neon-themed-editor.png)
 
 ## Build and verification
 
@@ -82,7 +91,7 @@ Requires JDK 25. The project uses unobfuscated Fabric Loom.
 ./tools/build.ps1 -SkipInstall
 ```
 
-On this development setup, `./tools/build.ps1` also runs the silent packaged release suite and installs only its exact checked runnable JAR into PrismLauncher's Vanilla instance. The prepared verification world is isolated from user instances. See [verification](docs/verification.md) and [0.5.1 results](docs/refinement-results.md).
+On this development setup, `./tools/build.ps1` also runs the silent packaged release suite and installs only its exact checked runnable JAR into PrismLauncher's Vanilla instance. The prepared verification world is isolated from user instances. See [verification](docs/verification.md) and [0.5.2 results](docs/corners-results.md).
 
 Performance instrumentation and sound/clipboard interception live only in the verification mod, excluded from releases. Measurements report allocations and frame times with their limits; no FPS increase is promised.
 

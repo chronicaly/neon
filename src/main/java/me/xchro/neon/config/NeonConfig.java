@@ -16,6 +16,7 @@ public final class NeonConfig {
     public Crosshair crosshair = new Crosshair();
     public enum HudFont { INTER, MINECRAFT }
     public HudFont hudFont=HudFont.INTER;
+    public String clientFont="Inter";
     public boolean sprintResume, sneakResume;
     public double fovEffectStrength, hurtCameraStrength;
     public double viewBobbingStrength=.3;
@@ -243,6 +244,7 @@ public final class NeonConfig {
     }
     public void sanitize() {
         if(hudFont==null)hudFont=HudFont.INTER;
+        clientFont=clientFont==null||clientFont.isBlank()||clientFont.length()>128?"Inter":clientFont.strip();
         version = 2;
         if (theme == null) theme = new Theme();
         if (theme.effects == null) theme.effects = Effects.ADAPTIVE;

@@ -240,8 +240,18 @@ public final class ModuleGridSmoke {
         Screenshot.takeScreenshot(a.mc.gameRenderer.mainRenderTarget(),image->{
             try(image){
                 int gaps=0,count=0;
-                for(int x=b[0];x<b[0]+b[2];x++){if(!bright(image.getPixel(x,b[1])))gaps++;if(!bright(image.getPixel(x,b[1]+b[3]-1)))gaps++;count+=2;}
-                for(int y=b[1]+1;y<b[1]+b[3]-1;y++){if(!bright(image.getPixel(b[0],y)))gaps++;if(!bright(image.getPixel(b[0]+b[2]-1,y)))gaps++;count+=2;}
+                int radius=6;
+                for(int x=b[0]+radius;x<b[0]+b[2]-radius;x++){if(!bright(image.getPixel(x,b[1])))gaps++;if(!bright(image.getPixel(x,b[1]+b[3]-1)))gaps++;count+=2;}
+                for(int y=b[1]+radius;y<b[1]+b[3]-radius;y++){if(!bright(image.getPixel(b[0],y)))gaps++;if(!bright(image.getPixel(b[0]+b[2]-1,y)))gaps++;count+=2;}
+                // Follow the visible quarter-circles instead of the intentionally removed square corners.
+                for(int corner=0;corner<4;corner++)for(int step=0;step<=12;step++){
+                    double angle=Math.PI+corner*Math.PI/2+step*Math.PI/24;
+                    double cx=corner==0||corner==3?b[0]+radius:b[0]+b[2]-radius;
+                    double cy=corner<2?b[1]+radius:b[1]+b[3]-radius;
+                    int x=(int)Math.floor(cx+(radius-.5)*Math.cos(angle)),y=(int)Math.floor(cy+(radius-.5)*Math.sin(angle));
+                    boolean covered=false;for(int dy=-1;dy<=0;dy++)for(int dx=-1;dx<=0;dx++)covered|=bright(image.getPixel(x+dx,y+dy));
+                    if(!covered)gaps++;count++;
+                }
                 if(gaps>0)a.failure="Animated outline has "+gaps+" missing perimeter pixels in frame "+a.frames+" bounds="+Arrays.toString(b);
                 a.frames++;a.perimeterPixels+=count;
             }catch(Exception e){a.failure="Outline GPU readback: "+e;}finally{a.pending=false;}

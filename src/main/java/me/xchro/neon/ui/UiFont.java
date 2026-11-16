@@ -20,6 +20,9 @@ import org.joml.Vector2f;
 final class UiFont {
     private static final int PAGE_SIZE = 1024;
     private static final Font MEDIUM = load("inter-medium.ttf"), SEMIBOLD = load("inter-semibold.ttf");
+    private static Font bodyFont=MEDIUM,headingFont=SEMIBOLD;
+    private static String family="Inter";
+    private static boolean custom;
     private static final Map<Integer, Face> FACES = new HashMap<>();
     private static final Map<Integer, Face> HUD_FACES = new HashMap<>();
     private static float density;
@@ -58,14 +61,22 @@ final class UiFont {
         }
     }
     private static void ensureDensity() {
+        ensureFamily();
         float next = prewarming || Minecraft.getInstance().gui.screen() instanceof PixelScreen ? PixelScreen.UI_SCALE
             : Math.max(1, Minecraft.getInstance().getWindow().getGuiScale());
         if (density != next) { closeFaces(FACES); warmed = false; density = next; }
     }
+    private static void ensureFamily(){
+        String next=Neon.config.clientFont;
+        if(Objects.equals(family,next))return;
+        family=next;Font body=FontCatalog.system(next,false),heading=FontCatalog.system(next,true);
+        bodyFont=body==null?MEDIUM:body;headingFont=heading==null?SEMIBOLD:heading;custom=body!=null;
+        MenuPresentation.invalidateAll();closeFaces(FACES);closeFaces(HUD_FACES);warmed=false;
+    }
     private static Face face(int size) {
         ensureDensity();
         // A one-unit optical increase gives 16px body / 15px secondary text at 132.25%.
-        return FACES.computeIfAbsent(size, key -> new Face((key == 13 ? SEMIBOLD : MEDIUM)
+        return FACES.computeIfAbsent(size, key -> new Face((key == 13 ? headingFont : bodyFont)
             .deriveFont((float) Math.round((key + 1) * density))));
     }
     static int width(String value) { return width(value, 11); }
@@ -77,6 +88,7 @@ final class UiFont {
         draw(g, face(size), value, x, y, Ui.faded(color));
     }
     static void beginHudFrame() {
+        ensureFamily();
         frame++;
         // Scale dragging may visit many font sizes. Retire old faces only before extraction.
         while (HUD_FACES.size() > 24) {
@@ -93,19 +105,27 @@ final class UiFont {
         return hudFace(pixels,false,false);
     }
     private static Face hudFace(int pixels,boolean bold,boolean italic) {
+        ensureFamily();
         int size=Math.clamp(pixels,1,96),style=(bold?Font.BOLD:0)|(italic?Font.ITALIC:0);
-        Face face = HUD_FACES.computeIfAbsent(size*4+style, ignored -> new Face(MEDIUM.deriveFont(style,(float)size)));
+        Face face = HUD_FACES.computeIfAbsent(size*4+style, ignored -> new Face(bodyFont.deriveFont(style,(float)size)));
         face.lastUsed = frame; return face;
     }
     static int hudWidth(String text, int pixels) { return (int) Math.ceil(hudFace(pixels).advance(text)); }
     static int hudWidth(String text,int pixels,boolean bold,boolean italic) { return (int)Math.ceil(hudFace(pixels,bold,italic).advance(text)); }
+    static int hudBaseline(String text,int pixels) { return hudFace(pixels).baseline(text); }
     static void drawHud(GuiGraphicsExtractor g, String text, int x, int y, int color, int pixels) {
-        draw(g, hudFace(pixels), text, x, y, color);
+        drawHud(g,text,x,y,color,pixels,false,false);
     }
     static void drawHud(GuiGraphicsExtractor g,String text,int x,int y,int color,int pixels,boolean bold,boolean italic) {
-        draw(g,hudFace(pixels,bold,italic),text,x,y,color);
+        drawHud(g,text,x,y,color,pixels,bold,italic,hudFace(pixels,bold,italic).baseline(text));
+    }
+    static void drawHud(GuiGraphicsExtractor g,String text,int x,int y,int color,int pixels,boolean bold,boolean italic,int baseline) {
+        draw(g,hudFace(pixels,bold,italic),text,x,y,color,baseline);
     }
     private static void draw(GuiGraphicsExtractor g, Face face, String value, int x, int y, int color) {
+        draw(g,face,value,x,y,color,custom?face.menuBaseline:Math.round(face.font.getSize2D()*.82f));
+    }
+    private static void draw(GuiGraphicsExtractor g, Face face, String value, int x, int y, int color,int baseline) {
         if (value.isBlank()) return;
         Run run = face.run(value);
         if (run == null) return;
@@ -114,7 +134,7 @@ final class UiFont {
         var point = g.pose().transformPosition(x, y, new Vector2f());
         int px = (int) Math.floor(point.x * guiScale + .5001), py = (int) Math.floor(point.y * guiScale + .5001);
         var pose = new Matrix3x2f().translate(px / (float) guiScale, py / (float) guiScale).scale(1f / guiScale);
-        int top = Math.round(face.font.getSize2D() * .82f) + run.top;
+        int top = baseline + run.top;
         // Resolved antialiasing: one texel maps to one display pixel, with no second resampling.
         var texture = TextureSetup.singleTexture(page.texture.getTextureView(), RenderSystem.getSamplerCache().getClampToEdge(FilterMode.NEAREST));
         g.guiRenderState.addGuiElement(new BlitRenderState(RenderPipelines.GUI_TEXTURED, texture, pose,
@@ -151,7 +171,7 @@ final class UiFont {
     private record Run(Page page, int u, int v, int w, int h, int left, int top) {}
     private static final class Page {
         final NativeImage image = new NativeImage(PAGE_SIZE, PAGE_SIZE, true);
-        final DynamicTexture texture = new DynamicTexture(() -> "Neon native-resolution Inter text", image);
+        final DynamicTexture texture = new DynamicTexture(() -> "Neon native-resolution client text", image);
         int x = 1, y = 1, row, dirtyX0 = PAGE_SIZE, dirtyY0 = PAGE_SIZE, dirtyX1, dirtyY1;
         long lastUsed;
         boolean fits(int w, int h) {
@@ -161,13 +181,18 @@ final class UiFont {
     }
     private static final class Face {
         final Font font;
+        final int menuBaseline;
         long lastUsed;
         final Map<String, Run> runs = new HashMap<>();
         final Map<String, Float> advances = new LinkedHashMap<>(128, .75f, true) {
             @Override protected boolean removeEldestEntry(Map.Entry<String, Float> entry) { return size() > 512; }
         };
+        final Map<String,Integer> baselines=new LinkedHashMap<>(128,.75f,true) {
+            @Override protected boolean removeEldestEntry(Map.Entry<String,Integer> entry){return size()>512;}
+        };
+        int baseline(String text){return baselines.computeIfAbsent(text,value->TextRaster.centeredBaseline(font,value,(int)Math.ceil(font.getSize2D()*1.2)));}
         final List<Page> pages = new ArrayList<>();
-        Face(Font font) { this.font = font; }
+        Face(Font font) { this.font = font;menuBaseline=TextRaster.centeredBaseline(font,"Ag",font.getSize()); }
         float advance(String value) { return advances.computeIfAbsent(value, text -> TextRaster.advance(font, text)); }
         Run run(String value) {
             Run cached = runs.get(value); if (cached != null) { cached.page.lastUsed = frame; return cached; }

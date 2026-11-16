@@ -58,6 +58,9 @@ public final class LiveSmoke implements ClientModInitializer {
     private ExpansionSmoke expansion;
     private ModulesSmoke modules;
     private RefinementSmoke refinement;
+    private HudAlignmentSmoke alignment;
+    private HudChatSmoke chatLift;
+    private FontSystemSmoke fonts;
     private InteractionSmoke interactions;
     private FpsHudSmoke fpsHud;
     private TotemPopSmoke totemPops;
@@ -152,6 +155,9 @@ public final class LiveSmoke implements ClientModInitializer {
                     if(Boolean.getBoolean("neon.smoke.expansionOnly")){expansion=new ExpansionSmoke(mc,checks);stage=74;stageTick=tick;return;}
                     if(Boolean.getBoolean("neon.smoke.modulesOnly")){modules=new ModulesSmoke(mc,checks);stage=75;stageTick=tick;return;}
                     if(Boolean.getBoolean("neon.smoke.refinementOnly")){refinement=new RefinementSmoke(mc,checks);stage=76;stageTick=tick;return;}
+                    if(Boolean.getBoolean("neon.smoke.alignmentOnly")){alignment=new HudAlignmentSmoke(mc,checks);stage=77;stageTick=tick;return;}
+                    if(Boolean.getBoolean("neon.smoke.chatLiftOnly")){chatLift=new HudChatSmoke(mc,checks);stage=78;stageTick=tick;return;}
+                    if(Boolean.getBoolean("neon.smoke.fontOnly")){fonts=new FontSystemSmoke(mc,checks);stage=79;stageTick=tick;return;}
                     if(System.getProperty("neon.smoke.pageIndex")!=null){pages=new PageLayoutSmoke(mc,checks);stage=72;stageTick=tick;return;}
                     if(Boolean.getBoolean("neon.smoke.premiumOnly")){premium=new PremiumSmoke(mc,checks);stage=71;stageTick=tick;return;}
                     if(Boolean.getBoolean("neon.smoke.hoverOnly")){hoverGlow=new HoverGlowSmoke(mc,checks);stage=70;stageTick=tick;return;}
@@ -709,6 +715,18 @@ public final class LiveSmoke implements ClientModInitializer {
                 case 76 -> {
                     if(!refinement.run())return;checks=refinement.checks();
                     Files.writeString(mc.gameDirectory.toPath().resolve("neon-verification.txt"),"PASS "+checks+" HUD glass, Unity block shader and low-fire checks\n");stage=50;stageTick=tick;
+                }
+                case 77 -> {
+                    if(!alignment.run())return;checks=alignment.checks();
+                    Files.writeString(mc.gameDirectory.toPath().resolve("neon-verification.txt"),"PASS "+checks+" HUD alignment checks\n");stage=50;stageTick=tick;
+                }
+                case 78 -> {
+                    if(!chatLift.run())return;checks=chatLift.checks();
+                    Files.writeString(mc.gameDirectory.toPath().resolve("neon-verification.txt"),"PASS "+checks+" chat lift checks\n");stage=50;stageTick=tick;
+                }
+                case 79 -> {
+                    if(!fonts.run())return;checks=fonts.checks();
+                    Files.writeString(mc.gameDirectory.toPath().resolve("neon-verification.txt"),"PASS "+checks+" installed-font checks\n");stage=50;stageTick=tick;
                 }
                 case 63 -> {
                     if (!betterScreenshot.run()) return;

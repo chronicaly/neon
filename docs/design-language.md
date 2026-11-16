@@ -1,5 +1,25 @@
 # Neon design language
 
+## Installed fonts and chat clearance — 16 November 2026
+
+Settings now includes Fonts alongside Colors, Appearance and Profiles. List all locally installed families with search and a live preview inside the existing right-hand drawer. Apply the chosen family to menu typography and Client-mode HUD text; bundled Inter remains the default and fallback. Keep Minecraft/resource-pack HUD rendering as the separate General choice. Store family names in settings and profiles and support Undo. Missing families fall back without replacing their saved name. Retain native-resolution shaping, centered HUD ink, safe text fitting and bounded atlas caches; invalidate recorded text presentations when a family changes. This supersedes the earlier requirement that menu text always use Inter.
+
+Sidebar actions, including Settings, have no boxed selection outline. Use only a faint tint and brighter icon/text for hover, selection and keyboard focus. Native line icons retain their identity even when labels need size fitting. Header movement and invisible-corner resizing take priority over focused text fields.
+
+All four sidebar actions share the same left icon and label columns. Settings and HUD editor remain at the bottom but no longer center their contents independently; this supersedes the earlier centered-bottom-action direction.
+
+The latest transparency request sets the shared menu/HUD-editor panel surface to 84% of its saved background alpha and Colors opacity. Attached panes share that one translucent fill, without stacking darker surfaces. Keep text, functional controls, borders, saved RGBA values and the existing backdrop treatment unchanged.
+
+When native chat opens, move only HUD groups that overlap its input area upward, keeping four physical pixels of clearance. Use the shared velocity-preserving 220 ms motion for opening, closing and reversals. Joined panels move together. Apply the offset only while drawing; retain saved coordinates and editor hitboxes. Top widgets stay still. The attached totem count stays on the actual offhand slot. Editor previews show saved positions.
+
+## Alignment and smooth corners — 16 November 2026
+
+The user rejected the top-heavy coordinate and FPS text and requested matching smooth menu corners. Center Inter HUD rows using their visible ink bounds, with one baseline shared by colored runs in each row. FPS uses a stable digit-reference baseline and a right-aligned four-digit value field, keeping its label stationary and balancing the outer padding. Do not change the menu's text metrics.
+
+Use six-display-pixel antialiased corners on the combined menu/drawer shell and quiet HUD column, with three-display-pixel corners on module/Settings/action buttons and text fields. Fill and stroke share a contour; attached drawers remain one surface and outline. Preserve the saved palette/alpha, localized traveling bloom, physical highlight position through expansion/reversal, fixed hitboxes, invisible resizing and interaction timings. Switches, slider bars and functional swatches retain their rectangular shapes. This supersedes the earlier mandatory sharp menu corners.
+
+The follow-up explicitly includes the HUD editor and Settings. The HUD column uses the menu's saved dark panel alpha and native Inter headings, replacing Unity's additional transparency multiplier and stacked cyan row fills. Keep the 188-unit draggable column and quiet static border. Root rows use inset outlined light-glass controls, a small enabled indicator and +/− disclosure; child booleans use the same cyan rectangular switch as module settings. Choice and numeric values align right. Numeric rows retain whole-row dragging/exact entry with a compact visible track and matching pointer mapping. Settings color rows, profile actions and text inputs use the same light-glass surfaces and soft control corners. Preserve all saved colors, placements, gesture Undo and attached-picker behavior.
+
 ## HUD refinement — 16 November 2026
 
 The latest request replaces isolated sharp HUD boxes with tight, gently rounded glass surfaces. Use four display pixels of horizontal padding and two vertical pixels at default HUD scale; fit multiline, potion, held-item and inventory content. Nearby enabled surfaces merge across the editor's six-pixel spacing into one non-overlapping translucent fill and outside contour, with no internal border. Moving them apart separates the surfaces. Sample one framebuffer-space cyan/violet light field for every HUD outline; retain saved palette/alpha and FPS's independent colors. Keep FPS's reserved four-digit width and make its typography, padding and line height consistent with information widgets. Coordinates adapts Unity's compact comma-separated format with optional inline Nether conversion.

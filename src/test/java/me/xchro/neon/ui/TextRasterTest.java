@@ -7,6 +7,14 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class TextRasterTest {
+    @Test void hudBaselinesCenterRenderedInkAtDifferentSizes() throws Exception {
+        for(int pixels:new int[]{12,16,20,24,32})for(String value:new String[]{"FPS 0123456789","XYZ 16158, 68, 146772 (2019, 18346)","Speed 2","Overworld"}){
+            var face=font().deriveFont((float)pixels);int height=(int)Math.ceil(pixels*1.2),baseline=TextRaster.centeredBaseline(face,value,height);
+            var image=TextRaster.render(face,value);int top=height,bottom=0;
+            for(int y=0;y<image.height();y++)for(int x=0;x<image.width();x++)if((image.pixels()[y*image.width()+x]>>>24)>175){top=Math.min(top,y+image.top()+baseline);bottom=Math.max(bottom,y+image.top()+baseline);}
+            assertTrue(Math.abs(top-(height-1-bottom))<=2,value+" at "+pixels+"px: "+top+" / "+(height-1-bottom));
+        }
+    }
     private Font font() throws Exception {
         try (var in = getClass().getResourceAsStream("/assets/neon/font/inter-medium.ttf")) {
             return Font.createFont(Font.TRUETYPE_FONT, Objects.requireNonNull(in)).deriveFont(16f)

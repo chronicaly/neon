@@ -73,9 +73,6 @@ public final class HudEditor extends PixelScreen {
     }
     public boolean controlsVisible() { return toolbar && gesture != Gesture.MOVE && gesture != Gesture.RESIZE; }
     public ScreenRectangle inspectorBounds() { return new ScreenRectangle(shellX, shellY, shellWidth, shellHeight); }
-    // Unity's panel starts at 157/255 alpha. Keep row overlays translucent too:
-    // stacking the normal menu's almost-opaque surfaces hides the placement canvas.
-    static int surface(int color, int alpha) { return Ui.alpha(color, (color >>> 24) * alpha / 255); }
     private NeonConfig.Widget widget() { return widget(selected); }
     private NeonConfig.Widget widget(Element element) {
         return switch (element) { case ARMOR -> Neon.config.armor; case TOTEMS -> Neon.config.totems; case FPS -> Neon.config.fps;
@@ -186,7 +183,7 @@ public final class HudEditor extends PixelScreen {
         group(out, "general", "General", 0);
         {
             range(out, "general:scale", "HUD scale", 1, c.hudScale, .5, 2, .05, v -> c.hudScale = v);
-            choice(out,"general:font","Font",c.hudFont==NeonConfig.HudFont.INTER?"Inter":"Minecraft",()->c.hudFont=c.hudFont==NeonConfig.HudFont.INTER?NeonConfig.HudFont.MINECRAFT:NeonConfig.HudFont.INTER);
+            choice(out,"general:font","Font",c.hudFont==NeonConfig.HudFont.INTER?"Client":"Minecraft",()->c.hudFont=c.hudFont==NeonConfig.HudFont.INTER?NeonConfig.HudFont.MINECRAFT:NeonConfig.HudFont.INTER);
             bool(out, "general:surfaces", "HUD surfaces", 1, c.hudSurfaces, () -> c.hudSurfaces = !c.hudSurfaces);
             bool(out, "general:backgrounds", "Backgrounds", 1, c.hudBackgrounds, () -> c.hudBackgrounds = !c.hudBackgrounds);
             bool(out, "general:outlines", "Outlines", 1, c.hudOutlines, () -> c.hudOutlines = !c.hudOutlines);
@@ -246,7 +243,7 @@ public final class HudEditor extends PixelScreen {
         if (row.value instanceof Range r) return new ExactSlider(this, session, row.label, pw - 2, r.value, r.min, r.max, r.step,
             n -> NumberValue.format(n) + (row.label.endsWith("scale") || row.label.equals("Scale") ? "x" : row.label.equals("Warn below") ? "%" : row.label.equals("Snap sensitivity") ? "px" : ""), r.setter).inlineRow().identity(row.key);
         return new HudEntry(row.label, pw - 2, () -> Boolean.TRUE.equals(row.value),
-            () -> expanded.contains(row.key), row.left == null ? () -> {} : row.left, row.right).depth(row.depth).identity(row.key);
+            () -> expanded.contains(row.key), row.left == null ? () -> {} : row.left, row.right).depth(row.depth).toggleRow(row.value instanceof Boolean).identity(row.key);
     }
     private void layoutColumn() {
         if (column == null) return;
@@ -327,14 +324,14 @@ public final class HudEditor extends PixelScreen {
             g.pose().popMatrix();
         }
         if (controlsVisible()) {
-            Ui.rect(g, shellX, shellY, shellWidth, shellHeight, surface(Ui.PANEL, 157));
-            Ui.stroke(g, shellX, shellY, shellWidth, shellHeight, surface(Ui.MUTED, 100));
-            Ui.text(g, "HUD", shellX + 5, shellY + 6, Ui.TEXT);
+            RoundedUi.panel(g,shellX,shellY,shellWidth,shellHeight,-1);
+            int edge=Ui.faded(UiEffects.mix(Ui.LINE,Ui.OUTLINE,.28));RoundedUi.stroke(g,shellX,shellY,shellWidth,shellHeight,edge,edge,6);
+            Ui.title(g,"HUD editor",shellX+10,shellY+5);
             refresh(); renderWidgets(g, mx, my, delta);
             var picker = colorPicker != null ? colorPicker : closingPicker;
             if (picker != null && colorWidth > 1) {
                 Ui.clip(g,shellX+pw,shellY+1,shellX+shellWidth-1,shellY+shellHeight-1);
-                Ui.text(g,colorTitle,shellX+pw+12,shellY+6,Ui.TEXT);
+                Ui.title(g,colorTitle,shellX+pw+12,shellY+5);
                 picker.extractRenderState(g,colorPicker == null ? -10000 : mx,colorPicker == null ? -10000 : my,delta);
                 g.disableScissor();
             }

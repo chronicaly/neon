@@ -25,5 +25,6 @@ public final class HudWidgets {
         for(var card:CARDS.values()) card.draw(g,width,height,preview);
     }
     public static void invalidate() { CARDS.values().forEach(HudCard::invalidate); }
+    static void chatBounds(int width,int height){for(var card:CARDS.values())if(me.xchro.neon.Neon.config.hud(card.kind).placement.visible&&card.hasContent(false))HudChatLift.add(card.bounds(width,height,false));}
     public static void surfaces(GuiGraphicsExtractor g,int width,int height,boolean preview){for(var card:CARDS.values())card.surface(g,width,height,preview);}
 }

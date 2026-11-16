@@ -24,10 +24,15 @@ final class TextRaster {
         image=new BufferedImage(w,h,BufferedImage.TYPE_INT_ARGB);SCRATCH.set(image);return image;
     }
     static Font supported(Font font, String text) {
-        return font.canDisplayUpTo(text) < 0 ? font : new Font(Font.DIALOG, Font.PLAIN, 1).deriveFont(font.getSize2D());
+        return font.canDisplayUpTo(text) < 0 ? font : new Font(Font.DIALOG, font.getStyle(), 1).deriveFont(font.getSize2D());
     }
     static float advance(Font font, String text) {
         return text.isEmpty() ? 0 : new TextLayout(text, supported(font, text), CONTEXT).getAdvance();
+    }
+    static int centeredBaseline(Font font,String text,int lineHeight) {
+        if(text.isBlank())return lineHeight/2;
+        var ink=new TextLayout(text,supported(font,text),CONTEXT).getBounds();
+        return (int)Math.round((lineHeight-ink.getMinY()-ink.getMaxY())*.5);
     }
     static Image render(Font font, String text) {
         var layout = new TextLayout(text, supported(font, text), CONTEXT);

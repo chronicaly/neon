@@ -2,6 +2,10 @@ The current module grid and earlier interface revisions are documented below. Ea
 
 # Neon verification
 
+## Centered HUD and smooth menu corners — 16 November 2026
+
+Version 0.5.2 centers HUD glyph bounds, balances the FPS field and gives the menu, Settings and HUD editor consistent surfaces and corners. Settings includes local installed-font selection; bottom HUD groups animate clear of native chat input. See [corners-results.md](corners-results.md) for framebuffer evidence, measured frame times/allocations and installation identity. Focused suites are `prodSmoke -PalignmentOnly`, `-PfontOnly` and `-PchatLiftOnly`; the complete installing suite includes all three. Historical results below retain their original scope.
+
 ## HUD and visual refinement — 16 November 2026
 
 Version 0.5.1 refines the shared HUD surfaces, compact typography, Unity-derived block silhouette rendering and final-quad Low fire hook. See [refinement-results.md](refinement-results.md) for current evidence and measurements. `prodSmoke -PrefinementOnly` performs actual framebuffer checks for joined/separated surfaces, independent FPS colors, master switches, block styles and visible lowered flames. The installing release suite includes these checks in addition to the existing suites.

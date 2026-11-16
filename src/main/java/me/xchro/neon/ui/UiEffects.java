@@ -20,22 +20,6 @@ import org.joml.Vector2f;
 final class UiEffects {
     private static DynamicTexture glow;
     private static DynamicTexture buttonBloom;
-    private static final java.util.Map<Long, Geometry> geometries = new java.util.LinkedHashMap<>(64, .75f, true) {
-        @Override protected boolean removeEldestEntry(java.util.Map.Entry<Long, Geometry> entry) { return size() > 64; }
-    };
-    private static final int[] CORNER_ALPHA = cornerAlpha();
-    private static int[] cornerAlpha() {
-        int[] result = new int[25];
-        for (int y=0;y<=4;y++) for(int x=0;x<=4;x++) result[y*5+x]=(int)Math.round(96*Math.max(0,1-Math.hypot(x,y)/4));
-        return result;
-    }
-    private record Geometry(int w, int h, double[] top, double[] bottom, double[] left, double[] right) {
-        Geometry(int w, int h) {
-            this(w, h, new double[w + 1], new double[w + 1], new double[h + 1], new double[h + 1]);
-            for (int x = 0; x <= w; x++) { top[x] = x; bottom[x] = 2*w+h-x; }
-            for (int y = 0; y <= h; y++) { left[y] = 2*(w+h)-y; right[y] = w+y; }
-        }
-    }
     private UiEffects() {}
     /** One render command for the transparency grid, with the same cell edges and colors. */
     static void checker(GuiGraphicsExtractor g, int x, int y, int w, int h) {
@@ -116,21 +100,7 @@ final class UiEffects {
         outline(g,x,y,w,h,travel,Ui.OUTLINE,Ui.VIOLET,Ui.opacity);
     }
     static void outline(GuiGraphicsExtractor g,float x,float y,float w,float h,me.xchro.neon.core.OutlineTravel travel,int primary,int secondary,float opacity) {
-        int scale = Math.max(1, Minecraft.getInstance().getWindow().getGuiScale());
-        var start = g.pose().transformPosition(x, y, new Vector2f());
-        var end = g.pose().transformPosition(x + w, y + h, new Vector2f());
-        int left = Math.round(start.x * scale), top = Math.round(start.y * scale);
-        int width = Math.round(end.x * scale) - left, height = Math.round(end.y * scale) - top;
-        if (width <= 0 || height <= 0) return;
-        double phase=travel==null?(System.nanoTime()/1e9*me.xchro.neon.core.OutlineTravel.SPEED)%(2.0*(width+height)):
-            travel.update(left,top,width,height,System.nanoTime());
-        var pose = new Matrix3x2f().scale(1f / scale);
-        var bounds = new ScreenRectangle(left-8, top-8, width+16, height+16).transformMaxBounds(pose);
-        var scissor = g.scissorStack.peek();
-        if (scissor != null) bounds = bounds.intersection(scissor);
-        long key = ((long)width << 32) | (height & 0xffffffffL);
-        Geometry geometry = geometries.computeIfAbsent(key, ignored -> new Geometry(width, height));
-        if (bounds != null) g.guiRenderState.addGuiElement(new Border(pose, left, top, width, height, phase, opacity, primary, secondary, geometry, scissor, bounds));
+        RoundedUi.outline(g,x,y,w,h,travel,primary,secondary,opacity);
     }
     static void stroke(GuiGraphicsExtractor g,int x,int y,int w,int h,int color){
         stroke(g,x,y,w,h,color,color);
@@ -149,78 +119,14 @@ final class UiEffects {
         public void buildVertices(VertexConsumer v){rect(v,x,y,w,1,left,right);rect(v,x,y+h-1,w,1,left,right);rect(v,x,y+1,1,h-2,left,left);rect(v,x+w-1,y+1,1,h-2,right,right);}
         private void rect(VertexConsumer v,int x,int y,int w,int h,int a,int b){if(w<=0||h<=0)return;v.addVertexWith2DPose(pose,x,y).setColor(a);v.addVertexWith2DPose(pose,x,y+h).setColor(a);v.addVertexWith2DPose(pose,x+w,y+h).setColor(b);v.addVertexWith2DPose(pose,x+w,y).setColor(b);}
     }
-    /** A single ordered mesh prevents fractional-scale seams between separately sorted segments. */
-    private record Border(Matrix3x2f pose, int x, int y, int w, int h, double phase, float opacity, int outline, int secondary, Geometry geometry,
-                          ScreenRectangle scissorArea, ScreenRectangle bounds) implements GuiElementRenderState {
-        public RenderPipeline pipeline() { return RenderPipelines.GUI; }
-        public TextureSetup textureSetup() { return TextureSetup.noTexture(); }
-        public void buildVertices(VertexConsumer v) {
-            for (int i = 0; i < w; i += 2) {
-                int n = Math.min(2, w - i);
-                int a = color(geometry.top[i], phase), b = color(geometry.top[i + n], phase);
-                int ha=halo(a,geometry.top[i]),hb=halo(b,geometry.top[i+n]);
-                if((ha>>>24)+(hb>>>24)>0){
-                    quad(v,x+i,y-8,n,8,clear(a),clear(b),hb,ha);
-                    quad(v,x+i,y+1,n,3,ha,hb,clear(b),clear(a));
-                }
-                quad(v, x + i, y, n, 1, a, b, b, a);
-                a = color(geometry.bottom[i], phase); b = color(geometry.bottom[i + n], phase);
-                ha=halo(a,geometry.bottom[i]);hb=halo(b,geometry.bottom[i+n]);
-                if((ha>>>24)+(hb>>>24)>0){
-                    quad(v,x+i,y+h,n,8,ha,hb,clear(b),clear(a));
-                    quad(v,x+i,y+h-4,n,3,clear(a),clear(b),hb,ha);
-                }
-                quad(v, x + i, y + h - 1, n, 1, a, b, b, a);
-            }
-            for (int i = 0; i < h; i += 2) {
-                int n = Math.min(2, h - i);
-                int coreTop = Math.max(1,i), coreHeight = Math.min(h-1,i+n)-coreTop;
-                int a = color(geometry.left[i], phase), b = color(geometry.left[i + n], phase);
-                int ha=halo(a,geometry.left[i]),hb=halo(b,geometry.left[i+n]);
-                if((ha>>>24)+(hb>>>24)>0){
-                    quad(v,x-8,y+i,8,n,clear(a),ha,hb,clear(b));
-                    quad(v,x+1,y+i,3,n,ha,clear(a),clear(b),hb);
-                }
-                if(coreHeight>0)quad(v, x, y + coreTop, 1, coreHeight, a, a, b, b);
-                a = color(geometry.right[i], phase); b = color(geometry.right[i + n], phase);
-                ha=halo(a,geometry.right[i]);hb=halo(b,geometry.right[i+n]);
-                if((ha>>>24)+(hb>>>24)>0){
-                    quad(v,x+w,y+i,8,n,ha,clear(a),clear(b),hb);
-                    quad(v,x+w-4,y+i,3,n,clear(a),ha,hb,clear(b));
-                }
-                if(coreHeight>0)quad(v, x + w - 1, y + coreTop, 1, coreHeight, a, a, b, b);
-            }
-            corner(v,x,y,-1,-1,halo(color(geometry.top[0],phase),geometry.top[0]));
-            corner(v,x+w,y,1,-1,halo(color(geometry.top[w],phase),geometry.top[w]));
-            corner(v,x,y+h,-1,1,halo(color(geometry.bottom[0],phase),geometry.bottom[0]));
-            corner(v,x+w,y+h,1,1,halo(color(geometry.bottom[w],phase),geometry.bottom[w]));
-        }
-        private void corner(VertexConsumer v,int cx,int cy,int sx,int sy,int color){
-            if((color>>>24)==0)return;
-            for(int iy=0;iy<4;iy++)for(int ix=0;ix<4;ix++){
-                int left=cx+(sx<0?-2*(ix+1):2*ix),top=cy+(sy<0?-2*(iy+1):2*iy);
-                int xa=sx<0?ix+1:ix,xb=sx<0?ix:ix+1,ya=sy<0?iy+1:iy,yb=sy<0?iy:iy+1;
-                quad(v,left,top,2,2,cornerColor(color,xa,ya),cornerColor(color,xb,ya),cornerColor(color,xb,yb),cornerColor(color,xa,yb));
-            }
-        }
-        private int cornerColor(int color,int x,int y){return Ui.alpha(color,(color>>>24)*CORNER_ALPHA[y*5+x]/96);}
-        private void quad(VertexConsumer v, int left, int top, int width, int height, int tl, int tr, int br, int bl) {
-            v.addVertexWith2DPose(pose, left, top).setColor(fade(tl));
-            v.addVertexWith2DPose(pose, left, top + height).setColor(fade(bl));
-            v.addVertexWith2DPose(pose, left + width, top + height).setColor(fade(br));
-            v.addVertexWith2DPose(pose, left + width, top).setColor(fade(tr));
-        }
-        private int fade(int color){return Ui.alpha(color,Math.round((color>>>24)*opacity));}
-        private int color(double base,double phase){return UiEffects.color(base,phase,2.0*(w+h),outline,secondary);}
-        private int halo(int color,double position){double p=pulse(position,phase,2.0*(w+h),96);return Ui.alpha(color,(int)Math.round((color>>>24)*.64*p*p));}
-        private int clear(int color){return color&0xffffff;}
-    }
     private static int color(double base, double phase, double perimeter,int outline, int secondary) {
         double blend=.5+.5*Math.sin((base-phase)/perimeter*Math.PI*2);
         int neon=mix(outline,secondary,blend);
         double p=pulse(base,phase,perimeter,144);
         return mix(neon,Ui.alpha(0xffffff,neon>>>24),.75*p*p);
     }
+    static int outlineColor(double base,double phase,double perimeter,int primary,int secondary){return color(base,phase,perimeter,primary,secondary);}
+    static double outlinePulse(double position,double phase,double perimeter,double radius){return pulse(position,phase,perimeter,radius);}
     private static double pulse(double position,double phase,double perimeter,double radius){
         double distance=((position-phase)%perimeter+perimeter)%perimeter;
         return Math.max(0,1-Math.min(distance,perimeter-distance)/radius);
@@ -284,6 +190,7 @@ final class UiEffects {
         }
     }
     static void close() {
+        RoundedUi.clear();
         if (glow != null) { glow.close(); glow = null; }
         if (buttonBloom != null) { buttonBloom.close(); buttonBloom = null; }
     }

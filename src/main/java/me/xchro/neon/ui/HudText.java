@@ -9,17 +9,22 @@ public final class HudText {
     public static void flush() { UiFont.flush(); }
     public static int width(String text, int pixels) { return UiFont.hudWidth(text, pixels); }
     public static int width(String text,int pixels,boolean bold,boolean italic) { return UiFont.hudWidth(text,pixels,bold,italic); }
+    public static int lineHeight(int pixels){return (int)Math.ceil(pixels*1.2);}
+    public static int baseline(String text,int pixels){return UiFont.hudBaseline(text,pixels);}
     public static void draw(GuiGraphicsExtractor g, String text, int x, int y, int color, int pixels, boolean shadow) {
         draw(g,text,x,y,color,pixels,shadow,false,false);
     }
     public static void draw(GuiGraphicsExtractor g,String text,int x,int y,int color,int pixels,boolean shadow,boolean bold,boolean italic) {
+        draw(g,text,x,y,color,pixels,shadow,bold,italic,baseline(text,pixels));
+    }
+    public static void draw(GuiGraphicsExtractor g,String text,int x,int y,int color,int pixels,boolean shadow,boolean bold,boolean italic,int baseline) {
         if(shadow) {
             float physicalScale=Math.abs(g.pose().m11())*net.minecraft.client.Minecraft.getInstance().getWindow().getGuiScale();
             float offset=1/Math.max(.01f,physicalScale);
             g.pose().pushMatrix();g.pose().translate(offset,offset);
-            UiFont.drawHud(g,text,x,y,((int)((color>>>24)*.7))<<24,pixels,bold,italic);g.pose().popMatrix();
+            UiFont.drawHud(g,text,x,y,((int)((color>>>24)*.7))<<24,pixels,bold,italic,baseline);g.pose().popMatrix();
             g.guiRenderState.up();
         }
-        UiFont.drawHud(g,text,x,y,color,pixels,bold,italic);
+        UiFont.drawHud(g,text,x,y,color,pixels,bold,italic,baseline);
     }
 }

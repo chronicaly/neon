@@ -129,7 +129,9 @@ final class UiScroll extends AbstractContainerWidget {
         if (scrollMotion != null) scrollMotion.snap(targetScroll); place();
     }
     @Override public boolean mouseScrolled(double x, double y, double dx, double dy) {
-        if (!isMouseOver(x, y) || maxScrollAmount() <= 0) return false;
+        if (!isMouseOver(x, y)) return false;
+        for(var child:children)if(child.isMouseOver(x,y)&&child instanceof net.minecraft.client.gui.components.events.ContainerEventHandler&&child.mouseScrolled(x,y,dx,dy))return true;
+        if(maxScrollAmount()<=0)return false;
         pinned = null;
         targetScroll = Math.clamp(targetScroll - dy * scrollRate(), 0, maxScrollAmount());
         scrollMotion.to(targetScroll, System.nanoTime(), 120_000_000L); return true;

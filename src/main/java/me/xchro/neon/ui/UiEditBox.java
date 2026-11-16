@@ -33,8 +33,10 @@ class UiEditBox extends EditBox {
         updateViewport();
         var state = (EditBoxAccessor) (Object) this;
         int inset = compact ? 4 : 7, top = compact ? 3 : 6, height = compact ? 21 : 26;
-        Ui.rect(g, getX() - inset, getY() - top, getWidth() + inset * 2, height, invalid ? Ui.RED : isFocused() ? Ui.BLUE : Ui.LINE);
-        Ui.rect(g, getX() - inset + 1, getY() - top + 1, getWidth() + inset * 2 - 2, height - 2, Ui.FIELD);
+        int left=getX()-inset,y=getY()-top,width=getWidth()+inset*2;
+        RoundedUi.fill(g,left,y,width,height,Ui.FIELD,3);
+        int edge=Ui.faded(invalid?Ui.RED:isFocused()?Ui.BLUE:Ui.LINE);
+        RoundedUi.stroke(g,left,y,width,height,edge,edge);
         String value = getValue();
         int cursor = Math.clamp(getCursorPosition(), viewStart, viewEnd), anchor = Math.clamp(state.neon$highlight(), viewStart, viewEnd);
         int caretX = getX() + Ui.width(value.substring(viewStart, cursor));

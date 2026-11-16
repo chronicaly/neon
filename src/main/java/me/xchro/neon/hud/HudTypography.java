@@ -14,6 +14,7 @@ public final class HudTypography {
     private int pixels=16;
     private double bitmapScale=2;
     private final LinkedHashMap<FormattedCharSequence,List<Run>> styled=new LinkedHashMap<>(32,.75f,true);
+    private final Map<FormattedCharSequence,String> plain=new HashMap<>();
     private final LinkedHashMap<String,FormattedCharSequence> legacy=new LinkedHashMap<>(32,.75f,true);
     private record Run(String text,Style style) {}
     public void scale(double value) { scale=Math.max(.01,value);pixels=Math.clamp((int)Math.round(8*scale),1,96);bitmapScale=Math.max(1,Math.round(scale)); }
@@ -35,23 +36,27 @@ public final class HudTypography {
         return lo==0?"":text.substring(0,text.offsetByCodePoints(0,lo))+"…";
     }
     public void draw(GuiGraphicsExtractor g,String text,int x,int y,int color,boolean shadow) {
+        draw(g,text,x,y,color,shadow,text);
+    }
+    public void draw(GuiGraphicsExtractor g,String text,int x,int y,int color,boolean shadow,String line) {
         if(text.indexOf('§')>=0) { draw(g,formatted(text),x,y,color,shadow);return; }
-        if(inter())HudText.draw(g,text,x,y,color,pixels,shadow);
+        if(inter())HudText.draw(g,text,x,y,color,pixels,shadow,false,false,baseline(line));
         else {
             g.pose().pushMatrix();g.pose().translate(x,y).scale((float)(bitmapScale/scale));
             MinecraftFontLayout.snapOrigin(g.pose(),Minecraft.getInstance().getWindow().getGuiScale());
             g.text(Minecraft.getInstance().font,text,0,0,color,shadow);g.pose().popMatrix();
         }
     }
+    private int baseline(String line){return HudText.baseline(line,pixels)+(int)Math.round((height()*scale-HudText.lineHeight(pixels))*.5);}
     private List<Run> runs(FormattedCharSequence sequence) {
         var found=styled.get(sequence);if(found!=null)return found;
-        var result=new ArrayList<Run>();var buffer=new StringBuilder();Style[] previous={null};
+        var result=new ArrayList<Run>();var buffer=new StringBuilder();var full=new StringBuilder();Style[] previous={null};
         sequence.accept((index,style,codepoint)->{
             if(!style.equals(previous[0])&&buffer.length()>0){result.add(new Run(buffer.toString(),previous[0]));buffer.setLength(0);}
-            previous[0]=style;buffer.appendCodePoint(codepoint);return true;
+            previous[0]=style;buffer.appendCodePoint(codepoint);full.appendCodePoint(codepoint);return true;
         });
         if(buffer.length()>0)result.add(new Run(buffer.toString(),previous[0]));
-        if(styled.size()>=64)styled.remove(styled.keySet().iterator().next());styled.put(sequence,result);return result;
+        if(styled.size()>=64){var oldest=styled.keySet().iterator().next();styled.remove(oldest);plain.remove(oldest);}styled.put(sequence,result);plain.put(sequence,full.toString());return result;
     }
     public int width(FormattedCharSequence sequence) {
         if(!inter(sequence))return (int)Math.ceil(Minecraft.getInstance().font.width(sequence)*bitmapScale/scale);
@@ -59,15 +64,18 @@ public final class HudTypography {
         return (int)Math.ceil(width/scale);
     }
     public void draw(GuiGraphicsExtractor g,FormattedCharSequence sequence,int x,int y,int color,boolean shadow) {
+        draw(g,sequence,x,y,color,shadow,null);
+    }
+    public void draw(GuiGraphicsExtractor g,FormattedCharSequence sequence,int x,int y,int color,boolean shadow,String line) {
         if(!inter(sequence)) {
             g.pose().pushMatrix();g.pose().translate(x,y).scale((float)(bitmapScale/scale));MinecraftFontLayout.snapOrigin(g.pose(),Minecraft.getInstance().getWindow().getGuiScale());
             g.text(Minecraft.getInstance().font,sequence,0,0,color,shadow);g.pose().popMatrix();return;
         }
-        double advance=0;
+        double advance=0;int baseline=baseline(line==null?plain.get(sequence):line);
         for(var run:runs(sequence)) {
             int tint=run.style.getColor()==null?color:(color&0xff000000)|run.style.getColor().getValue();
             g.pose().pushMatrix();g.pose().translate((float)advance,0);
-            HudText.draw(g,run.text,x,y,tint,pixels,shadow,run.style.isBold(),run.style.isItalic());
+            HudText.draw(g,run.text,x,y,tint,pixels,shadow,run.style.isBold(),run.style.isItalic(),baseline);
             double w=HudText.width(run.text,pixels,run.style.isBold(),run.style.isItalic())/scale;
             if(run.style.isUnderlined())g.fill(x,y+height()-1,x+(int)Math.ceil(w),y+height(),tint);
             if(run.style.isStrikethrough())g.fill(x,y+height()/2,x+(int)Math.ceil(w),y+height()/2+1,tint);

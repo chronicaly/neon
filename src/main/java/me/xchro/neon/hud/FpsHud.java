@@ -39,13 +39,15 @@ public final class FpsHud {
     public static void draw(GuiGraphicsExtractor g, int width, int height) {
         var c = Neon.config;
         if (!c.fps.visible) return;
-        var b = bounds(width, height);
+        var b = HudChatLift.place(bounds(width, height));
         surface(g,width,height);
         var font = Minecraft.getInstance().font;
         if(inter()) {
-            int x=b.x()+paddingX(),y=b.y()+paddingY();
-            me.xchro.neon.ui.HudText.draw(g,"FPS ",x,y,FpsColor.LABEL.color(c),fontPixels(),c.fpsShadow);
-            me.xchro.neon.ui.HudText.draw(g,Integer.toString(value()),x+me.xchro.neon.ui.HudText.width("FPS ",fontPixels()),y,FpsColor.VALUE.color(c),fontPixels(),c.fpsShadow);
+            int x=b.x()+paddingX(),y=b.y()+paddingY(),pixels=fontPixels();
+            int baseline=me.xchro.neon.ui.HudText.baseline("FPS 0123456789",pixels);
+            String number=Integer.toString(value());int numberX=b.x()+b.width()-paddingX()-me.xchro.neon.ui.HudText.width(number,pixels);
+            me.xchro.neon.ui.HudText.draw(g,"FPS ",x,y,FpsColor.LABEL.color(c),pixels,c.fpsShadow,false,false,baseline);
+            me.xchro.neon.ui.HudText.draw(g,number,numberX,y,FpsColor.VALUE.color(c),pixels,c.fpsShadow,false,false,baseline);
             return;
         }
         g.pose().pushMatrix();
@@ -53,13 +55,14 @@ public final class FpsHud {
         g.pose().scale(textScale());
         MinecraftFontLayout.snapOrigin(g.pose(),Minecraft.getInstance().getWindow().getGuiScale());
         g.text(font, "FPS ", 0, 0, FpsColor.LABEL.color(c), c.fpsShadow);
-        g.text(font, Integer.toString(value()), font.width("FPS "), 0, FpsColor.VALUE.color(c), c.fpsShadow);
+        String number=Integer.toString(value());
+        g.text(font,number,Math.round((b.width()-2*paddingX())/textScale())-font.width(number),0,FpsColor.VALUE.color(c),c.fpsShadow);
         g.pose().popMatrix();
     }
     public static void surface(GuiGraphicsExtractor g,int width,int height) {
         var c=Neon.config;if(!c.fps.visible)return;
         int color=FpsColor.BORDER.color(c);
-        CHROME.panel(g,bounds(width,height),FpsColor.BACKGROUND.color(c),color,
+        CHROME.panel(g,HudChatLift.place(bounds(width,height)),FpsColor.BACKGROUND.color(c),color,
             FpsColor.BORDER.synced(c)?c.theme.color(me.xchro.neon.config.ThemeColor.SECONDARY):color,c.fpsBackground,c.fpsBorder);
     }
 }

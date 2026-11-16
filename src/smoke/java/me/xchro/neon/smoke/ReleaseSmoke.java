@@ -21,6 +21,9 @@ final class ReleaseSmoke {
     private ExpansionSmoke expansion;
     private ModulesSmoke modules;
     private RefinementSmoke refinement;
+    private HudAlignmentSmoke alignment;
+    private HudChatSmoke chatLift;
+    private FontSystemSmoke fonts;
     ReleaseSmoke(Minecraft mc,int checks)throws Exception{
         this.mc=mc;this.checks=checks;
         production=Path.of(Neon.class.getProtectionDomain().getCodeSource().getLocation().toURI());
@@ -43,6 +46,9 @@ final class ReleaseSmoke {
             case 6->{if(expansion==null)expansion=new ExpansionSmoke(mc,checks);if(!expansion.run())return false;checks=expansion.checks();}
             case 7->{if(modules==null)modules=new ModulesSmoke(mc,checks);if(!modules.run())return false;checks=modules.checks();}
             case 8->{if(refinement==null)refinement=new RefinementSmoke(mc,checks);if(!refinement.run())return false;checks=refinement.checks();}
+            case 9->{if(alignment==null)alignment=new HudAlignmentSmoke(mc,checks);if(!alignment.run())return false;checks=alignment.checks();}
+            case 10->{if(chatLift==null)chatLift=new HudChatSmoke(mc,checks);if(!chatLift.run())return false;checks=chatLift.checks();}
+            case 11->{if(fonts==null)fonts=new FontSystemSmoke(mc,checks);if(!fonts.run())return false;checks=fonts.checks();}
             default->{
                 if(!hash(production).equals(productionHash)||!hash(verification).equals(verificationHash))throw new AssertionError("Loaded artifacts changed during verification");
                 var proof=new com.google.gson.JsonObject();proof.addProperty("schema",1);proof.addProperty("passed",true);proof.addProperty("suite","release");

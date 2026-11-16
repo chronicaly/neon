@@ -6,7 +6,7 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.*;
 import net.minecraft.resources.Identifier;
 
-/** The approved Neon palette and shared, sharp control primitives. */
+/** The approved Neon palette and shared control primitives. */
 public final class Ui {
     public static int TEXT = 0xffe3eaf1, MUTED = 0xff83909f, BLUE = 0xff84dce6,
         PANEL = 0xff07090e, WHITE = TEXT, FIELD = 0xff0d1119, SELECTED = 0xff0c1117,
@@ -60,14 +60,22 @@ public final class Ui {
     static int buttonSurface(int color, double emphasis) {
         return alpha(color, (int)Math.round((FIELD >>> 24) * (.18 + .10 * Math.clamp(emphasis, 0, 1))));
     }
+    static int panelSurface(int color){return alpha(color,Math.round((color>>>24)*.84f));}
+    static void switchControl(GuiGraphicsExtractor g,int x,int y,double amount,boolean active) {
+        double shown=active?amount:0;
+        if(shown>.01)glow(g,x,y,24,13,alpha(BLUE,(int)((BLUE>>>24)*shown)),5);
+        rect(g,x,y,24,13,UiEffects.mix(FIELD,UiEffects.mix(FIELD,BLUE,.10),shown));
+        stroke(g,x,y,24,13,UiEffects.mix(LINE,UiEffects.mix(BLUE,PANEL,.2),shown));
+        rect(g,x+3+(int)Math.round(11*amount),y+3,7,7,!active?MUTED:UiEffects.mix(0xff7a8999,BLUE,shown));
+    }
     public static void glow(GuiGraphicsExtractor g, int x, int y, int w, int h, int color, int radius) { if (MenuEffects.glow()) UiEffects.glow(g, x, y, w, h, faded(color), radius); }
     public static void card(GuiGraphicsExtractor g, int x, int y, int w, int h) { rect(g, x, y, w, h, FIELD); Ui.stroke(g, x, y, w, h, LINE); }
     public static void background(GuiGraphicsExtractor g, int width, int height) {
         refreshTheme(); if (MenuEffects.blur()) g.blurBeforeThisStratum(); rect(g, 0, 0, width + 1, height + 1, 0xb3060a12);
     }
     public static void window(GuiGraphicsExtractor g, int x, int y, int w, int h) {
-        rect(g, x, y, w, h, PANEL);
-        UiEffects.surfaceLight(g, x + 1, y + 1, w - 2, h - 2, PANEL);
+        RoundedUi.panel(g,x,y,w,h,-1);
+        UiEffects.surfaceLight(g, x + 5, y + 5, w - 10, h - 10, PANEL);
         UiEffects.outline(g, x, y, w, h);
     }
     public static void releaseFonts() { MenuPresentation.invalidateAll(); UiFont.close(); UiIcons.close(); UiEffects.close(); }

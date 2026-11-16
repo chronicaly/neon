@@ -91,7 +91,7 @@ public class UiButton extends Button {
         hoverAmount = hoverFraction();
         double selectedAmount = selectionFraction(chosen);
         int x = getX(), y = getY(), w = getWidth(), h = getHeight();
-        if (keyboardFocus) Ui.stroke(g, x, y, w, h, Ui.BLUE);
+        if (keyboardFocus&&kind!=Kind.NAV) RoundedUi.stroke(g,x,y,w,h,Ui.faded(Ui.BLUE),Ui.faded(Ui.BLUE));
         if (kind == Kind.MODULE_TOGGLE) {
             boolean on = getMessage().getString().equals("ON");
             int tx=x+7,ty=y+8;
@@ -114,14 +114,16 @@ public class UiButton extends Button {
         if (kind == Kind.NAV) {
             int fill = UiEffects.mix(Ui.PANEL,Ui.TEXT,.09);
             double emphasis=Math.max(hoverAmount,selectedAmount);
-            if(emphasis>.001)Ui.rect(g,x,y,w,h,Ui.alpha(fill,(int)Math.round((Ui.PANEL>>>24)*.28*emphasis)));
-            if(selectedAmount>.001)Ui.stroke(g,x,y,w,h,Ui.alpha(0xff7e8794,(int)(48*selectedAmount)));
+            if(emphasis>.001)RoundedUi.fill(g,x,y,w,h,Ui.alpha(fill,(int)Math.round((Ui.PANEL>>>24)*.28*emphasis)),3);
             UiEffects.hoverLight(g,x,y,w,h,keyboardFocus ? x+w/2 : mx,hoverAmount);
             int color=UiEffects.mix(Ui.MUTED,Ui.TEXT,Math.max(hoverAmount,selectedAmount));
             String label = getMessage().getString();
-            int start = centeredNavigation ? x + (w - 19 - Ui.width(label)) / 2 : x + 5;
-            UiIcons.draw(g,UiIcons.category(label),start,y+5,color);
-            Ui.text(g,label,start+19,y+6,color); return;
+            int labelSize=11;
+            while(labelSize>8&&UiFont.width(label,labelSize)>w-24)labelSize--;
+            if(UiFont.width(label,labelSize)>w-24){while(!label.isEmpty()&&UiFont.width(label+"…",labelSize)>w-24)label=label.substring(0,label.offsetByCodePoints(label.length(),-1));label+="…";}
+            int start = centeredNavigation ? x + (w - 19 - UiFont.width(label,labelSize)) / 2 : x + 5;
+            UiIcons.draw(g,UiIcons.category(getMessage().getString()),start,y+5,color);
+            UiFont.draw(g,label,start+19,y+6+(11-labelSize)/2,color,labelSize); return;
         }
         if (getMessage().getString().equals("‹")) {
             UiFont.draw(g, "‹", x + (w - UiFont.width("‹", 13)) / 2, y + (h - 13) / 2, hover ? Ui.BLUE : Ui.MUTED, 13);
@@ -132,23 +134,19 @@ public class UiButton extends Button {
             if (switchAmount < 0) switchMotion.snap(on ? 1 : 0);
             switchAmount = (float) switchMotion.to(on ? 1 : 0, now, 100_000_000L);
             int tx = x + w - 24, ty = y + (h - 13) / 2;
-            double amount = active ? switchAmount : 0;
-            if (amount > .01) Ui.glow(g, tx, ty, 24, 13, Ui.alpha(Ui.BLUE,(int)((Ui.BLUE>>>24)*amount)), 5);
-            Ui.rect(g, tx, ty, 24, 13, UiEffects.mix(Ui.FIELD,UiEffects.mix(Ui.FIELD,Ui.BLUE,.10),amount));
-            Ui.stroke(g, tx, ty, 24, 13, UiEffects.mix(Ui.LINE,UiEffects.mix(Ui.BLUE, Ui.PANEL, .2),amount));
-            Ui.rect(g, tx + 3 + Math.round(11 * switchAmount), ty + 3, 7, 7, !active ? Ui.MUTED : UiEffects.mix(0xff7a8999,Ui.BLUE,amount));
+            Ui.switchControl(g,tx,ty,switchAmount,active);
             return;
         }
         if (kind == Kind.SWATCH) {
             Ui.rect(g, x + w - 25, y + (h - 14) / 2, 25, 14, swatch.getAsInt());
             Ui.stroke(g, x + w - 25, y + (h - 14) / 2, 25, 14, hover ? Ui.BLUE : Ui.LINE); return;
         }
-        boolean plain = kind == Kind.QUIET || kind == Kind.KEY || kind == Kind.CARD || kind == Kind.SEGMENT;
+        boolean plain = kind == Kind.SEGMENT;
         double emphasis=Math.max(hoverAmount,selectedAmount);
         int fill=UiEffects.mix(UiEffects.mix(Ui.FIELD,Ui.BLUE,.04*hoverAmount+.08*selectedAmount),Ui.INK,.16*pressFraction());
-        Ui.rect(g,x,y,w,h,Ui.buttonSurface(fill,emphasis));
-        if (pressFraction() > .001) Ui.stroke(g,x,y,w,h,Ui.alpha(Ui.BLUE,(int)((Ui.BLUE>>>24)*.3*pressFraction())));
-        if (!plain) Ui.stroke(g, x, y, w, h, chosen ? Ui.BLUE : hover ? Ui.MUTED : Ui.LINE);
+        RoundedUi.fill(g,x,y,w,h,Ui.buttonSurface(fill,emphasis),3);
+        if (pressFraction() > .001){int edge=Ui.faded(Ui.alpha(Ui.BLUE,(int)((Ui.BLUE>>>24)*.3*pressFraction())));RoundedUi.stroke(g,x,y,w,h,edge,edge);}
+        if (!plain){int edge=Ui.faded(chosen?Ui.BLUE:hover?Ui.MUTED:Ui.LINE);RoundedUi.stroke(g,x,y,w,h,edge,edge);}
         int color = !active ? Ui.MUTED : chosen ? Ui.BLUE : kind == Kind.QUIET || kind == Kind.KEY || kind == Kind.NAV || kind == Kind.SEGMENT ? Ui.MUTED : Ui.TEXT;
         if (wrapped) {
             int lineY=y+(h-14*textLines.size())/2+1;

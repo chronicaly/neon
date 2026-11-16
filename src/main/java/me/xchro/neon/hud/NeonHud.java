@@ -111,13 +111,21 @@ public final class NeonHud {
         drawPixels(graphics,preview,mc.getWindow().getWidth(),mc.getWindow().getHeight());graphics.pose().popMatrix();
     }
     public static void drawPixels(GuiGraphicsExtractor graphics,boolean preview,int width,int height){
+        HudChatLift.begin(preview,height);
+        if(HudChatLift.moving()) {
+            if(Neon.config.fps.visible)HudChatLift.add(FpsHud.bounds(width,height));
+            HudWidgets.chatBounds(width,height);
+            if(Neon.config.armor.visible&&!armor(preview).isEmpty())HudChatLift.add(pixelBounds(width,height,preview));
+            if(Neon.config.totems.visible&&Neon.config.totemFloating&&(preview||totems()>0))HudChatLift.add(totemPixelBounds(width,height));
+            HudChatLift.arrange();
+        }
         HudChrome.begin();
         try {
         FpsHud.surface(graphics,width,height);
         HudWidgets.surfaces(graphics,width,height,preview);
         if(Neon.config.hudNeonPanels) {
-            if(Neon.config.armor.visible&&Neon.config.armorSlots&&!armor(preview).isEmpty())ARMOR_CHROME.draw(graphics,pixelBounds(width,height,preview));
-            if(Neon.config.totems.visible&&Neon.config.totemFloating&&(preview||totems()>0))TOTEM_CHROME.draw(graphics,totemPixelBounds(width,height));
+            if(Neon.config.armor.visible&&Neon.config.armorSlots&&!armor(preview).isEmpty())ARMOR_CHROME.draw(graphics,HudChatLift.place(pixelBounds(width,height,preview)));
+            if(Neon.config.totems.visible&&Neon.config.totemFloating&&(preview||totems()>0))TOTEM_CHROME.draw(graphics,HudChatLift.place(totemPixelBounds(width,height)));
         }
         HudChrome.flush(graphics);
         FpsHud.draw(graphics, width, height);
@@ -127,7 +135,7 @@ public final class NeonHud {
             if (!armor.isEmpty()) drawItems(graphics, armor,width,height);
         }
         if (Neon.config.totemFloating && Neon.config.totems.visible && (preview || totems() > 0)) drawTotemPixels(graphics,preview,width,height);
-        } finally {HudChrome.end();}
+        } finally {HudChrome.end();HudChatLift.end();}
     }
     public static HudBounds totemBounds(int width, int height) {
         int scale=gameScale();return toGui(totemPixelBounds(width*scale,height*scale),scale);
@@ -144,6 +152,7 @@ public final class NeonHud {
     public static void drawTotemPixels(GuiGraphicsExtractor g,boolean preview,int width,int height){
         if (!Neon.config.totems.visible) return;
         var b = totemPixelBounds(width,height);
+        if(Neon.config.totemFloating)b=HudChatLift.place(b);
         if (Neon.config.totemFloating && Neon.config.hudNeonPanels) TOTEM_CHROME.draw(g,b);
         float scale = Neon.config.totemFloating ? (float) HudBounds.scale(Neon.config.totems,20,20,width,height,density()) : gameScale();
         g.pose().pushMatrix(); g.pose().translate(b.x(), b.y()); g.pose().scale(scale);
@@ -154,7 +163,7 @@ public final class NeonHud {
     }
     private static void drawItems(GuiGraphicsExtractor g, List<ItemStack> items,int width,int height) {
         var font = Minecraft.getInstance().font;
-        HudBounds bounds = pixelBounds(width,height,Minecraft.getInstance().gui.screen() instanceof HudEditor);
+        HudBounds bounds = HudChatLift.place(pixelBounds(width,height,Minecraft.getInstance().gui.screen() instanceof HudEditor));
         if (Neon.config.armorSlots && Neon.config.hudNeonPanels) ARMOR_CHROME.draw(g,bounds);
         float scale = (float) HudBounds.scale(Neon.config.armor,contentWidth(items.size()),contentHeight(items.size()),width,height,density());
         g.pose().pushMatrix();

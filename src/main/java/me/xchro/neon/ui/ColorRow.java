@@ -10,18 +10,19 @@ final class ColorRow extends UiButton {
     ColorRow(String name,int width,IntSupplier color,Runnable toggle,BooleanSupplier open){super(name,0,0,width,27,Kind.SWATCH,toggle);this.color=color;this.toggle=toggle;this.open=open;}
     ColorRow hudRow(){hud=true;setHeight(22);return this;}
     @Override public boolean mouseClicked(MouseButtonEvent event,boolean twice){
-        if(event.button()==1&&isMouseOver(event.x(),event.y())){playDownSound(net.minecraft.client.Minecraft.getInstance().getSoundManager());toggle.run();return true;}
+        if(event.button()==1&&isMouseOver(event.x(),event.y())){feedback(event);playDownSound(net.minecraft.client.Minecraft.getInstance().getSoundManager());toggle.run();return true;}
         return super.mouseClicked(event,twice);
     }
     @Override protected void extractContents(GuiGraphicsExtractor g,int mx,int my,float delta){
         float hover=hoverFraction();
-        if(hud)Ui.rect(g,getX(),getY(),getWidth(),getHeight(),HudEditor.surface(Ui.PANEL,100));
-        UiEffects.hoverLight(g,getX(),getY(),getWidth(),getHeight(),isFocused() ? getX()+getWidth()/2 : mx,hover);
-        if(hover>.01f||open.getAsBoolean())Ui.rect(g,getX(),getY(),getWidth(),getHeight(),Ui.alpha(Ui.BLUE,(int)(9*Math.max(hover,open.getAsBoolean()?1:0))));
-        int inset=hud?10:0, offset=hud?-2:0;
+        double emphasis=Math.max(hover,open.getAsBoolean()?1:0);
+        int x=getX()+(hud?5:0),y=getY()+(hud?1:2),w=getWidth()-(hud?10:0),h=getHeight()-(hud?2:4);
+        int fill=UiEffects.mix(UiEffects.mix(Ui.FIELD,Ui.BLUE,.08*emphasis),Ui.INK,.16*pressFraction());
+        RoundedUi.fill(g,x,y,w,h,Ui.buttonSurface(fill,emphasis),3);
+        int edge=Ui.faded(UiEffects.mix(Ui.LINE,Ui.BLUE,.55*emphasis));RoundedUi.stroke(g,x,y,w,h,edge,edge);
+        int inset=hud?14:8, offset=hud?-2:0,swatchInset=hud?8:3;
         Ui.text(g,Ui.fit(getMessage().getString(),getWidth()-52-inset),getX()+inset,getY()+8+offset,open.getAsBoolean()?Ui.BLUE:Ui.TEXT);
-        Ui.disclosure(g,getRight()-34,getY()+7+offset,open.getAsBoolean(),Ui.MUTED);
-        ColorPicker.swatch(g,getRight()-17,getY()+6+offset,14,14,color.getAsInt(),Ui.MUTED);
-        if(open.getAsBoolean())Ui.stroke(g,getRight()-20,getY()+3+offset,20,20,Ui.BLUE);
+        Ui.disclosure(g,x+w-swatchInset-27,getY()+7+offset,open.getAsBoolean(),UiEffects.mix(Ui.MUTED,Ui.BLUE,emphasis));
+        ColorPicker.swatch(g,x+w-swatchInset-14,getY()+6+offset,14,14,color.getAsInt(),open.getAsBoolean()?Ui.BLUE:Ui.MUTED);
     }
 }

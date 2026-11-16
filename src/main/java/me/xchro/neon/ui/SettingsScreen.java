@@ -42,6 +42,7 @@ public final class SettingsScreen extends PixelScreen {
     private static final MenuNavigation NAVIGATION = new MenuNavigation();
     private int page, sx, sy, sw, sh, side, contentX, contentY, panelWidth;
     private String module = "", renderedView = "", error = "", profileDraft = "", expandedColor = "";
+    private String fontQuery="";
     private ColorPicker colorPicker;
     private ColorPicker closingPicker;
     private String colorDrawerName = "";
@@ -100,7 +101,7 @@ public final class SettingsScreen extends PixelScreen {
                 }).selected(() -> page == destination));
             UiButton previousNavigation = navigationButtons.put(i, navigation);
             if (previousNavigation != null) navigation.inherit(previousNavigation);
-            if (i == 2) settingsNav = navigation.centeredNavigation();
+            if (i == 2) settingsNav = navigation;
         }
         rows = LinearLayout.vertical().spacing(0);
         moduleRows();
@@ -121,7 +122,7 @@ public final class SettingsScreen extends PixelScreen {
         hudEditorButton = addRenderableWidget(new UiButton("HUD editor", sx + 6, sy + sh - 35, side - 12, 23, UiButton.Kind.NAV, () -> {
             capturing = null;
             minecraft.gui.setScreen(new HudEditor(this));
-        }).centeredNavigation().hint("Open the HUD editor."));
+        }).hint("Open the HUD editor."));
         if (previousHudEditor != null) hudEditorButton.inherit(previousHudEditor);
         anchorBottomControls();
         scroll.setScrollAmount(NAVIGATION.position(view()));
@@ -153,7 +154,7 @@ public final class SettingsScreen extends PixelScreen {
     private void moduleRows() {
         var grid = rows.addChild(new ModuleGrid(() -> panelWidth + 8));
         if (page == 2) {
-            for (String name : new String[]{"Colors", "Appearance", "Profiles"})
+            for (String name : new String[]{"Colors", "Appearance", "Fonts", "Profiles"})
                 grid.add(new UiModuleTile(name, () -> open(name), () -> module.equals(name)));
             return;
         }
@@ -280,6 +281,13 @@ public final class SettingsScreen extends PixelScreen {
                 segments("Effects", new String[]{"Adaptive", "Full"}, () -> t.effects.ordinal(), i -> t.effects = NeonConfig.Effects.values()[i]);
             }
             case "Profiles" -> profiles();
+            case "Fonts" -> {
+                var picker=rows.addChild(new UiFontPicker(controlWidth(),sh-50,fontQuery,value->fontQuery=value,family->{
+                    if(family.equals(c.clientFont))return;
+                    session.change(()->c.clientFont=family);me.xchro.neon.hud.HudWidgets.invalidate();rebuildWidgets();UiSounds.cue(Cue.CONFIRM);
+                }));
+                controlResize(width->{picker.setWidth(width);picker.setHeight(sh-50);});
+            }
         }
     }
     private <T extends LayoutElement> T row(String label, T control) {
@@ -479,10 +487,11 @@ public final class SettingsScreen extends PixelScreen {
         }
         if (e.button() == 0) {
             int corner = shellCorner(e.x(),e.y());
-            if (corner >= 0) { window.beginVisible(corner, e.x(), e.y(),sx); return true; }
+            if (corner >= 0) { setFocused((net.minecraft.client.gui.components.events.GuiEventListener)null);window.beginVisible(corner, e.x(), e.y(),sx); return true; }
         }
         if (super.pixelMouseClicked(e, twice)) return true;
         if (e.button() == 0 && e.x() >= frame.x() && e.x() < frame.x()+frame.width() && e.y() >= sy && e.y() < sy + 37) {
+            setFocused((net.minecraft.client.gui.components.events.GuiEventListener)null);
             window.beginVisible(4, e.x(), e.y(),sx); return true;
         }
         return false;
@@ -553,9 +562,8 @@ public final class SettingsScreen extends PixelScreen {
     @Override protected void renderPixels(GuiGraphicsExtractor g, int mx, int my, float delta) {
         layoutWindow(); refresh();
         g=presentation.begin(g,mx,my);
-        UiEffects.gradient(g,(float)frame.x(),sy,(float)frame.width(),sh,Ui.PANEL,Ui.PANEL,Ui.PANEL,Ui.PANEL);
-        UiEffects.surfaceLight(g,sx+1,sy+1,(int)Math.round(frame.width())-2,sh-2,Ui.PANEL);
-        Ui.rect(g, sx + 1, sy + 1, side - 1, sh - 2, Ui.SIDEBAR);
+        RoundedUi.panel(g,(float)frame.x(),sy,(float)frame.width(),sh,side);
+        UiEffects.surfaceLight(g,sx+5,sy+5,(int)Math.round(frame.width())-10,sh-10,Ui.PANEL);
         Ui.rect(g, sx + side - 1, sy + 1, 1, sh - 2, UiEffects.mix(Ui.PANEL, 0xffffffff, .027));
         int brandX = sx + 15;
         for (char letter : "NEON".toCharArray()) { String glyph = Character.toString(letter); Ui.title(g, glyph, brandX, sy + 14); brandX += UiFont.width(glyph, 13) + 2; }

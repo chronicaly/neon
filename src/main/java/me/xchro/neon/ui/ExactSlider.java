@@ -78,8 +78,8 @@ public final class ExactSlider extends AbstractSliderButton {
         return compactStacked() ? getX() + 3 : Math.max(compactInlineLeft(), compactTrackRight() - 150);
     }
     private int compactTrackY() { return getY() + (compactStacked() ? 31 : 13); }
-    private double trackLeft() { return inline ? getX() : compact ? compactTrackLeft() : getX() + (fullRow ? 3 : 6); }
-    private double trackWidth() { return Math.max(1, inline ? getWidth() : compact ? compactTrackRight() - compactTrackLeft() : getWidth() - (fullRow ? 6 : 12)); }
+    private double trackLeft() { return inline ? getX()+14 : compact ? compactTrackLeft() : getX() + (fullRow ? 3 : 6); }
+    private double trackWidth() { return Math.max(1, inline ? getWidth()-28 : compact ? compactTrackRight() - compactTrackLeft() : getWidth() - (fullRow ? 6 : 12)); }
     private boolean exactTarget(double x,double y) {
         if(inline)return false;
         if(compact)return x>=getRight()-compactValueWidth&&(!compactStacked()||y<getY()+22);
@@ -172,11 +172,17 @@ public final class ExactSlider extends AbstractSliderButton {
         }
         double displayed = motion.to(value, System.nanoTime(), VALUE_MOTION_NANOS);
         if (inline) {
-            Ui.rect(g, getX(), getY(), getWidth(), getHeight(), HudEditor.surface(Ui.PANEL, 100));
-            fill(g, getX(), getY(), (float) (getWidth() * displayed), getHeight(), HudEditor.surface(Ui.BLUE, 32));
-            if (edit == null) Ui.text(g, Ui.fit(name + ": " + getMessage().getString(), getWidth() - 16), getX() + 10, getY() + 6, active ? Ui.TEXT : Ui.MUTED);
+            int x=getX()+5,w=getWidth()-10;
+            RoundedUi.fill(g,x,getY()+1,w,getHeight()-2,Ui.buttonSurface(Ui.FIELD,isHovered()||isFocused()?1:0),3);
+            fill(g,x+9,getBottom()-3,w-18,2,Ui.LINE);
+            fill(g,x+9,getBottom()-3,(float)((w-18)*displayed),2,active?Ui.BLUE:Ui.MUTED);
+            if (edit == null) {
+                String text=getMessage().getString();int valueWidth=Ui.width(text);
+                Ui.text(g,Ui.fit(name,Math.max(1,w-28-valueWidth)),x+9,getY()+5,active?Ui.TEXT:Ui.MUTED);
+                Ui.text(g,text,x+w-9-valueWidth,getY()+5,active?Ui.BLUE:Ui.MUTED);
+            }
             else { positionEdit(); edit.extractRenderState(g, mx, my, delta); }
-            if (isFocused() && Minecraft.getInstance().getLastInputType().isKeyboard()) Ui.stroke(g, getX(), getY(), getWidth(), getHeight(), Ui.BLUE);
+            if (isFocused() && Minecraft.getInstance().getLastInputType().isKeyboard()) RoundedUi.stroke(g,x,getY()+1,w,getHeight()-2,Ui.faded(Ui.BLUE),Ui.faded(Ui.BLUE));
             return;
         }
         if (isFocused() && Minecraft.getInstance().getLastInputType().isKeyboard()) Ui.stroke(g, getX(), getY(), getWidth(), getHeight(), Ui.BLUE);

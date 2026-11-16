@@ -15,9 +15,12 @@ public final class HudGlassGeometry {
     }
     private HudGlassGeometry() {}
     public static Area shape(List<Box> boxes) {
+        return shape(boxes,3);
+    }
+    public static Area shape(List<Box> boxes,float cornerRadius) {
         Area result=new Area();
         for(var b:boxes)if(b.width>0&&b.height>0) {
-            float radius=Math.min(3,Math.min(b.width,b.height)/4f);
+            float radius=Math.min(cornerRadius,Math.min(b.width,b.height)/4f);
             result.add(new Area(new RoundRectangle2D.Float(b.x,b.y,b.width,b.height,radius*2,radius*2)));
         }
         if(boxes.size()>1&&!result.isEmpty()) {
@@ -28,7 +31,10 @@ public final class HudGlassGeometry {
         return result;
     }
     public static Mesh build(List<Box> boxes) {
-        Area area=shape(boxes);var contours=new ArrayList<List<Point2D.Float>>();
+        return build(boxes,3);
+    }
+    public static Mesh build(List<Box> boxes,float cornerRadius) {
+        Area area=shape(boxes,cornerRadius);var contours=new ArrayList<List<Point2D.Float>>();
         List<Point2D.Float> current=null;float[] point=new float[6];
         for(var path=area.getPathIterator(null,.18);!path.isDone();path.next()) {
             int type=path.currentSegment(point);

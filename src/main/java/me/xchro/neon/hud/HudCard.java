@@ -54,7 +54,7 @@ public abstract class HudCard {
     public final void draw(GuiGraphicsExtractor g,int width,int height,boolean preview) {
         var options = Neon.config.hud(kind);
         if (!options.placement.visible || !hasContent(preview)) return;
-        var b=bounds(width,height,preview);
+        var b=HudChatLift.place(bounds(width,height,preview));
         chrome.panel(g,b,options.background,options.border);
         g.pose().pushMatrix(); g.pose().translate(b.x(),b.y()); g.pose().scale(renderScale);
         g.pose().translate(-3,-2);
@@ -63,7 +63,7 @@ public abstract class HudCard {
     }
     public final void surface(GuiGraphicsExtractor g,int width,int height,boolean preview) {
         var options=Neon.config.hud(kind);
-        if(options.placement.visible&&hasContent(preview))chrome.panel(g,bounds(width,height,preview),options.background,options.border);
+        if(options.placement.visible&&hasContent(preview))chrome.panel(g,HudChatLift.place(bounds(width,height,preview)),options.background,options.border);
     }
     protected void renderContent(GuiGraphicsExtractor g,boolean preview) {
         var theme=Neon.config.theme;
@@ -71,8 +71,8 @@ public abstract class HudCard {
         for(int i=0;i<lines.length;i++) {
             int y=3+i*(text.height()+1);
             if(i==0&&!firstLabel.isEmpty()) {
-                text.draw(g,firstLabel,5,y,theme.color(ThemeColor.ACCENT),shadow);
-                text.draw(g,firstValue,5+text.width(firstPrefix),y,theme.color(ThemeColor.TEXT),shadow);
+                text.draw(g,firstLabel,5,y,theme.color(ThemeColor.ACCENT),shadow,firstLine);
+                text.draw(g,firstValue,5+text.width(firstPrefix),y,theme.color(ThemeColor.TEXT),shadow,firstLine);
             } else text.draw(g,lines[i],5,y,theme.color(i==0?ThemeColor.ACCENT:ThemeColor.TEXT),shadow);
         }
     }

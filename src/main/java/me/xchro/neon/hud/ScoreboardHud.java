@@ -64,8 +64,9 @@ final class ScoreboardHud extends HudCard {
         var theme=Neon.config.theme;boolean shadow=Neon.config.hud(kind).shadow;int y=3;
         if(Neon.config.scoreboardTitle) { text.draw(g,heading,5+(width-headingWidth)/2,y,theme.color(ThemeColor.ACCENT),shadow);y+=text.height()+1; }
         for(int i=0;i<names.length;i++) {
-            text.draw(g,names[i],5,y,theme.color(ThemeColor.TEXT),shadow);
-            if(scoreWidths[i]>0)text.draw(g,scores[i],5+width-scoreWidths[i],y,theme.color(ThemeColor.MUTED),shadow);
+            String line=lines[i+(Neon.config.scoreboardTitle?1:0)];
+            text.draw(g,names[i],5,y,theme.color(ThemeColor.TEXT),shadow,line);
+            if(scoreWidths[i]>0)text.draw(g,scores[i],5+width-scoreWidths[i],y,theme.color(ThemeColor.MUTED),shadow,line);
             y+=text.height()+1;
         }
     }
