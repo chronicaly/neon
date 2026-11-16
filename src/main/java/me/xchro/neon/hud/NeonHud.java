@@ -13,6 +13,7 @@ import net.minecraft.world.entity.HumanoidArm;
 import net.minecraft.world.item.*;
 
 public final class NeonHud {
+    private static final HudChrome ARMOR_CHROME = new HudChrome(), TOTEM_CHROME = new HudChrome();
     private static final Identifier HOTBAR = Identifier.withDefaultNamespace("hud/hotbar");
     private static final EquipmentSlot[] SLOTS = {EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET};
     private static final Item[] PREVIEW = {Items.DIAMOND_HELMET, Items.DIAMOND_CHESTPLATE, Items.DIAMOND_LEGGINGS, Items.DIAMOND_BOOTS};
@@ -111,6 +112,7 @@ public final class NeonHud {
     }
     public static void drawPixels(GuiGraphicsExtractor graphics,boolean preview,int width,int height){
         FpsHud.draw(graphics, width, height);
+        HudWidgets.draw(graphics,width,height,preview);
         if (Neon.config.armor.visible) {
             List<ItemStack> armor = armor(preview);
             if (!armor.isEmpty()) drawItems(graphics, armor,width,height);
@@ -132,6 +134,7 @@ public final class NeonHud {
     public static void drawTotemPixels(GuiGraphicsExtractor g,boolean preview,int width,int height){
         if (!Neon.config.totems.visible) return;
         var b = totemPixelBounds(width,height);
+        if (Neon.config.totemFloating && Neon.config.hudNeonPanels) TOTEM_CHROME.draw(g,b);
         float scale = Neon.config.totemFloating ? (float) HudBounds.scale(Neon.config.totems,20,20,width,height,density()) : gameScale();
         g.pose().pushMatrix(); g.pose().translate(b.x(), b.y()); g.pose().scale(scale);
         var stack = Stacks.TOTEM_STACK;
@@ -142,15 +145,18 @@ public final class NeonHud {
     private static void drawItems(GuiGraphicsExtractor g, List<ItemStack> items,int width,int height) {
         var font = Minecraft.getInstance().font;
         HudBounds bounds = pixelBounds(width,height,Minecraft.getInstance().gui.screen() instanceof HudEditor);
+        if (Neon.config.armorSlots && Neon.config.hudNeonPanels) ARMOR_CHROME.draw(g,bounds);
         float scale = (float) HudBounds.scale(Neon.config.armor,contentWidth(items.size()),contentHeight(items.size()),width,height,density());
         g.pose().pushMatrix();
         g.pose().translate(bounds.x(), bounds.y()); g.pose().scale(scale);
         for (int i = 0; i < items.size(); i++) {
             int x = Neon.config.armorVertical ? 0 : i * stride(), y = Neon.config.armorVertical ? i * stride() : 0;
             if (Neon.config.armorSlots) {
+                if (!Neon.config.hudNeonPanels) {
                 // Slice the native hotbar ends into one slot; resource packs supply its texture.
                 g.blitSprite(RenderPipelines.GUI_TEXTURED, HOTBAR, 182, 22, 0, 0, x, y, 21, 22);
                 g.blitSprite(RenderPipelines.GUI_TEXTURED, HOTBAR, 182, 22, 181, 0, x + 21, y, 1, 22);
+                }
                 x += 3; y += 3;
             }
             ItemStack stack = items.get(i);

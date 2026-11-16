@@ -8,11 +8,17 @@ import net.minecraft.client.KeyMapping;
 public enum ClientModule {
     FREELOOK("Freelook", 0), ZOOM("Zoom", 0), MOTION_BLUR("Motion blur", 0),
     TOTEM_POPS("Totem pops", 0), BETTER_CHAT("Better chat", 0),
-    BETTER_SCREENSHOT("Better screenshot", "Screenshot", 0), AUTOCLICKER("Autoclicker", 1);
+    BETTER_SCREENSHOT("Better screenshot", "Screenshot", 0), AUTOCLICKER("Autoclicker", 1),
+    CROSSHAIR("Crosshair", 0), TOGGLE_SPRINT("Toggle sprint", 0), TOGGLE_SNEAK("Toggle sneak", 0),
+    DYNAMIC_FOV("Dynamic FOV", 0), HURT_CAMERA("Hurt camera", 0), VIEW_BOBBING("View bobbing", 0), LOW_FIRE("Low fire", 0),
+    VIEWMODEL("Viewmodel", 0), ENCHANT_GLINT("Enchant glint", 0), HIT_COLOR("Hit color", 0), TIME_CHANGER("Time changer", 0),
+    WEATHER("Weather", 0), FULLBRIGHT("Fullbright", 0), CLEAN_VIEW("Clean view", 0), BLOCK_OUTLINE("Block outline", 0);
     public final String label, buttonLabel;
     public final int page;
     ClientModule(String label, int page) { this(label, label, page); }
     ClientModule(String label, String buttonLabel, int page) { this.label = label; this.buttonLabel = buttonLabel; this.page = page; }
+    public boolean extra() { return switch(this) { case FREELOOK,ZOOM,MOTION_BLUR,TOTEM_POPS,BETTER_CHAT,BETTER_SCREENSHOT,AUTOCLICKER -> false; default -> true; }; }
+    public boolean active() { return Neon.MODULE_BINDINGS.active(this); }
     public static ClientModule named(String label) {
         for (var module : values()) if (module.label.equals(label)) return module;
         return null;
@@ -23,6 +29,7 @@ public enum ClientModule {
             case TOTEM_POPS -> Neon.totemPops; case AUTOCLICKER -> Neon.autoclicker;
             case BETTER_CHAT -> Neon.betterChat;
             case BETTER_SCREENSHOT -> Neon.betterScreenshot;
+            default -> Neon.extraBindings.get(this);
         };
     }
     public boolean enabled(NeonConfig c) {
@@ -31,6 +38,7 @@ public enum ClientModule {
             case TOTEM_POPS -> c.totemPopsEnabled; case AUTOCLICKER -> c.clickerEnabled;
             case BETTER_CHAT -> c.betterChat.enabled;
             case BETTER_SCREENSHOT -> c.betterScreenshot.enabled;
+            default -> c.module(this).enabled;
         };
     }
     public void enabled(NeonConfig c, boolean value) {
@@ -40,6 +48,7 @@ public enum ClientModule {
             case AUTOCLICKER -> c.clickerEnabled = value;
             case BETTER_CHAT -> c.betterChat.enabled = value;
             case BETTER_SCREENSHOT -> c.betterScreenshot.enabled = value;
+            default -> c.module(this).enabled = value;
         }
     }
     public BindMode mode(NeonConfig c) {
@@ -48,6 +57,7 @@ public enum ClientModule {
             case TOTEM_POPS -> c.totemPopsMode; case AUTOCLICKER -> c.clickerMode();
             case BETTER_CHAT -> c.betterChat.mode;
             case BETTER_SCREENSHOT -> c.betterScreenshot.mode;
+            default -> c.module(this).mode;
         };
     }
     public void mode(NeonConfig c, BindMode value) {
@@ -59,6 +69,7 @@ public enum ClientModule {
             case AUTOCLICKER -> { c.clickerMode = value; c.toggleClicker = value == BindMode.TOGGLE; }
             case BETTER_CHAT -> c.betterChat.mode = value;
             case BETTER_SCREENSHOT -> c.betterScreenshot.mode = value;
+            default -> c.module(this).mode = value;
         }
     }
 }

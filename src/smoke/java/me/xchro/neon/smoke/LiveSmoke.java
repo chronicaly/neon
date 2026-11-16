@@ -55,6 +55,8 @@ public final class LiveSmoke implements ClientModInitializer {
     private HoverGlowSmoke hoverGlow;
     private PremiumSmoke premium;
     private ReleaseSmoke release;
+    private ExpansionSmoke expansion;
+    private ModulesSmoke modules;
     private InteractionSmoke interactions;
     private FpsHudSmoke fpsHud;
     private TotemPopSmoke totemPops;
@@ -108,7 +110,7 @@ public final class LiveSmoke implements ClientModInitializer {
         mc = client; tick++;
         if (failed) return;
         try {
-            if (tick > 6000) throw new AssertionError("Timed out at stage " + stage + ", screen=" + mc.gui.screen());
+            if (tick > (Boolean.getBoolean("neon.smoke.releaseOnly")?18000:6000)) throw new AssertionError("Timed out at stage " + stage + ", screen=" + mc.gui.screen());
             if ((mc.player == null || mc.level == null) && motion == null) return;
             if (!initialized) {
                 initialized = true; stageTick = tick;
@@ -146,6 +148,8 @@ public final class LiveSmoke implements ClientModInitializer {
                 case 0 -> {
                     if (age < 80) return;
                     if(Boolean.getBoolean("neon.smoke.releaseOnly")){release=new ReleaseSmoke(mc,checks);stage=73;stageTick=tick;return;}
+                    if(Boolean.getBoolean("neon.smoke.expansionOnly")){expansion=new ExpansionSmoke(mc,checks);stage=74;stageTick=tick;return;}
+                    if(Boolean.getBoolean("neon.smoke.modulesOnly")){modules=new ModulesSmoke(mc,checks);stage=75;stageTick=tick;return;}
                     if(System.getProperty("neon.smoke.pageIndex")!=null){pages=new PageLayoutSmoke(mc,checks);stage=72;stageTick=tick;return;}
                     if(Boolean.getBoolean("neon.smoke.premiumOnly")){premium=new PremiumSmoke(mc,checks);stage=71;stageTick=tick;return;}
                     if(Boolean.getBoolean("neon.smoke.hoverOnly")){hoverGlow=new HoverGlowSmoke(mc,checks);stage=70;stageTick=tick;return;}
@@ -689,6 +693,16 @@ public final class LiveSmoke implements ClientModInitializer {
                     checks=hoverGlow.checks();
                     Files.writeString(mc.gameDirectory.toPath().resolve("neon-verification.txt"),"PASS "+checks+" button-hover GPU and layout checks\n");
                     stage=50;stageTick=tick;
+                }
+                case 74 -> {
+                    if(!expansion.run())return;
+                    checks=expansion.checks();
+                    Files.writeString(mc.gameDirectory.toPath().resolve("neon-verification.txt"),"PASS "+checks+" client expansion checks\n");
+                    stage=50;stageTick=tick;
+                }
+                case 75 -> {
+                    if(!modules.run())return;checks=modules.checks();
+                    Files.writeString(mc.gameDirectory.toPath().resolve("neon-verification.txt"),"PASS "+checks+" module expansion checks\n");stage=50;stageTick=tick;
                 }
                 case 63 -> {
                     if (!betterScreenshot.run()) return;

@@ -172,6 +172,61 @@ public final class SettingsScreen extends PixelScreen {
     private void controls() {
         var c = Neon.config;
         switch (module) {
+            case "Toggle sprint" -> toggle("Resume after menus",()->c.sprintResume,v->c.sprintResume=v);
+            case "Toggle sneak" -> toggle("Resume after menus",()->c.sneakResume,v->c.sneakResume=v);
+            case "Dynamic FOV" -> slider("Effect strength",c.fovEffectStrength*100,0,100,1,"%",v->c.fovEffectStrength=v/100);
+            case "Hurt camera" -> slider("Tilt strength",c.hurtCameraStrength*100,0,100,1,"%",v->c.hurtCameraStrength=v/100);
+            case "View bobbing" -> slider("Bob strength",c.viewBobbingStrength*100,0,100,1,"%",v->c.viewBobbingStrength=v/100);
+            case "Low fire" -> slider("Lowering",c.fireLowering*100,0,80,1,"%",v->c.fireLowering=v/100);
+            case "Fullbright" -> slider("Strength",c.fullbrightStrength*100,0,100,1,"%",v->c.fullbrightStrength=v/100);
+            case "Block outline" -> {
+                slider("Width",c.blockOutlineWidth,1,5,.25,"px",v->c.blockOutlineWidth=v);
+                color("Outline color",c::blockOutlineColor,(v,rgb)->c.blockOutlineColor=v,null);
+                if(colorPicker!=null&&expandedColor.equals("Outline color"))colorPicker.sync(()->c.blockOutlineColor==null,()->c.blockOutlineColor=null);
+            }
+            case "Clean view" -> {
+                toggle("Hide pumpkin",()->c.hidePumpkin,v->c.hidePumpkin=v);
+                toggle("Hide portal",()->c.hidePortal,v->c.hidePortal=v);
+                toggle("Hide vignette",()->c.hideVignette,v->c.hideVignette=v);
+            }
+            case "Weather" -> {
+                segments("Precipitation",new String[]{"Clear","Rain"},()->c.weather.ordinal(),v->c.weather=NeonConfig.Weather.values()[v]);
+                enabled(slider("Intensity",c.weatherIntensity*100,0,100,1,"%",v->c.weatherIntensity=v/100),()->c.weather==NeonConfig.Weather.RAIN);
+            }
+            case "Time changer" -> {
+                var time=new ExactSlider(this,session,"Time",controlWidth(),Math.floorMod(c.visualTime+6000,24000)/1000.0,0,23.75,.25,
+                    n->String.format(Locale.ROOT,"%02d:%02d",(int)n,(int)Math.round((n%1)*60)),v->c.visualTime=Math.floorMod((int)Math.round(v*1000)+18000,24000));
+                rows.addChild(time.compactRow());controlResize(time::setWidth);
+            }
+            case "Enchant glint" -> {
+                slider("Strength",c.glintStrength*100,0,100,1,"%",v->c.glintStrength=v/100);
+                slider("Speed",c.glintSpeed*100,0,100,1,"%",v->c.glintSpeed=v/100);
+            }
+            case "Hit color" -> {
+                slider("Strength",c.hitColorStrength*100,0,100,1,"%",v->c.hitColorStrength=v/100);
+                color("Tint color",c::hitColor,(v,rgb)->c.hitColor=v,null);
+                if(colorPicker!=null&&expandedColor.equals("Tint color"))colorPicker.sync(()->c.hitColor==null,()->c.hitColor=null);
+            }
+            case "Viewmodel" -> {
+                var hand=c.viewmodel;
+                slider("Horizontal",hand.horizontal,-1,1,.05,"",v->hand.horizontal=v);
+                slider("Vertical",hand.vertical,-1,1,.05,"",v->hand.vertical=v);
+                slider("Depth",hand.depth,-1,1,.05,"",v->hand.depth=v);
+                slider("Scale",hand.scale,.5,1.5,.05,"x",v->hand.scale=v);
+                toggle("Include offhand",()->hand.offhand,v->hand.offhand=v);
+            }
+            case "Crosshair" -> {
+                var cross=c.crosshair;
+                segments("Shape",new String[]{"Cross","T","Dot","Square"},()->cross.shape.ordinal(),v->cross.shape=me.xchro.neon.core.CrosshairRaster.Shape.values()[v]);
+                enabled(slider("Length",cross.length,1,20,.25,"px",v->cross.length=v),()->cross.shape!=me.xchro.neon.core.CrosshairRaster.Shape.DOT);
+                enabled(slider("Gap",cross.gap,0,20,.25,"px",v->cross.gap=v),()->cross.shape!=me.xchro.neon.core.CrosshairRaster.Shape.DOT);
+                slider("Thickness",cross.thickness,.5,6,.25,"px",v->cross.thickness=v);
+                toggle("Center dot",()->cross.dot,v->cross.dot=v);
+                toggle("Dark outline",()->cross.outline,v->cross.outline=v);
+                enabled(slider("Outline width",cross.outlineWidth,.25,2,.25,"px",v->cross.outlineWidth=v),()->cross.outline);
+                color("Reticle color",()->cross.color(c.theme),(v,rgb)->cross.color=v,null);
+                if(colorPicker!=null&&expandedColor.equals("Reticle color"))colorPicker.sync(()->cross.color==null,()->cross.color=null);
+            }
             case "Freelook" -> slider("Distance", c.freelookDistance, 1, 16, .5, " blocks", v -> c.freelookDistance = v);
             case "Totem pops" -> slider("Red at", c.totemPopsRedAt, 2, 20, 1, " pops", v -> c.totemPopsRedAt = (int) v);
             case "Better screenshot" -> toggle("Notify", () -> c.betterScreenshot.notify, v -> c.betterScreenshot.notify = v);

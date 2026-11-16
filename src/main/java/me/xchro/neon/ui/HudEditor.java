@@ -23,8 +23,8 @@ import org.lwjgl.glfw.GLFW;
 
 /** Unity HudEditorScreen's root/group/bool/range row model, adapted to Neon's widgets and renderer. */
 public final class HudEditor extends PixelScreen {
-    private enum Element { ARMOR, TOTEMS, FPS }
-    private static final int COLLAPSED_HEIGHT = 23 + (Element.values().length + 1) * 22;
+    private enum Element { ARMOR, TOTEMS, FPS, COORDINATES, COMPASS, PING, SPEED, CPS, KEYSTROKES, POTIONS, INVENTORY, HELD_ITEM, CLOCK, SESSION, BIOME, LIGHT, PACKS, SERVER, MOVEMENT, WORLD_TIME, ITEM_COUNTER, SCOREBOARD, MEMORY }
+    private static final int COLLAPSED_HEIGHT = 23 + Math.min(7,Element.values().length + 1) * 22;
     private enum Gesture { NONE, MOVE, RESIZE, PANEL }
     private final Screen parent;
     private final SettingsSession session;
@@ -38,6 +38,8 @@ public final class HudEditor extends PixelScreen {
     private record Row(String key, String label, int depth, Object value, Runnable left, Runnable right) {}
     private record Range(double value, double min, double max, double step, DoubleConsumer setter) {}
     private UiScroll column;
+    private double columnPosition;
+    private boolean initialFocusSet;
     private Element selected = Element.ARMOR;
     private Gesture gesture = Gesture.NONE;
     private boolean toolbar = true, damagePreview;
@@ -65,6 +67,10 @@ public final class HudEditor extends PixelScreen {
         placement = loaded;
     }
     public boolean damagePreview() { return damagePreview; }
+    @Override protected void setInitialFocus() {
+        // Screen rebuilds otherwise select the first row and reveal it after restoring scroll.
+        if (!initialFocusSet) { initialFocusSet = true; super.setInitialFocus(); }
+    }
     public boolean controlsVisible() { return toolbar && gesture != Gesture.MOVE && gesture != Gesture.RESIZE; }
     public ScreenRectangle inspectorBounds() { return new ScreenRectangle(shellX, shellY, shellWidth, shellHeight); }
     // Unity's panel starts at 157/255 alpha. Keep row overlays translucent too:
@@ -72,7 +78,8 @@ public final class HudEditor extends PixelScreen {
     static int surface(int color, int alpha) { return Ui.alpha(color, (color >>> 24) * alpha / 255); }
     private NeonConfig.Widget widget() { return widget(selected); }
     private NeonConfig.Widget widget(Element element) {
-        return switch (element) { case ARMOR -> Neon.config.armor; case TOTEMS -> Neon.config.totems; case FPS -> Neon.config.fps; };
+        return switch (element) { case ARMOR -> Neon.config.armor; case TOTEMS -> Neon.config.totems; case FPS -> Neon.config.fps;
+            default -> Neon.config.hud(HudKind.valueOf(element.name())).placement; };
     }
     private boolean visible(Element element) { return widget(element).visible; }
     private int hudWidth() { return Math.min(width * pixelScale(), minecraft.getWindow().getWidth()); }
@@ -82,6 +89,7 @@ public final class HudEditor extends PixelScreen {
             case ARMOR -> NeonHud.pixelBounds(hudWidth(), hudHeight(), true);
             case TOTEMS -> NeonHud.totemPixelBounds(hudWidth(), hudHeight());
             case FPS -> FpsHud.bounds(hudWidth(), hudHeight());
+            default -> HudWidgets.get(HudKind.valueOf(element.name())).bounds(hudWidth(),hudHeight(),true);
         };
     }
     private double hudCoordinate(double canvas) { return canvas * UI_SCALE; }
@@ -107,7 +115,7 @@ public final class HudEditor extends PixelScreen {
     private List<Row> makeRows() {
         List<Row> out = new ArrayList<>(); var c = Neon.config;
         for (Element e : Element.values()) {
-            root(out, e, switch (e) { case ARMOR -> "Armor"; case TOTEMS -> "Totems"; case FPS -> "FPS"; });
+            root(out, e, switch (e) { case ARMOR -> "Armor"; case TOTEMS -> "Totems"; case FPS -> "FPS"; default -> HudKind.valueOf(e.name()).label; });
             var widget = widget(e);
             if (e != Element.TOTEMS || c.totemFloating)
                 range(out, e + ":Scale", "Scale", 1, widget.scale, .5, 3, .05,
@@ -124,17 +132,63 @@ public final class HudEditor extends PixelScreen {
                 choice(out, "totems:mode", "Mode", c.totemFloating ? "Floating" : "Offhand", () -> {
                     selected = Element.TOTEMS; if (c.totemFloating) c.totemFloating = false; else detachTotem();
                 });
-            } else {
+            } else if(e == Element.FPS) {
                 bool(out, "fps:smooth", "Smooth FPS", 1, c.fpsAnimation, () -> c.fpsAnimation = !c.fpsAnimation);
                 bool(out, "fps:background", "Background", 1, c.fpsBackground, () -> c.fpsBackground = !c.fpsBackground);
                 bool(out, "fps:border", "Border", 1, c.fpsBorder, () -> c.fpsBorder = !c.fpsBorder);
                 bool(out, "fps:shadow", "Shadow", 1, c.fpsShadow, () -> c.fpsShadow = !c.fpsShadow);
                 for (FpsColor role : FpsColor.values()) out.add(new Row("fps:"+role.name(),role.label,1,role,null,null));
+            } else {
+                var appearance=c.hud(HudKind.valueOf(e.name()));
+                bool(out,e+":background","Background",1,appearance.background,()->appearance.background=!appearance.background);
+                bool(out,e+":border","Border",1,appearance.border,()->appearance.border=!appearance.border);
+                bool(out,e+":shadow","Shadow",1,appearance.shadow,()->appearance.shadow=!appearance.shadow);
+                if(e==Element.COORDINATES) {
+                    bool(out,e+":dimension","Dimension",1,c.coordinatesDimension,()->c.coordinatesDimension=!c.coordinatesDimension);
+                    bool(out,e+":conversion","Nether conversion",1,c.coordinatesConversion,()->c.coordinatesConversion=!c.coordinatesConversion);
+                }
+                if(e==Element.COMPASS) bool(out,e+":degrees","Degrees",1,c.compassDegrees,()->c.compassDegrees=!c.compassDegrees);
+                if(e==Element.KEYSTROKES) {
+                    bool(out,e+":mouse","Mouse buttons",1,c.keystrokesMouse,()->c.keystrokesMouse=!c.keystrokesMouse);
+                    bool(out,e+":jump","Jump key",1,c.keystrokesJump,()->c.keystrokesJump=!c.keystrokesJump);
+                }
+                if(e==Element.POTIONS) range(out,e+":rows","Maximum rows",1,c.potionMaxRows,1,12,1,v->c.potionMaxRows=(int)v);
+                if(e==Element.LIGHT) bool(out,e+":sky","Skylight",1,c.lightSky,()->c.lightSky=!c.lightSky);
+                if(e==Element.WORLD_TIME) bool(out,e+":day","Day count",1,c.worldTimeDay,()->c.worldTimeDay=!c.worldTimeDay);
+                if(e==Element.ITEM_COUNTER) {
+                    choice(out,e+":item","Item",c.counterItem.label,()->c.counterItem=NeonConfig.CounterItem.values()[(c.counterItem.ordinal()+1)%NeonConfig.CounterItem.values().length]);
+                    bool(out,e+":offhand","Include offhand",1,c.counterOffhand,()->c.counterOffhand=!c.counterOffhand);
+                }
+                if(e==Element.SCOREBOARD) {
+                    bool(out,e+":title","Title",1,c.scoreboardTitle,()->c.scoreboardTitle=!c.scoreboardTitle);
+                    bool(out,e+":scores","Scores",1,c.scoreboardScores,()->c.scoreboardScores=!c.scoreboardScores);
+                    range(out,e+":rows","Maximum rows",1,c.scoreboardRows,1,15,1,v->c.scoreboardRows=(int)v);
+                }
+                if(e==Element.PACKS) range(out,e+":rows","Maximum rows",1,c.packMaxRows,1,5,1,v->c.packMaxRows=(int)v);
+                if(e==Element.SERVER) {
+                    bool(out,e+":address","Address",1,c.serverAddress,()->c.serverAddress=!c.serverAddress);
+                    bool(out,e+":players","Player count",1,c.serverPlayers,()->c.serverPlayers=!c.serverPlayers);
+                }
+                if(e==Element.INVENTORY) {
+                    bool(out,e+":slots","Slot backgrounds",1,c.inventorySlots,()->c.inventorySlots=!c.inventorySlots);
+                    bool(out,e+":hotbar","Include hotbar",1,c.inventoryHotbar,()->c.inventoryHotbar=!c.inventoryHotbar);
+                }
+                if(e==Element.HELD_ITEM) {
+                    bool(out,e+":offhand","Include offhand",1,c.heldItemOffhand,()->c.heldItemOffhand=!c.heldItemOffhand);
+                    bool(out,e+":percent","Percentage",1,c.heldItemPercent,()->c.heldItemPercent=!c.heldItemPercent);
+                }
+                if(e==Element.CLOCK) {
+                    bool(out,e+":hours","24-hour time",1,c.clock24Hour,()->c.clock24Hour=!c.clock24Hour);
+                    bool(out,e+":seconds","Seconds",1,c.clockSeconds,()->c.clockSeconds=!c.clockSeconds);
+                }
             }
         }
         group(out, "general", "General", 0);
         {
             range(out, "general:scale", "HUD scale", 1, c.hudScale, .5, 2, .05, v -> c.hudScale = v);
+            choice(out,"general:font","Font",c.hudFont==NeonConfig.HudFont.INTER?"Inter":"Minecraft",()->c.hudFont=c.hudFont==NeonConfig.HudFont.INTER?NeonConfig.HudFont.MINECRAFT:NeonConfig.HudFont.INTER);
+            bool(out, "general:panels", "Neon panels", 1, c.hudNeonPanels, () -> c.hudNeonPanels = !c.hudNeonPanels);
+            bool(out, "general:outline", "Animated outline", 1, c.hudAnimatedOutline, () -> c.hudAnimatedOutline = !c.hudAnimatedOutline);
             bool(out, "general:guides", "Guides", 1, c.editorGuides, () -> c.editorGuides = !c.editorGuides);
             bool(out, "general:snap", "Snap", 1, c.editorSnap, () -> c.editorSnap = !c.editorSnap);
             range(out, "general:sensitivity", "Snap sensitivity", 1, c.snapSensitivity, 1, 24, 1, v -> c.snapSensitivity = (int) v);
@@ -142,9 +196,10 @@ public final class HudEditor extends PixelScreen {
         return out;
     }
     @Override protected void init() {
+        HudWidgets.invalidate();
         finishPointerGesture();
         WidgetMemory memory = new WidgetMemory(column);
-        double position = column == null ? 0 : column.scrollAmount(); column = null;
+        double position = column == null ? columnPosition : column.scrollAmount(); columnPosition=position; column = null;
         session.end(); gesture = Gesture.NONE; resizeGesture = null; refreshers.clear(); inspector.clear(); guideX = guideY = -1;
         if (!toolbar) return;
         pw = Math.min(188, canvasWidth() - 16);
@@ -169,7 +224,7 @@ public final class HudEditor extends PixelScreen {
             }
         }
         rows.arrangeElements();
-        ph = Math.min(23 + rows.getHeight(), canvasHeight() - py - 8);
+        ph = Math.min(23 + rows.getHeight(), Math.min(300,canvasHeight() - py - 8));
         column = addInspector(new UiScroll(px + 1, py + 22, pw - 2, Math.max(22, ph - 23), rows));
         if (animateRows) column.restorePosition(position); else column.setScrollAmount(position);
         memory.restore(column, false); animateRows = false;
@@ -193,7 +248,7 @@ public final class HudEditor extends PixelScreen {
     private void layoutColumn() {
         if (column == null) return;
         column.relayout();
-        ph = Math.min(23 + column.contentHeight(), canvasHeight() - py - 8);
+        ph = Math.min(23 + column.contentHeight(), Math.min(300,canvasHeight() - py - 8));
         column.setHeight(Math.max(22, ph - 23));
         column.relayout();
         layoutColor();

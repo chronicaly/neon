@@ -7,7 +7,8 @@ import me.xchro.neon.module.ClientModule;
 import net.minecraft.client.Minecraft;
 
 public final class ModuleBindings {
-    private static final ClientModule[] PASSIVE = { ClientModule.MOTION_BLUR, ClientModule.TOTEM_POPS, ClientModule.BETTER_CHAT, ClientModule.BETTER_SCREENSHOT };
+    private static final ClientModule[] PASSIVE = java.util.Arrays.stream(ClientModule.values())
+        .filter(module->module!=ClientModule.FREELOOK&&module!=ClientModule.ZOOM&&module!=ClientModule.AUTOCLICKER).toArray(ClientModule[]::new);
     private final EnumMap<ClientModule, VisibilityBinding> states = new EnumMap<>(ClientModule.class);
     private final EnumMap<ClientModule, Boolean> active = new EnumMap<>(ClientModule.class);
     private final EnumMap<ClientModule, String> keys = new EnumMap<>(ClientModule.class);

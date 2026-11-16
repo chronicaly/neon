@@ -1,5 +1,15 @@
 # Neon design language
 
+## Client expansion — 16 November 2026
+
+The user's follow-up rejects the first expansion's crosshair alignment and HUD typography. Adapt Unity's actual fixes: symmetric coverage around odd/even framebuffer centers, fractional thin strokes, physical font measurement, snapped bitmap origins and correctly layered pixel-offset shadows. Information widgets and FPS default to native-resolution Inter; General offers Minecraft text for resource-pack users, quantizing bitmap text size to whole display pixels while retaining the precise saved scale. Keep native item models/decorations. Preserve scoreboard colors and styles. Compact text panels fit measured content with consistent leading and padding; keystrokes stay readable at rest. This direction supersedes the earlier mandatory Minecraft-font-only FPS wording.
+
+The user's request for a comprehensive client HUD supersedes the earlier Armor/Totems/FPS-only scope. Add useful everyday information in the existing expandable HUD column, keeping individual visibility, direct canvas movement, invisible-corner resizing, per-gesture Undo, profiles and smooth scrolling. New elements start disabled. Keep the three menu categories and the direct HUD editor action.
+
+Armor slot frames now use one shared graphite Neon plate by default; native item models, durability decorations and placement are unchanged. Floating totems use the same plate while attached totems remain on the actual offhand slot. General offers Neon panels and Animated outline. The animation uses the menu's continuous physical-pixel cyan/violet edge with localized traveling bloom. FPS retains its independent Background/Border choices and four color overrides. The HUD editor column itself keeps its static quiet border.
+
+New information widgets use the same sharp surface, thin border, saved palette/alpha and independent HUD scale. Their Background, Border and Shadow settings are local. Use real available client data, represent missing data honestly, retain the active Minecraft font and native item rendering, and show representative empty-state samples only in the editor. Poll changing text at game-tick speed; wall clocks and session timers use their own monotonic/wall-clock cadence. Physical CPS excludes synthetic actions and menu clicks.
+
 ## Premium interaction contract
 
 Scroll edges softly dissolve the final twelve logical units of a partially visible row. Fully visible controls keep their normal alpha. This is content-only feedback: no scrollbar, overlay surface, new input target, or change to wheel motion and immediate keyboard focus reveal.

@@ -10,6 +10,11 @@ import com.llamalad7.mixinextras.injector.wrapoperation.*;
 
 @Mixin(MouseHandler.class)
 public abstract class MouseMixin {
+    @Inject(method = "onButton", at = @At("HEAD"))
+    private void neon$physicalClick(long window, net.minecraft.client.input.MouseButtonInfo button, int action, CallbackInfo ci) {
+        if(window==Minecraft.getInstance().getWindow().handle() && action==org.lwjgl.glfw.GLFW.GLFW_PRESS)
+            me.xchro.neon.input.InputTelemetry.press(button.button());
+    }
     @WrapOperation(method = "turnPlayer", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/player/LocalPlayer;turn(DD)V"))
     private void neon$turn(LocalPlayer player, double dx, double dy, Operation<Void> original) {
         Neon.CAMERA.frame(Minecraft.getInstance());

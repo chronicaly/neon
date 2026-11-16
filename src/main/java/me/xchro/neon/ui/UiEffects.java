@@ -20,7 +20,9 @@ import org.joml.Vector2f;
 final class UiEffects {
     private static DynamicTexture glow;
     private static DynamicTexture buttonBloom;
-    private static Geometry geometry;
+    private static final java.util.Map<Long, Geometry> geometries = new java.util.LinkedHashMap<>(64, .75f, true) {
+        @Override protected boolean removeEldestEntry(java.util.Map.Entry<Long, Geometry> entry) { return size() > 64; }
+    };
     private static final int[] CORNER_ALPHA = cornerAlpha();
     private static int[] cornerAlpha() {
         int[] result = new int[25];
@@ -111,19 +113,24 @@ final class UiEffects {
         outline(g,x,y,w,h,null);
     }
     static void outline(GuiGraphicsExtractor g,float x,float y,float w,float h,me.xchro.neon.core.OutlineTravel travel) {
+        outline(g,x,y,w,h,travel,Ui.OUTLINE,Ui.VIOLET,Ui.opacity);
+    }
+    static void outline(GuiGraphicsExtractor g,float x,float y,float w,float h,me.xchro.neon.core.OutlineTravel travel,int primary,int secondary,float opacity) {
         int scale = Math.max(1, Minecraft.getInstance().getWindow().getGuiScale());
         var start = g.pose().transformPosition(x, y, new Vector2f());
         var end = g.pose().transformPosition(x + w, y + h, new Vector2f());
         int left = Math.round(start.x * scale), top = Math.round(start.y * scale);
         int width = Math.round(end.x * scale) - left, height = Math.round(end.y * scale) - top;
+        if (width <= 0 || height <= 0) return;
         double phase=travel==null?(System.nanoTime()/1e9*me.xchro.neon.core.OutlineTravel.SPEED)%(2.0*(width+height)):
             travel.update(left,top,width,height,System.nanoTime());
         var pose = new Matrix3x2f().scale(1f / scale);
         var bounds = new ScreenRectangle(left-8, top-8, width+16, height+16).transformMaxBounds(pose);
         var scissor = g.scissorStack.peek();
         if (scissor != null) bounds = bounds.intersection(scissor);
-        if (geometry == null || geometry.w != width || geometry.h != height) geometry = new Geometry(width, height);
-        if (bounds != null) g.guiRenderState.addGuiElement(new Border(pose, left, top, width, height, phase, Ui.opacity, Ui.OUTLINE, Ui.VIOLET, geometry, scissor, bounds));
+        long key = ((long)width << 32) | (height & 0xffffffffL);
+        Geometry geometry = geometries.computeIfAbsent(key, ignored -> new Geometry(width, height));
+        if (bounds != null) g.guiRenderState.addGuiElement(new Border(pose, left, top, width, height, phase, opacity, primary, secondary, geometry, scissor, bounds));
     }
     static void stroke(GuiGraphicsExtractor g,int x,int y,int w,int h,int color){
         stroke(g,x,y,w,h,color,color);

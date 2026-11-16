@@ -7,6 +7,49 @@ public final class NeonConfig {
     public Theme theme = new Theme();
     public BetterChat betterChat = new BetterChat();
     public BetterScreenshot betterScreenshot = new BetterScreenshot();
+    public java.util.Map<me.xchro.neon.module.ClientModule, ModuleSettings> modules = new java.util.EnumMap<>(me.xchro.neon.module.ClientModule.class);
+    public static final class ModuleSettings {
+        public boolean enabled;
+        public BindMode mode = BindMode.TOGGLE;
+    }
+    public ModuleSettings module(me.xchro.neon.module.ClientModule kind) { return modules.computeIfAbsent(kind,key->new ModuleSettings()); }
+    public Crosshair crosshair = new Crosshair();
+    public enum HudFont { INTER, MINECRAFT }
+    public HudFont hudFont=HudFont.INTER;
+    public boolean sprintResume, sneakResume;
+    public double fovEffectStrength, hurtCameraStrength;
+    public double viewBobbingStrength=.3;
+    public double fireLowering=.4;
+    public double glintStrength=.6, glintSpeed=.35;
+    public Integer hitColor;
+    public double hitColorStrength=.3;
+    public int visualTime=6000;
+    public enum Weather { CLEAR, RAIN }
+    public Weather weather=Weather.CLEAR;
+    public double weatherIntensity=.6;
+    public double fullbrightStrength=1;
+    public boolean hidePumpkin=true, hidePortal=true, hideVignette=true;
+    public Integer blockOutlineColor;
+    public double blockOutlineWidth=2;
+    public int blockOutlineColor() { return blockOutlineColor==null?theme.color(ThemeColor.ACCENT):blockOutlineColor; }
+    public int hitColor() { return hitColor==null?theme.color(ThemeColor.ACCENT):hitColor; }
+    public Viewmodel viewmodel=new Viewmodel();
+    public static final class Viewmodel {
+        public double horizontal, vertical=-.12, depth, scale=1;
+        public boolean offhand=true;
+        void sanitize() { horizontal=finite(horizontal,0,-1,1);vertical=finite(vertical,-.12,-1,1);depth=finite(depth,0,-1,1);scale=finite(scale,1,.5,1.5); }
+    }
+    public static final class Crosshair {
+        public me.xchro.neon.core.CrosshairRaster.Shape shape=me.xchro.neon.core.CrosshairRaster.Shape.CROSS;
+        public double length=6, gap=3, thickness=1, outlineWidth=.5;
+        public boolean dot, outline=true;
+        public Integer color;
+        public int color(Theme theme) { return color==null?theme.color(ThemeColor.ACCENT):color; }
+        void sanitize() {
+            if(shape==null)shape=me.xchro.neon.core.CrosshairRaster.Shape.CROSS;
+            length=finite(length,6,1,20);gap=finite(gap,3,0,20);thickness=finite(thickness,1,.5,6);outlineWidth=finite(outlineWidth,.5,.25,2);
+        }
+    }
     public static final class BetterScreenshot {
         public boolean enabled, notify = true;
         public BindMode mode = BindMode.TOGGLE;
@@ -113,6 +156,39 @@ public final class NeonConfig {
     public ArmorAnchor armorAnchor = ArmorAnchor.HOTBAR_LEFT;
     public boolean editorGuides = true, editorSnap = false;
     public double hudScale = 1;
+    public boolean hudNeonPanels = true, hudAnimatedOutline = true;
+    public boolean coordinatesDimension = true, coordinatesConversion;
+    public boolean compassDegrees = true;
+    public boolean keystrokesMouse = true, keystrokesJump = true;
+    public int potionMaxRows = 8;
+    public boolean inventoryHotbar, inventorySlots = true;
+    public boolean heldItemOffhand = true, heldItemPercent;
+    public boolean clock24Hour = true, clockSeconds;
+    public boolean worldTimeDay=true;
+    public enum CounterItem {
+        HELD("Held item"), PEARLS("Pearls"), ARROWS("Arrows"), ROCKETS("Rockets"), GOLDEN_APPLES("Golden apples"),
+        ENCHANTED_APPLES("Enchanted apples"), EXPERIENCE("Experience bottles"), OBSIDIAN("Obsidian"), DIAMONDS("Diamonds");
+        public final String label;
+        CounterItem(String label) { this.label=label; }
+    }
+    public CounterItem counterItem=CounterItem.PEARLS;
+    public boolean counterOffhand=true;
+    public boolean scoreboardTitle=true, scoreboardScores=true;
+    public int scoreboardRows=15;
+    public boolean lightSky = true;
+    public int packMaxRows = 3;
+    public boolean serverAddress, serverPlayers = true;
+    public java.util.Map<me.xchro.neon.hud.HudKind, HudWidget> hudWidgets = new java.util.EnumMap<>(me.xchro.neon.hud.HudKind.class);
+    public static final class HudWidget {
+        public Widget placement = new Widget(.02,.2);
+        public boolean background = true, border = true, shadow;
+        public HudWidget() { placement.visible = false; }
+    }
+    public HudWidget hud(me.xchro.neon.hud.HudKind kind) {
+        return hudWidgets.computeIfAbsent(kind, key -> {
+            var value=new HudWidget(); value.placement.x=key.x; value.placement.y=key.y; return value;
+        });
+    }
     public int snapSensitivity = 10;
     public enum ArmorAnchor {
         CUSTOM("Custom"), TOP_LEFT("Top left"), TOP_CENTER("Top center"), TOP_RIGHT("Top right"),
@@ -140,7 +216,19 @@ public final class NeonConfig {
         leftClick = true;
         leftIntervalTicks = rightIntervalTicks = 0; leftAction = LeftAction.CLICK;
     }
-    public void resetHud() { resetArmor(); totems = new Widget(1, 1); fps = new Widget(1, 1); fpsColors.clear(); fpsAnimation = fpsBackground = fpsBorder = false; fpsShadow = true; totemFloating = false; editorGuides = true; editorSnap = false; hudScale=1;snapSensitivity=10; }
+    public void resetHud() {
+        hudFont=HudFont.INTER;
+        resetArmor(); totems = new Widget(1, 1); fps = new Widget(1, 1); fpsColors.clear();
+        fpsAnimation = fpsBackground = fpsBorder = false; fpsShadow = true; totemFloating = false;
+        editorGuides = true; editorSnap = false; hudScale=1;snapSensitivity=10; hudWidgets.clear();
+        hudNeonPanels=hudAnimatedOutline=coordinatesDimension=compassDegrees=true;
+        keystrokesMouse=keystrokesJump=inventorySlots=heldItemOffhand=clock24Hour=lightSky=serverPlayers=true;
+        coordinatesConversion=inventoryHotbar=heldItemPercent=clockSeconds=serverAddress=false;
+        potionMaxRows=8;packMaxRows=3;
+        worldTimeDay=true;
+        counterItem=CounterItem.PEARLS;counterOffhand=true;
+        scoreboardTitle=scoreboardScores=true;scoreboardRows=15;
+    }
     public static final class Widget {
         public boolean visible = true;
         public double x, y, scale = 1;
@@ -148,6 +236,7 @@ public final class NeonConfig {
         public void sanitize() { x = finite(x, 1, 0, 1); y = finite(y, 1, 0, 1); scale = finite(scale, 1, .5, 3); }
     }
     public void sanitize() {
+        if(hudFont==null)hudFont=HudFont.INTER;
         version = 2;
         if (theme == null) theme = new Theme();
         if (theme.effects == null) theme.effects = Effects.ADAPTIVE;
@@ -156,6 +245,23 @@ public final class NeonConfig {
         betterChat.sanitize();
         if (betterScreenshot == null) betterScreenshot = new BetterScreenshot();
         betterScreenshot.sanitize();
+        if(modules==null)modules=new java.util.EnumMap<>(me.xchro.neon.module.ClientModule.class);
+        modules.entrySet().removeIf(e->e.getKey()==null||e.getValue()==null||!e.getKey().extra());
+        for(var kind:me.xchro.neon.module.ClientModule.values())if(kind.extra()) {
+            var state=module(kind);if(state.mode==null)state.mode=BindMode.TOGGLE;
+        }
+        if(crosshair==null)crosshair=new Crosshair();crosshair.sanitize();
+        fovEffectStrength=finite(fovEffectStrength,0,0,1);
+        hurtCameraStrength=finite(hurtCameraStrength,0,0,1);
+        viewBobbingStrength=finite(viewBobbingStrength,.3,0,1);
+        fireLowering=finite(fireLowering,.4,0,.8);
+        glintStrength=finite(glintStrength,.6,0,1);glintSpeed=finite(glintSpeed,.35,0,1);
+        hitColorStrength=finite(hitColorStrength,.3,0,1);
+        visualTime=Math.floorMod(visualTime,24000);
+        if(weather==null)weather=Weather.CLEAR;weatherIntensity=finite(weatherIntensity,.6,0,1);
+        fullbrightStrength=finite(fullbrightStrength,1,0,1);
+        blockOutlineWidth=finite(blockOutlineWidth,2,1,5);
+        if(viewmodel==null)viewmodel=new Viewmodel();viewmodel.sanitize();
         if (freelookMode == null) freelookMode = BindMode.HOLD;
         if (motionBlurMode == null) motionBlurMode = BindMode.TOGGLE;
         if (totemPopsMode == null) totemPopsMode = BindMode.TOGGLE;
@@ -173,7 +279,18 @@ public final class NeonConfig {
         if (fpsColors == null) fpsColors = new java.util.EnumMap<>(FpsColor.class);
         fpsColors.entrySet().removeIf(entry -> entry.getKey() == null || entry.getValue() == null);
         armor.sanitize(); totems.sanitize(); fps.sanitize();
+        if (hudWidgets == null) hudWidgets = new java.util.EnumMap<>(me.xchro.neon.hud.HudKind.class);
+        hudWidgets.entrySet().removeIf(entry -> entry.getKey() == null || entry.getValue() == null);
+        for(var kind:me.xchro.neon.hud.HudKind.values()) {
+            var value=hud(kind);
+            if(value.placement==null) { value.placement=new Widget(kind.x,kind.y); value.placement.visible=false; }
+            value.placement.sanitize();
+        }
         armorGap = Math.clamp(armorGap, 0, 8); armorWarningPercent = Math.clamp(armorWarningPercent, 1, 30);
+        potionMaxRows = Math.clamp(potionMaxRows, 1, 12);
+        packMaxRows = Math.clamp(packMaxRows, 1, 5);
+        if(counterItem==null)counterItem=CounterItem.PEARLS;
+        scoreboardRows=Math.clamp(scoreboardRows,1,15);
         hudScale=finite(hudScale,1,.5,2);snapSensitivity=Math.clamp(snapSensitivity,1,24);
         if (armorAnchor == null) armorAnchor = ArmorAnchor.HOTBAR_LEFT;
     }

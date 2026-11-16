@@ -2,6 +2,10 @@ The current module grid and earlier interface revisions are documented below. Ea
 
 # Neon verification
 
+## Client expansion — 16 November 2026
+
+The 0.5.0 expansion adds fifteen modules and twenty HUD elements after improving the existing HUD. See [expansion-results.md](expansion-results.md) for the current packaged checks, screenshots, allocation/frame-time measurements and artifact identity. Earlier sections describe historical versions.
+
 ## Quality follow-up — 12 November 2026
 
 The latest work adds overflow polish, explicit rejected Paste feedback, measured allocation reductions, settings/profile recovery, an exact-JAR installation gate and expanded desktop/stability checks. See [quality-next-results.md](quality-next-results.md) for implementation, retained measurements, final verification and limitations. Earlier sections below describe their respective historical artifacts.

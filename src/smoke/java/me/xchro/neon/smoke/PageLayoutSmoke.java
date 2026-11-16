@@ -39,6 +39,10 @@ final class PageLayoutSmoke {
             views.add(new View("Settings", "Colors", true, false, color));
             views.add(new View("Settings", "Colors", true, true, color));
         }
+        for(String[] entry:new String[][]{{"Crosshair","Reticle color"},{"Hit color","Tint color"},{"Block outline","Outline color"}}) {
+            views.add(new View("Visuals",entry[0],true,false,entry[1]));
+            views.add(new View("Visuals",entry[0],true,true,entry[1]));
+        }
         index=Integer.getInteger("neon.smoke.pageIndex",0);setup();
     }
     int checks() { return checks; }

@@ -18,6 +18,8 @@ final class ReleaseSmoke {
     private BetterChatSmoke chat;
     private BetterScreenshotSmoke screenshot;
     private PageLayoutSmoke pages;
+    private ExpansionSmoke expansion;
+    private ModulesSmoke modules;
     ReleaseSmoke(Minecraft mc,int checks)throws Exception{
         this.mc=mc;this.checks=checks;
         production=Path.of(Neon.class.getProtectionDomain().getCodeSource().getLocation().toURI());
@@ -37,6 +39,8 @@ final class ReleaseSmoke {
             case 3->{if(chat==null)chat=new BetterChatSmoke(mc,checks);if(!chat.run())return false;checks=chat.checks();}
             case 4->{if(screenshot==null)screenshot=new BetterScreenshotSmoke(mc,checks);if(!screenshot.run())return false;checks=screenshot.checks();}
             case 5->{if(pages==null)pages=new PageLayoutSmoke(mc,checks);if(!pages.run())return false;checks=pages.checks();}
+            case 6->{if(expansion==null)expansion=new ExpansionSmoke(mc,checks);if(!expansion.run())return false;checks=expansion.checks();}
+            case 7->{if(modules==null)modules=new ModulesSmoke(mc,checks);if(!modules.run())return false;checks=modules.checks();}
             default->{
                 if(!hash(production).equals(productionHash)||!hash(verification).equals(verificationHash))throw new AssertionError("Loaded artifacts changed during verification");
                 var proof=new com.google.gson.JsonObject();proof.addProperty("schema",1);proof.addProperty("passed",true);proof.addProperty("suite","release");

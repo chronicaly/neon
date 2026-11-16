@@ -25,6 +25,7 @@ public final class Neon implements ClientModInitializer {
     public static final AutoClicker CLICKER = new AutoClicker();
     public static final me.xchro.neon.render.TotemPopCounter TOTEM_POPS = new me.xchro.neon.render.TotemPopCounter();
     public static KeyMapping settings, settingsAlternate, freelook, zoom, autoclicker, motionBlur, totemPops, betterChat, betterScreenshot;
+    public static final java.util.EnumMap<me.xchro.neon.module.ClientModule,KeyMapping> extraBindings = new java.util.EnumMap<>(me.xchro.neon.module.ClientModule.class);
     public static final me.xchro.neon.input.ModuleBindings MODULE_BINDINGS = new me.xchro.neon.input.ModuleBindings();
     private static ConfigStore store;
     public static ProfileStore profiles;
@@ -52,6 +53,8 @@ public final class Neon implements ClientModInitializer {
         totemPops = key("totem_pops", category, GLFW.GLFW_KEY_UNKNOWN);
         betterChat = key("better_chat", category, GLFW.GLFW_KEY_UNKNOWN);
         betterScreenshot = key("better_screenshot", category, GLFW.GLFW_KEY_UNKNOWN);
+        for(var module:me.xchro.neon.module.ClientModule.values())if(module.extra())
+            extraBindings.put(module,key(module.name().toLowerCase(java.util.Locale.ROOT),category,GLFW.GLFW_KEY_UNKNOWN));
         ClientTickEvents.START_CLIENT_TICK.register(mc -> {
             if(mc.player!=null&&!recoveryNotices.isEmpty())mc.gui.hud.getChat().addClientSystemMessage(
                 net.minecraft.network.chat.Component.literal("Neon: "+recoveryNotices.remove()));
@@ -62,6 +65,9 @@ public final class Neon implements ClientModInitializer {
             }
             CAMERA.checkContext(mc);
             MODULE_BINDINGS.tick(mc);
+            me.xchro.neon.input.MovementToggles.tick(mc);
+            me.xchro.neon.render.VisualTime.tick(mc);
+            me.xchro.neon.input.InputTelemetry.tick(mc);
             me.xchro.neon.chat.BetterChat.tick(mc);
             CLICKER.tick(mc);
             TOTEM_POPS.tick(mc.level);
@@ -69,8 +75,10 @@ public final class Neon implements ClientModInitializer {
         HudElementRegistry.addLast(Identifier.fromNamespaceAndPath("neon", "equipment"), (graphics, delta) -> NeonHud.draw(graphics, false));
         net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents.CLIENT_STARTED.register(mc -> {me.xchro.neon.ui.Ui.warmFonts();me.xchro.neon.ui.UiSounds.warm();});
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register((handler, mc) -> mc.execute(() -> {
+            me.xchro.neon.hud.HudWidgets.SESSION.disconnect();
             save(); SAVES.flush(); CAMERA.reset(mc, true); CLICKER.resetTiming(); MODULE_BINDINGS.reset(); TOTEM_POPS.clear(); MotionBlurRenderer.close();
         }));
+        net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.JOIN.register((handler,sender,mc) -> me.xchro.neon.hud.HudWidgets.SESSION.connect(System.nanoTime()));
         net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents.CLIENT_STOPPING.register(mc -> {
             save(); try { SAVES.close(); } catch (java.util.concurrent.CompletionException failure) { LOG.error("Final settings flush failed", failure); }
             me.xchro.neon.ui.Ui.releaseFonts();me.xchro.neon.ui.UiSounds.close(); MotionBlurRenderer.close();
@@ -95,6 +103,7 @@ public final class Neon implements ClientModInitializer {
         Minecraft mc = Minecraft.getInstance(); CAMERA.reset(mc, true);
         MotionBlurRenderer.resetHistory();
         config = ConfigStore.copy(settings);
+        me.xchro.neon.hud.HudWidgets.invalidate();
         MODULE_BINDINGS.reset();
         if (!config.clickerEnabled) CLICKER.cancel(mc);
         else CLICKER.resetTiming();

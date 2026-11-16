@@ -79,7 +79,7 @@ final class UiFont {
     static void beginHudFrame() {
         frame++;
         // Scale dragging may visit many font sizes. Retire old faces only before extraction.
-        while (HUD_FACES.size() > 4) {
+        while (HUD_FACES.size() > 24) {
             var oldest = HUD_FACES.entrySet().stream().min(Comparator.comparingLong(e -> e.getValue().lastUsed)).orElseThrow();
             oldest.getValue().pages.forEach(page -> page.texture.close()); HUD_FACES.remove(oldest.getKey());
         }
@@ -90,12 +90,20 @@ final class UiFont {
         }
     }
     private static Face hudFace(int pixels) {
-        Face face = HUD_FACES.computeIfAbsent(Math.clamp(pixels, 1, 96), size -> new Face(MEDIUM.deriveFont((float) size)));
+        return hudFace(pixels,false,false);
+    }
+    private static Face hudFace(int pixels,boolean bold,boolean italic) {
+        int size=Math.clamp(pixels,1,96),style=(bold?Font.BOLD:0)|(italic?Font.ITALIC:0);
+        Face face = HUD_FACES.computeIfAbsent(size*4+style, ignored -> new Face(MEDIUM.deriveFont(style,(float)size)));
         face.lastUsed = frame; return face;
     }
     static int hudWidth(String text, int pixels) { return (int) Math.ceil(hudFace(pixels).advance(text)); }
+    static int hudWidth(String text,int pixels,boolean bold,boolean italic) { return (int)Math.ceil(hudFace(pixels,bold,italic).advance(text)); }
     static void drawHud(GuiGraphicsExtractor g, String text, int x, int y, int color, int pixels) {
         draw(g, hudFace(pixels), text, x, y, color);
+    }
+    static void drawHud(GuiGraphicsExtractor g,String text,int x,int y,int color,int pixels,boolean bold,boolean italic) {
+        draw(g,hudFace(pixels,bold,italic),text,x,y,color);
     }
     private static void draw(GuiGraphicsExtractor g, Face face, String value, int x, int y, int color) {
         if (value.isBlank()) return;

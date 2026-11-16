@@ -71,5 +71,10 @@ public final class Ui {
         UiEffects.outline(g, x, y, w, h);
     }
     public static void releaseFonts() { MenuPresentation.invalidateAll(); UiFont.close(); UiIcons.close(); UiEffects.close(); }
+    /** HUD chrome is independent of menu fade/opacity state; callers supply saved HUD colors. */
+    public static void hudOutline(GuiGraphicsExtractor g, int x, int y, int w, int h,
+                                  me.xchro.neon.core.OutlineTravel travel, int primary, int secondary) {
+        UiEffects.outline(g,x,y,w,h,travel,primary,secondary,1);
+    }
     public static void warmFonts() { UiFont.warmNative(); }
 }

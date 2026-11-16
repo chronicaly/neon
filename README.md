@@ -1,97 +1,85 @@
 # Neon
 
-A small client-side Fabric mod for **Minecraft 26.2 / Java 25**, with a custom Neon menu and native item rendering on the HUD.
+A customizable **Minecraft 26.2 / Java 25** Fabric client with a consistent cyan/violet interface, **22 modules** and **23 HUD elements**. Neon focuses on everyday play, camera comfort, useful information and visual customization.
 
-- **Better screenshot:** Unity's screenshot-to-clipboard module, under **Visuals → Screenshot**, with the **Better screenshot** settings drawer. Enable it, then take a screenshot normally (F2 by default) to copy the image for pasting while Minecraft still saves its PNG and clickable chat link. Starts disabled; right-click for the **Notify** switch (on by default). Clipboard failures leave the PNG save intact and show a local error. Its optional activation bind follows Neon's Toggle/Hold/Reverse hold modes; settings persist in profiles and support Undo.
+![Neon modules and the Crosshair drawer](docs/images/neon-expansion-modules.png)
 
-- **Better chat:** Unity-derived duplicate counts, incoming-message animation and name highlighting. Starts enabled under **Visuals → Better chat**. New player/server chat gets a soft ping; whole-name mentions get a distinct two-note ping instead. Message/Mention ping toggles and Ping volume are independent of Minecraft audio and UI sounds. Local client notices, action bars, scrolling and chat-history rebuilds stay silent. Right-click the module for settings; volume zero mutes both pings. Original message history, signatures, formatting and clickable links are preserved.
-
-- **Freelook:** hold a key to orbit the player without changing aim or movement direction. Expand Freelook under Visuals to set Distance from 1–16 blocks (default 4), using the slider or inline exact value. Enters third person immediately and restores your previous view immediately on release, with vanilla camera collision.
-- **Zoom:** Hold, Toggle or Reverse hold activation, 4x magnification by default, a 150 ms transition, adjustable wheel increments, and proportional sensitivity. Works during freelook. Menus and focus loss cancel zoom.
-- **Motion blur:** Unity's frame accumulation effect, with 0-100% strength and an Include UI option. Off by default, with 10% default strength. Works alongside freelook and zoom.
-- **Autoclicker:** independent left/right intervals from 0-60 ticks, with 0 selecting vanilla timing. Click mode attacks without mining; Hold mode keeps the attack button held. An active Toggle session keeps running behind Escape, inventory, chat, and every other menu, including while tabbed out. Only an explicit stop turns it off.
-- **Armor HUD:** horizontal or vertical layouts, reversible order, native slot frames, durability bars and low-durability warnings. Defaults beside the hotbar, bottom-aligned to the left of the offhand slot. Scale, drag, or nudge directly; existing custom positions are preserved.
-- **Totems:** total carried totems on your existing offhand item by default, or an independently movable and resizable widget in Floating mode.
-- **Totem pops:** vanilla nametags gain a compact `-1`, `-2`, etc. after each observed player totem activation. Enabled by default under **Visuals → Totem pops**, fading from vanilla green through yellow to red at 10 pops (adjustable with **Red at**). Counts continue beyond the red threshold and reset on player death, departure, world change or disconnect. The toggle hides the display while continuing to track observed pops. Vanilla nametag visibility, font, background and team formatting are retained; no zero count, icon or chat message is added.
-- **Profiles and precise settings:** named setups, exact numeric entry, precision dragging, Undo, and session navigation memory in a compact custom interface.
-- **Responsive interactions:** tactile mouse/keyboard presses, smooth animation reversals, short page crossfades and immediate gameplay return with a closing fade. Native cursors indicate dragging, resizing and slider adjustment. Copy and profile Save/Update show a brief local confirmation after success.
+[Download](https://github.com/chronicaly/neon/releases/latest) · [User guide](docs/user-guide.md) · [Research](docs/client-research.md) · [Release notes](docs/release-0.5.0.md)
 
 ## Install
 
-Install Fabric Loader **0.19.5 or newer** and Fabric API for **26.2**, then put the release JAR in your instance's `minecraft/mods` folder. The first release is built and tested with Fabric API **0.161.0+26.2**. [Mod Menu](https://modrinth.com/mod/modmenu) is optional and provides a settings entry.
+Use Minecraft **26.2**, **Java 25**, Fabric Loader **0.19.5+**, and Fabric API for 26.2. This release is built against **Fabric API 0.161.0+26.2**. Put the runnable `neon-0.5.0.jar` in your instance's `minecraft/mods` folder. Keep one Neon JAR; the sources JAR is for development. [Mod Menu](https://modrinth.com/mod/modmenu) is optional.
 
-Press your menu binding (**Insert** if configured, or **P** by default) or **Right Shift** in-game to open/close the Neon menu, or use **Mods → Neon → Configure**. The sidebar contains **Combat** and **Visuals** at the top, with **Settings** and **HUD editor** stacked at the bottom. The HUD action opens the editor directly from every category; returning restores the page, drawer and scroll positions. Left-click a module button to turn it on/off; right-click it to open settings in the panel to its right. Right-click again or press Esc to collapse the panel. Left-click the bracketed bind beside the name to assign it; right-click the bind to cycle Toggle → Hold → Reverse hold. Hovering the bracketed bind shows the mode in place of the key. The cyan rectangular switches are used for on/off settings inside modules, while module buttons retain their compact enabled indicator. **Settings** uses the same button grid and drawer for **Colors**, **Appearance**, and **Profiles**. **Esc** from a collapsed category closes the menu. There are no X, Undo, or Done buttons. Useful controls are exposed directly without Advanced folds. Returning from another category keeps your scroll position.
+Open Neon with your saved menu key (**Insert** in the supplied Vanilla setup), **Right Shift**, or Mod Menu. A fresh configuration uses **P** as its primary key. Updates preserve saved keys, palette, alpha and custom HUD placements. New 0.5.0 modules and HUD widgets start disabled.
 
-The menu follows [Neon's design language](docs/design-language.md) and the approved **compact module grid**: equally wide light-glass buttons (18% fill at rest, 28% on hover/selection, respecting theme alpha and opacity) with subtle hover lift, sharp corners, native-resolution Inter typography with 16px body text, a thin smoothly animated cyan/violet outline with localized bloom traveling with its bright highlight, and subtle glow on active controls. It uses the requested 132.25% scale and starts at 582×370 display pixels, with small sidebar icons. Module settings expand to the right inside the same animated outline while the module grid stays visible. The outline uses one continuous pixel-aligned border; its glow travels at a fixed pixel speed and retains its position along the edge during expansion and reversal. Its size is independent of Minecraft's GUI scale. Drag the header to move it or pull any corner to resize; no grips are drawn. Position and size are saved separately from profiles. Older oversized placements return to the compact default once; saved compact placements receive each requested 15% increase only once. Custom controls retain keyboard navigation, narration, and scrolling.
+## Modules
 
-**Settings** uses the same outlined button grid for **Colors**, **Appearance**, and **Profiles**. Left or right click a section to open its controls in the right-hand drawer; the grid stays visible. Escape closes the drawer. A color opens another attached drawer inside the same animated menu outline. On narrow displays it temporarily takes the settings pane's space.
+The 15 additions share the same compact buttons, attached drawers, profiles, Undo and optional Toggle / Hold / Reverse hold bindings.
 
-Neon remembers the current category, each category's expanded section, and its scroll position until Minecraft exits. Reopening the menu or returning from the HUD editor restores your place; popups, bind capture, and unfinished drafts stay closed. A new game process starts with collapsed Visuals. This navigation memory is separate from profiles and saved settings.
+| New module | Controls and behavior |
+| --- | --- |
+| Crosshair | Cross, T, Dot or Square; fractional pixel length/gap/thickness, center dot, adjustable outline and theme-linked color. Unity-derived coverage centers it on odd/even framebuffers at every GUI scale. Keeps native eligibility and attack indication. |
+| Toggle sprint | Native sprint toggle with optional resuming after menus; leaves Minecraft's saved preference intact. |
+| Toggle sneak | Native crouch toggle with independent menu-resume control. |
+| Dynamic FOV | Scales movement FOV effects without changing base FOV or Zoom. |
+| Hurt camera | Reduces damage-camera movement; does not change damage. |
+| View bobbing | Adjusts native camera bob strength; respects Minecraft's bobbing option. |
+| Low fire | Lowers the first-person fire overlay while retaining the burn state. |
+| Viewmodel | Horizontal, vertical and depth offsets, scale and optional offhand adjustment; keeps native use animations. |
+| Enchant glint | Independent glint strength and speed. |
+| Hit color | Theme-linked damage tint with adjustable strength and alpha. |
+| Time changer | Cosmetic time of day; actual world time and gameplay rules remain unchanged. |
+| Weather | Clear/rainy visuals and precipitation intensity, retaining native biome rules. Actual weather and ambient weather audio remain unchanged. |
+| Fullbright | Adjustable lightmap enhancement. Suspends during darkness/blindness; grants no effect and leaves gamma unchanged. |
+| Clean view | Independently hides pumpkin, portal and vignette overlays. |
+| Block outline | Theme-linked color and display-pixel width; preserves native shape, depth and high-contrast backing. |
 
-Hold **Shift while dragging a numeric setting** for one-tenth pointer sensitivity, in both the menu and HUD editor. Pressing or releasing Shift mid-drag does not jump the value. A focused slider uses **Left/Right** for one configured increment and **Shift+Left/Right** for ten. Click the numeric value, right-click its row, or press Enter to type an exact value. Fractional entries remain exact. Each drag is one **Ctrl+Z** operation; **Escape** cancels an active numeric drag. Release outside a control still finishes the gesture, and losing focus retains its applied value. Wheel scrolling pauses during dragging.
+The existing seven remain: **Freelook**, **Zoom**, **Motion blur**, **Totem pops**, **Better chat**, **Better screenshot** and **Autoclicker**. Better chat preserves history, signatures and links, with independent message/mention ping volume. Better screenshot copies normal screenshots while preserving PNG saving. Motion blur starts disabled with 10% strength. See the [guide](docs/user-guide.md) for detailed behavior, including the existing autoclicker's persistent Toggle session.
 
-Assign feature controls using the compact inline bind beside each module, such as **[M5]**, or under **Options → Controls → Key Binds → Neon**. The menu has two configurable bindings in Minecraft's key binds: the existing primary binding (default **P**, preserving a saved **Insert** binding) and an alternate defaulting to **Right Shift**. Either opens or closes the menu; freelook, zoom, and autoclicker begin unassigned. Existing saved bindings are preserved on updates. Hover a bracketed module bind to show its mode inside the same brackets; leaving restores the key. Click a bind, then press a key or mouse button; Esc cancels and Backspace/Delete clears it. Conflicts appear in red. The menu shortcut works without Mod Menu and does not open over chat or other screens.
+## HUD
 
-Vanilla also assigns **P** to Social Interactions. When both use P, Neon opens first. You can give either action another key in Minecraft's key binds; Neon never changes another action's binding for you.
+Open **HUD editor** directly beneath Settings. Each element has its own visibility and placement; new information widgets also have local Background, Border and Shadow controls.
 
-Open **Visuals → Motion blur** to enable it. **Blur the UI** blends the entire frame; turn it off to keep the HUD and in-game menus sharp while the world and hand blur. Neon's settings, numeric/color entry, profiles, confirmations, and HUD editor always stay clear. Strength uses elapsed render time to keep the effect consistent across frame rates. At 0%, or while disabled, the effect releases its GPU buffers. Old frames are discarded after focus loss, screen/perspective changes, long stalls, teleports, and resizing. The module reset, Undo, and profiles include these settings.
+| Group | Available elements |
+| --- | --- |
+| Equipment | Armor, Totems, Held item, Inventory, Item counter |
+| Input and movement | Keystrokes, CPS, Speed, Movement |
+| Navigation and world | Coordinates, Compass, Biome, Light level, World time |
+| Status and session | Potion effects, Scoreboard, Server, Ping, Clock, Session |
+| Client information | FPS, Memory, Resource packs |
 
-Click any slider's displayed value, or focus it and press Enter, to type an exact number. Drag elsewhere on the slider for normal adjustment. Values are validated before applying; exact entries can fall between the slider's usual steps. Use **Ctrl+Z** to reverse recent settings changes, including complete slider drags, bindings, profile loads, colors, and HUD edits. The shared history holds up to 50 changes while the settings session remains open. Module rows have no Reset button. Settings has no Reset buttons; key bindings reset through Minecraft's controls.
+Panels use the saved Neon palette, thin animated outlines and localized traveling highlights. General offers native-resolution **Inter** or pixel-snapped **Minecraft** text, and can disable outline animation or the new armor/floating-totem plates. Text sizing, origin snapping and shadow ordering adapt Unity's fixes. FPS retains independent Label, Value, Background and Border colors, each with **Sync** to restore its theme link. Minecraft mode follows the active resource-pack font; item models and decorations remain native.
 
-Open **Settings → Profiles**. **Combat**, **Mining**, and **Building** presets start with your existing camera/HUD preferences and appropriate autoclicker settings. Save named snapshots, click a profile to load it, or update/delete saved profiles. Loading leaves key bindings and window placement unchanged and preserves an active autoclicker unless the chosen profile disables it. Loading an enabled profile never starts an inactive session. **Ctrl+Z** reverses a load; changing the saved profile library uses its explicit Update/Delete controls.
+![Scoreboard styling and compact HUD editing at 640×360](docs/images/neon-expansion-scoreboard.png)
 
-Settings and profiles keep a `.bak` recovery copy after successful saves. If a file is damaged, Neon preserves the original and attempts recovery at startup, keeping healthy profile entries and intentional deletions. A local, silent notice explains recovery. A valid primary file takes priority over its backup. The profile **Saved** acknowledgement waits for both copies to finish.
+Coordinates optionally show dimension and Nether conversion. CPS counts physical clicks, excluding menu and generated clicks; Keystrokes follows rebound movement keys. Item counter supports held item, pearls, arrows, rockets, both golden apples, experience bottles, obsidian and diamonds. Scoreboard optionally replaces the native sidebar, preserving team styles, hidden entries and number formatting; disable it to restore the native sidebar. World time reports actual synchronized time independently of Time changer.
 
-For the autoclicker, enable it in Neon settings, choose mouse buttons, and assign its activation key. The **activation mode** controls whether you hold the key or press it to toggle. Choose **Toggle** for continuous operation and activate it in gameplay. Escape, Options, inventory, containers, chat, Neon settings, and focus loss all preserve the active session. While active, singleplayer continues ticking behind menus. Turn **Enabled** off in Neon or return to gameplay and press the activation key again to stop; normal Minecraft pausing then returns. Typing in a screen never activates or toggles automation, and synthetic input never clicks menu buttons or moves inventory slots. Saved Minecraft pause options are unchanged.
+Drag enabled widgets directly, resize at invisible corners, or use the wheel to scale. Arrow keys nudge one display pixel; Shift nudges ten. Right-click a row or widget for settings. Numeric values support exact entry. Disabled widgets remain in the column but do not render, receive canvas input or attract snapping. Armor defaults left of the offhand/hotbar; attached totems stay on the real offhand slot.
 
-The Toggle state also survives death, world changes, and disconnect during the same Minecraft session. It sends no world actions while no playable player/world is available, then resumes when gameplay becomes available again, without replaying missed clicks. A new Minecraft process starts inactive. Hold activation remains release-to-stop. The old chat/background switches and automatic low-durability stop have been removed so they cannot silently switch the autoclicker off.
+## Controls and appearance
 
-**Left action** is separate from activation. **Click** (the default) repeats attacks and ignores blocks completely. **Hold** keeps the attack button down, allowing continuous vanilla mining, and disables the left interval slider. Manual mouse input remains independent, so you can still mine deliberately with your physical attack button.
+- **Left-click a module:** toggle it. **Right-click:** open its settings drawer.
+- **Click its bracketed bind:** assign a key or mouse button. **Right-click the bind:** cycle activation mode; hover shows the full mode name.
+- **Settings:** Colors, Appearance and Profiles use the same button grid and drawers. Either mouse button opens a section.
+- **Colors:** live HSV/opacity, original/current previews, hex, Copy/Paste and Sync. Escape/outside click keeps the applied color. Narrow windows temporarily give the attached color drawer the settings pane's space.
+- **Numbers:** drag, Shift-drag for precision, or right-click for exact entry. **Ctrl+Z** reverses settings, bindings, profile loads and complete gestures.
+- **Window:** drag the header; resize from invisible corners. Menu size is independent of Minecraft GUI scale. Smooth scrolling uses no scrollbars.
+- **Escape:** cancels the active edit/gesture, then closes a color drawer, settings drawer or menu in order.
 
-Both interval sliders range from **0 to 60 ticks**. **Vanilla (0)** waits for full weapon recharge on left attacks and Minecraft's normal use delay on right clicks. **1-60** schedules one click attempt every selected number of client game ticks, without adding the vanilla timing gate. At normal speed, 20 ticks is one second and 60 ticks is three seconds. Normal item/server rules still apply. No missed clicks are replayed after a stall. Older CPS settings upgrade to vanilla timing and attack-only Click mode; other preferences are preserved. Neon does not click other applications or send chat messages.
+The default menu is 582×370 display pixels with native-resolution Inter text, light-glass buttons and one continuous cyan/violet outline. Press feedback keeps hitboxes fixed; animation reversals preserve motion; closing releases gameplay immediately. Copied/Saved acknowledgements appear after success. UI volume is independent of Minecraft audio; continuous adjustments stay silent.
 
-Optional **Entities only** suppresses air swings in Click mode. Tool wear does not automatically stop the session. Physical mouse input remains independent.
+## Build and verification
 
-Click **HUD editor** beneath Settings in the sidebar, or focus it and press Enter/Space, to open the editor directly. Its Unity-derived column contains all **Armor**, **Totems**, and **FPS** options: left click an entry to toggle visibility, or right click an entry/widget to expand its settings. Armor includes orientation, scale, order, slot frames, spacing, and durability warnings; totems include offhand/floating mode and show Scale only while floating. Attached totems ignore wheel scaling and keep the real offhand geometry. Numeric values edit inline. Drag a widget to move it, drag a corner to resize, or use the wheel to scale. There are no coordinate forms or preset positions. The column hides during placement so it cannot cover the preview. Its position survives reopening and display changes independently of profiles. HUD folds animate their height over 150 ms; every expansion control uses `+` when collapsed and `−` when open. HUD elements have no selection outlines, drawn handles, or floating labels; corner resizing remains available. Disabled elements are hidden and do not receive canvas input or attract snapping. Arrow keys nudge by one display pixel (Shift for ten). General contains HUD scale (0.5–2×), Guides, Snap, and Snap sensitivity (1–24 display pixels); Alt bypasses snapping. Alignment guides mark the matched edge or center in display pixels; nearby widgets also support a six-pixel spacing snap. Armor and floating widget sizes use Neon scale independently of Minecraft GUI scale. The attached totem count follows the real offhand slot.
-
-The HUD column uses Unity's translucent background and full-width expandable rows, with subtle accent fills and a quiet border. For HUD numeric settings, **left-drag anywhere in the row** to adjust, or **right-click anywhere in the row** to type an exact value. Enter also edits the focused number. The panel respects Colors opacity while leaving the world visible behind it.
-
-**FPS** copies Unity's render-frame clock and number smoothing code. It starts enabled at the bottom right, with **Smooth FPS** off, **Shadow** on, and **Background**/**Border** off. Right-click FPS to change these options or its Scale. Its **Label color**, **Value color**, **Background color** and **Border color** rows open the compact color drawer directly in the HUD editor. Edits apply live only to FPS; each color initially follows your saved theme, and **Sync** restores that link. Copy/Paste, hex, opacity and Ctrl+Z work as in the menu, and profiles save your overrides. The label stays still and reserves four digits while the number updates; optional smoothing eases the number over 120 ms. The active Minecraft font, including resource-pack replacements, follows Neon's HUD scale and Colors palette independently of Minecraft GUI scale. Placement, visibility, fractional scale and appearance save with configurations and profiles.
-
-**Damage preview** uses copies of equipped items to show nearly broken armor without changing real equipment. Press **Tab** or **H** to hide/show the column, **Ctrl+Z** to undo a gesture, or **Esc** during a gesture to cancel it. The world remains sharp and undimmed, with no bottom hint banner; chat is hidden while editing. Armor, totems, and FPS are included, with no forced screen margin. Empty armor slots stay hidden during gameplay. The armor presentation is inspired by [BerdinskiyBear's Armor HUD / uku3lig's fork](https://github.com/uku3lig/armor-hud); Neon uses an independent implementation. Unity's separate checkout and installed artifacts are preserved.
-
-In the default **Offhand** mode, the totem total appears only when your offhand holds a totem. Drag it in the editor to place it freely, or select **Mode: Floating** in its options; this replaces the offhand total decoration. Ctrl+Z restores the entire placement change. Floating mode appears when you carry at least one totem. Both modes count inventory and offhand, with the selected main-hand slot counted only once. F1 hides the HUD normally.
-
-**Settings → Colors → Theme** applies Unity-style linked colors to the menu. Changing its RGB coordinates the accent, outlines, dark surfaces, and readable text while retaining each color's alpha. **Rainbow** animates linked colors with Cycle, Saturation, and Brightness controls. Each individual picker has **Sync**: turn it on to follow Theme, or edit RGB to make that color custom. Alpha-only edits keep the link. Existing saved palettes remain unchanged until you choose a theme. Profiles save themes, links, and custom overrides.
-
-**Settings → Colors** changes Background, Outline, Accent, Text, Cards, Secondary outline, and Muted text. Opacity controls overall panel transparency (94% by default). Left or right click a color row to expand the color drawer with the same motion and shared surface as module settings. It keeps the square HSV surface, hue/opacity strips, Original/Current previews, editable RGBA hex, and Copy/Paste. The header moves the whole menu. Colors apply live; an outside click or Escape closes the color drawer and keeps them, restoring the settings pane on narrow displays. Ctrl+Z restores a paste, completed hex edit, or complete drag. Copy uses #RRGGBBAA; Paste also accepts short hex, RGB(A), HSB, and named colors. Profiles include the palette, opacity, UI sound volume, HUD scale, and snap sensitivity.
-
-Neon has no scrollbars: use the wheel or keyboard focus to reach longer pages. Hover states, folds, and scrolling animate without delaying input. Original soft console-style cues with smooth electronic beeps and gentle tonal transitions accompany hover/keyboard focus, navigation, opening/closing sections and popups, confirmations, and enabling/disabling controls. Appearance → UI sounds controls the complete set independently of Minecraft audio, preserving your saved volume (default 40%; 0% mutes all cues). Hover is quieter and rate-limited; each module header is one hover target. Continuous scrolling, dragging, resizing, color/slider adjustment, typing and unchanged/rejected actions stay silent. Exact numeric edits commit with Enter or a valid outside click; Escape cancels and invalid drafts stay visibly marked.
-
-**Appearance → Effects** defaults to **Adaptive**. Sustained frame pressure first removes menu background blur, then decorative glow, with slower recovery and at least three seconds between changes. **Full** keeps both enabled. Neon uses its own backdrop blur strength without changing the saved Minecraft preference. The dark backdrop, crisp text, animated outline and its traveling bloom, HUD items, and gameplay motion blur retain full quality in either mode.
-
-Settings are stored atomically in `config/neon.json`, saved profiles in `config/neon-profiles.json`, menu placement in `config/neon-window.json`, and HUD-column placement in `config/neon-hud-window.json`. An ordered background writer coalesces rapid edits for 250 ms and flushes on close, disconnect, and shutdown. Write failures are reported while unsaved changes remain in memory. Key bindings use Minecraft's normal options. No account, server-side mod, network connection, or YouTube setup is needed.
-
-## Build
-
-With JDK 25:
+Requires JDK 25. The project uses unobfuscated Fabric Loom.
 
 ```powershell
-.\gradlew.bat build --console=plain
+./tools/build.ps1 -SkipInstall
 ```
 
-The development build runs unit checks and the muted packaged-client release suite, then installs `build/libs/neon-0.4.0.jar` as `neon.jar` in the local PrismLauncher **Vanilla** instance. The suite needs a disposable game directory containing `saves/Neon Verification/level.dat`: use `-PneonVerificationDir=<test-game-directory>` (default `runtime/smoke/game`). Never point it at a real launcher instance. Both the production JAR and verification harness are hashed inside the running client; missing, failed or stale verification blocks installation. The staged and installed bytes are checked again. Existing games remain open; new code loads on the next game launch.
+On this development setup, `./tools/build.ps1` also runs the silent packaged release suite and installs only its exact checked runnable JAR into PrismLauncher's Vanilla instance. The prepared verification world is isolated from user instances. See [verification](docs/verification.md) and [0.5.0 results](docs/expansion-results.md).
 
-Use `-PskipInstall` to build without installing, or `-PneonInstallDir=<mods-directory>` to select another destination. Linux/macOS users can run `./gradlew build -PskipInstall`.
+Performance instrumentation and sound/clipboard interception live only in the verification mod, excluded from releases. Measurements report allocations and frame times with their limits; no FPS increase is promised.
 
-On Windows installations affected by Java's local socket initialization error, run the included `tools/build.ps1`; it applies a process-local TCP fallback before invoking the same Gradle build.
+## Sources and license
 
-## Verification
-
-`build -PskipInstall` runs the unit suite and compiles the isolated live harness. An installing build also requires `releaseSmoke`; `verifyInstall` validates its receipt. The harness is excluded from the release JAR. Verification clients suppress Minecraft and Neon audio while recording cue requests. See [verification instructions](docs/verification.md) and [the latest quality results](docs/quality-next-results.md) for setup, measurements and limits.
-
-YouTube chat is deferred. This release contains no chat integration or OAuth code.
-
-## License
-
-MIT. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
+Neon is MIT licensed. [NOTICE](NOTICE) credits the author's Unity ports, Inter and dependencies. Official Lunar, Badlion, Feather and Laby documentation and public utility-client source informed the [research](docs/client-research.md). Unity's crosshair and HUD font fixes are adapted at the author's request. No proprietary client source, GPL implementation or third-party client assets are bundled.

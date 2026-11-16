@@ -47,6 +47,12 @@ final class FpsHudSmoke {
     private MouseButtonEvent mouse(double x, double y, int button) { return new MouseButtonEvent(x, y, new MouseButtonInfo(button, 0)); }
     private MouseButtonEvent physical(double x, double y) { return mouse(x / editor.pixelScale(), y / editor.pixelScale(), 0); }
     private void click(AbstractWidget w, int button) {
+        var column=widgets(editor).stream().filter(v->v instanceof AbstractScrollArea).findFirst().orElseThrow();
+        if(widgets((ContainerEventHandler)column).contains(w)) {
+            mc.setLastInputType(InputType.KEYBOARD_TAB);((ContainerEventHandler)column).setFocused(w);
+            check(w.getY()>=column.getY()&&w.getBottom()<=column.getBottom(),"keyboard reveals FPS control: "+w.getMessage().getString());
+            mc.setLastInputType(InputType.MOUSE);
+        }
         var e = mouse(editor.guiCoordinate(w.getX() + 16), editor.guiCoordinate(w.getY() + 8), button);
         check(editor.mouseClicked(e, false), "FPS row responds: " + w.getMessage().getString()); editor.mouseReleased(e);
     }
@@ -64,7 +70,12 @@ final class FpsHudSmoke {
         int background=FpsColor.BACKGROUND.color(Neon.config);
         int paint=background&0xffffff|(int)Math.round((background>>>24)*.78)<<24;
         check(rectangles.stream().anyMatch(r->r.col1()==paint),"FPS background uses its own RGBA color");
-        check(rectangles.stream().filter(r->r.col1()==FpsColor.BORDER.color(Neon.config)).count()==4,"FPS border uses its own RGBA color on every edge");
+        var borders=new ArrayList<GuiElementRenderState>();state.forEachElement(element->{if(element.getClass().getSimpleName().equals("Border"))borders.add(element);},GuiRenderState.TraverseRange.ALL);
+        check(borders.size()==1,"FPS animated border uses one continuous mesh");
+        for(String field:List.of("outline","secondary")) {
+            var tint=borders.getFirst().getClass().getDeclaredField(field);tint.setAccessible(true);
+            check(tint.getInt(borders.getFirst())==FpsColor.BORDER.color(Neon.config),"FPS border override retains RGBA in "+field);
+        }
     }
     private void fitsColor() {
         var shell=editor.inspectorBounds();var picker=named("Color picker");
@@ -75,6 +86,7 @@ final class FpsHudSmoke {
     private void shot(String suffix) { Screenshot.grab(mc.gameDirectory, "neon-fps-" + scenario + "-" + suffix + ".png", mc.gameRenderer.mainRenderTarget(), 1, message -> {}); }
     private void setup() {
         Neon.config.resetHud(); Neon.config.fps.x = .75; Neon.config.fps.y = .3;
+        Neon.config.hudFont=NeonConfig.HudFont.MINECRAFT;
         new HudPanelPlacement().queue(mc.gameDirectory.toPath().resolve("config/neon-hud-window.json"), Neon.SAVES); Neon.SAVES.flush().join();
         mc.getWindow().setWindowed(scenario < 3 ? 1280 : 640, scenario < 3 ? 800 : 480);
         mc.options.guiScale().set(scenario % 3 + 1); mc.resizeGui(); mc.setLastInputType(InputType.MOUSE);
@@ -101,7 +113,8 @@ final class FpsHudSmoke {
                 // Catch-up ticks can precede the first rendered frame after a window resize.
                 if (FpsHud.value() == 0 && age < 200) return false;
                 check(Neon.config.fps.visible && FpsHud.value() > 0, "production frame hook produces live FPS");
-                check(editor.inspectorBounds().height() == 111, "four collapsed HUD roots retain compact rows");
+                check(editor.inspectorBounds().height()==Math.min(300,editor.canvasHeight()-editor.inspectorBounds().top()-8),"expanded HUD catalog retains a compact scrollable column");
+                check(widgets(editor).stream().filter(w->w.getClass().getSimpleName().equals("HudEntry")).count()==HudKind.values().length+4,"collapsed catalog contains every widget and General");
                 check(FpsHud.fontPixels() == 16 && bounds().height() == mc.font.lineHeight * 2 + 4, "Minecraft FPS font scales independently of GUI scale");
                 shot("collapsed"); click(named("FPS"), 1); next();
             }
@@ -117,7 +130,7 @@ final class FpsHudSmoke {
                 var scale = widgets(editor).stream().filter(w -> w instanceof ExactSlider).findFirst().orElseThrow(); click(scale, 1);
                 key(GLFW.GLFW_KEY_A, GLFW.GLFW_MOD_CONTROL);
                 for (int cp : "1.125".codePoints().toArray()) editor.charTyped(new CharacterEvent(cp));
-                key(GLFW.GLFW_KEY_ENTER, 0); check(Neon.config.fps.scale == 1.125 && FpsHud.fontPixels() == 18, "FPS font scale preserves exact fractional input");
+                key(GLFW.GLFW_KEY_ENTER, 0); check(Neon.config.fps.scale == 1.125 && FpsHud.fontPixels() == 16, "Minecraft FPS preserves the exact setting while snapping bitmap pixels");
                 undo(); check(Neon.config.fps.scale == 1, "one Undo restores FPS scale"); stage=6;age=0;
             }
             case 2 -> {

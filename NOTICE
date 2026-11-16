@@ -1,4 +1,13 @@
 Neon is developed by chronicaly.
+At the author's request, the crosshair raster coverage and bitmap-font origin
+snapping are adapted from Unity's CrosshairRaster.java and MinecraftFontLayout.java
+at revision 5bbd639. HUD typography also follows HudManager's native-pixel font
+measurement and shadow ordering, with Neon's Inter face and settings.
+The 0.5.0 expansion surveys official Lunar, Badlion, Feather and Laby documentation
+and public Meteor HUD source as behavioral references. The new modules and HUD
+elements are independent Neon implementations; no proprietary client source,
+Meteor GPL implementation, or third-party client assets are bundled.
+Source links and scope are recorded in docs/client-research.md.
 The motion blur renderer, render hooks, strength curve and shaders are adapted
 from chronicaly's Unity client (https://github.com/chronicaly/unity), revision
 4ba0d6e: MotionBlurModule.java, MotionBlurRenderer.java, MixinMotionBlur.java,

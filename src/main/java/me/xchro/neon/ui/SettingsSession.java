@@ -11,7 +11,10 @@ public final class SettingsSession {
     private record State(String config, List<String> keys) {}
     private final Deque<State> undo = new ArrayDeque<>();
     private State before;
-    private static List<KeyMapping> bindings() { return List.of(Neon.settings, Neon.freelook, Neon.zoom, Neon.autoclicker, Neon.motionBlur, Neon.totemPops, Neon.betterChat, Neon.betterScreenshot); }
+    private static List<KeyMapping> bindings() {
+        var keys=new ArrayList<KeyMapping>();keys.add(Neon.settings);keys.add(Neon.settingsAlternate);
+        for(var module:me.xchro.neon.module.ClientModule.values())keys.add(module.key());return keys;
+    }
     private State capture() { return new State(ConfigStore.encode(Neon.config), bindings().stream().map(KeyMapping::saveString).toList()); }
     public void begin() { if (before == null) before = capture(); }
     public void end() {

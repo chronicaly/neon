@@ -13,7 +13,7 @@ import net.minecraft.client.input.*;
 
 /** Deterministic production-JAR benchmark. All instrumentation lives in the test-only mod. */
 public final class PerformanceSmoke {
-    private static final String[] CASES = {"gameplay", "motion-blur", "idle-menu", "navigation-scroll", "color-edit", "hud-placement", "font-churn", "first-open", "drawer-reversals", "category-switch", "continuous-color", "menu-resize"};
+    private static final String[] CASES = {"gameplay", "motion-blur", "idle-menu", "navigation-scroll", "color-edit", "hud-placement", "font-churn", "first-open", "drawer-reversals", "category-switch", "continuous-color", "menu-resize", "hud-catalog"};
     private static final Set<String> ONLY = System.getProperty("neon.perf.scenario") == null ? Set.of()
         : new LinkedHashSet<>(Arrays.asList(System.getProperty("neon.perf.scenario").split(",")));
     private static final int WARM = 240, SAMPLES = 480;
@@ -121,7 +121,12 @@ public final class PerformanceSmoke {
                 Ui.window(g,100,100,440,280); Ui.text(g,"Value " + (stage * 1000 + frame),120,120,Ui.TEXT);
             }
         });
-        if(scenario>=7){mc.gui.setScreen(Menus.fresh(null));if(scenario==10){press("Settings");press("Colors");press("Outline");}}
+        if(scenario>=7&&scenario<=11){mc.gui.setScreen(Menus.fresh(null));if(scenario==10){press("Settings");press("Colors");press("Outline");}}
+        if(scenario==12) {
+            for(var kind:me.xchro.neon.hud.HudKind.values())Neon.config.hud(kind).placement.visible=true;
+            Neon.config.fpsBackground=Neon.config.fpsBorder=true;
+            // Empty potion/scoreboard data correctly draws nothing during gameplay.
+        }
         System.out.println("NEON_PERF run=" + (stage / CASES.length + 1) + " scenario=" + CASES[scenario]);
     }
     private void step() {
@@ -129,6 +134,7 @@ public final class PerformanceSmoke {
         mc.getFramerateLimitTracker().onInputReceived();
         int scenario = stage % CASES.length;
         event="";
+        if(scenario==12)return;
         mc.player.setYRot(scenario == 1 ? (float) (Math.sin(frame * .007) * 20) : 0); mc.player.setXRot(0);
         // Allow the attached color drawer to become a pointer target before the first gesture.
         if((scenario==4||scenario==10)&&frame<60)return;
