@@ -86,8 +86,8 @@ final class ExpansionSmoke {
         }
         switch(kind) {
             case COORDINATES -> {
-                check(text.getFirst().equals("XYZ  "+mc.player.blockPosition().getX()+"  "+mc.player.blockPosition().getY()+"  "+mc.player.blockPosition().getZ()),"coordinate text matches actual player block");
-                Neon.config.coordinatesConversion=true;check(content(kind,false).getLast().startsWith("Nether  "),"Overworld offers Nether conversion");
+                check(text.getFirst().equals("XYZ  "+mc.player.blockPosition().getX()+", "+mc.player.blockPosition().getY()+", "+mc.player.blockPosition().getZ()),"Unity coordinate text matches actual player block");
+                Neon.config.coordinatesConversion=true;check(content(kind,false).getFirst().endsWith(" ("+HudNumbers.coordinate(mc.player.getX(),.125)+", "+HudNumbers.coordinate(mc.player.getZ(),.125)+")"),"Overworld offers inline Unity Nether conversion");
                 Neon.config.coordinatesConversion=false;
             }
             case COMPASS -> {

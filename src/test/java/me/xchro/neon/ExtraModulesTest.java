@@ -10,13 +10,14 @@ class ExtraModulesTest {
     @Test void visualControlsClampInvalidSavedValues() {
         var c=new NeonConfig();c.fovEffectStrength=Double.NaN;c.hurtCameraStrength=-1;c.viewBobbingStrength=4;
         c.fireLowering=5;c.glintStrength=-1;c.glintSpeed=Double.POSITIVE_INFINITY;c.hitColorStrength=3;
-        c.visualTime=-1000;c.weather=null;c.weatherIntensity=9;c.fullbrightStrength=-2;c.blockOutlineWidth=99;
+        c.visualTime=-1000;c.weather=null;c.weatherIntensity=9;c.fullbrightStrength=-2;c.blockOutlineWidth=99;c.blockOutlineFill=4;c.blockOutlineMode=null;
         c.viewmodel.horizontal=Double.NaN;c.viewmodel.vertical=8;c.viewmodel.depth=-9;c.viewmodel.scale=0;
         c.sanitize();
         assertEquals(0,c.fovEffectStrength);assertEquals(0,c.hurtCameraStrength);assertEquals(1,c.viewBobbingStrength);
         assertEquals(.8,c.fireLowering);assertEquals(0,c.glintStrength);assertEquals(.35,c.glintSpeed);assertEquals(1,c.hitColorStrength);
         assertEquals(23000,c.visualTime);assertEquals(NeonConfig.Weather.CLEAR,c.weather);assertEquals(1,c.weatherIntensity);
-        assertEquals(0,c.fullbrightStrength);assertEquals(5,c.blockOutlineWidth);
+        assertEquals(0,c.fullbrightStrength);assertEquals(8,c.blockOutlineWidth);
+        assertEquals(1,c.blockOutlineFill);assertEquals(NeonConfig.BlockOutlineMode.OUTLINE,c.blockOutlineMode);
         assertEquals(0,c.viewmodel.horizontal);assertEquals(1,c.viewmodel.vertical);assertEquals(-1,c.viewmodel.depth);assertEquals(.5,c.viewmodel.scale);
     }
     @Test void newModulesAreOptInAndProfilesRetainTheirModes() {

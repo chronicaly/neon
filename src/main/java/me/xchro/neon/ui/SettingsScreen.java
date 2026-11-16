@@ -180,7 +180,11 @@ public final class SettingsScreen extends PixelScreen {
             case "Low fire" -> slider("Lowering",c.fireLowering*100,0,80,1,"%",v->c.fireLowering=v/100);
             case "Fullbright" -> slider("Strength",c.fullbrightStrength*100,0,100,1,"%",v->c.fullbrightStrength=v/100);
             case "Block outline" -> {
-                slider("Width",c.blockOutlineWidth,1,5,.25,"px",v->c.blockOutlineWidth=v);
+                segments("Style",new String[]{"Outline","Both","Fill","Glow","Wire"},()->c.blockOutlineMode.ordinal(),v->c.blockOutlineMode=NeonConfig.BlockOutlineMode.values()[v]);
+                slider("Width",c.blockOutlineWidth,.5,8,.25,"px",v->c.blockOutlineWidth=v);
+                slider("Fill opacity",c.blockOutlineFill*100,0,100,1,"%",v->c.blockOutlineFill=v/100);
+                toggle("Neon gradient",()->c.blockOutlineGradient,v->c.blockOutlineGradient=v);
+                toggle("Bloom",()->c.blockOutlineGlow,v->c.blockOutlineGlow=v);
                 color("Outline color",c::blockOutlineColor,(v,rgb)->c.blockOutlineColor=v,null);
                 if(colorPicker!=null&&expandedColor.equals("Outline color"))colorPicker.sync(()->c.blockOutlineColor==null,()->c.blockOutlineColor=null);
             }

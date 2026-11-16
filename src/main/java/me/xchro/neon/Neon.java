@@ -76,10 +76,12 @@ public final class Neon implements ClientModInitializer {
         net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents.CLIENT_STARTED.register(mc -> {me.xchro.neon.ui.Ui.warmFonts();me.xchro.neon.ui.UiSounds.warm();});
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register((handler, mc) -> mc.execute(() -> {
             me.xchro.neon.hud.HudWidgets.SESSION.disconnect();
+            me.xchro.neon.render.BlockOutline.close();
             save(); SAVES.flush(); CAMERA.reset(mc, true); CLICKER.resetTiming(); MODULE_BINDINGS.reset(); TOTEM_POPS.clear(); MotionBlurRenderer.close();
         }));
         net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.JOIN.register((handler,sender,mc) -> me.xchro.neon.hud.HudWidgets.SESSION.connect(System.nanoTime()));
         net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents.CLIENT_STOPPING.register(mc -> {
+            me.xchro.neon.render.BlockOutline.close();
             save(); try { SAVES.close(); } catch (java.util.concurrent.CompletionException failure) { LOG.error("Final settings flush failed", failure); }
             me.xchro.neon.ui.Ui.releaseFonts();me.xchro.neon.ui.UiSounds.close(); MotionBlurRenderer.close();
             me.xchro.neon.screenshot.BetterScreenshot.close();

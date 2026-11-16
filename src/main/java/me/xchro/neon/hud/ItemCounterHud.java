@@ -31,8 +31,9 @@ final class ItemCounterHud extends HudCard {
     }
     private static boolean matches(ItemStack stack,Item item,CounterItem choice) { return choice==CounterItem.ARROWS?stack.is(ItemTags.ARROWS):stack.is(item); }
     @Override protected int contentWidth() { return super.contentWidth()+21; }
-    @Override protected int contentHeight() { return 18; }
+    @Override protected int contentHeight() { return Math.max(16,text.height()); }
     @Override protected void renderContent(GuiGraphicsExtractor g,boolean preview) {
-        g.item(icon,5,4);text.draw(g,lines[0],26,7,Neon.config.theme.color(ThemeColor.ACCENT),Neon.config.hud(kind).shadow);
+        g.item(icon,5,3+(contentHeight()-16)/2);
+        g.pose().pushMatrix();g.pose().translate(21,(contentHeight()-text.height())/2);super.renderContent(g,preview);g.pose().popMatrix();
     }
 }

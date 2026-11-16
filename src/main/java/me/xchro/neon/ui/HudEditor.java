@@ -187,7 +187,10 @@ public final class HudEditor extends PixelScreen {
         {
             range(out, "general:scale", "HUD scale", 1, c.hudScale, .5, 2, .05, v -> c.hudScale = v);
             choice(out,"general:font","Font",c.hudFont==NeonConfig.HudFont.INTER?"Inter":"Minecraft",()->c.hudFont=c.hudFont==NeonConfig.HudFont.INTER?NeonConfig.HudFont.MINECRAFT:NeonConfig.HudFont.INTER);
-            bool(out, "general:panels", "Neon panels", 1, c.hudNeonPanels, () -> c.hudNeonPanels = !c.hudNeonPanels);
+            bool(out, "general:surfaces", "HUD surfaces", 1, c.hudSurfaces, () -> c.hudSurfaces = !c.hudSurfaces);
+            bool(out, "general:backgrounds", "Backgrounds", 1, c.hudBackgrounds, () -> c.hudBackgrounds = !c.hudBackgrounds);
+            bool(out, "general:outlines", "Outlines", 1, c.hudOutlines, () -> c.hudOutlines = !c.hudOutlines);
+            bool(out, "general:panels", "Equipment panels", 1, c.hudNeonPanels, () -> c.hudNeonPanels = !c.hudNeonPanels);
             bool(out, "general:outline", "Animated outline", 1, c.hudAnimatedOutline, () -> c.hudAnimatedOutline = !c.hudAnimatedOutline);
             bool(out, "general:guides", "Guides", 1, c.editorGuides, () -> c.editorGuides = !c.editorGuides);
             bool(out, "general:snap", "Snap", 1, c.editorSnap, () -> c.editorSnap = !c.editorSnap);

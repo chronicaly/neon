@@ -28,16 +28,19 @@ final class PotionHud extends HudCard {
         }
         if(extra>0) { lines[count]="+"+(effects.size()-count)+" effects";timers[count]="";colors[count]=Neon.config.theme.color(ThemeColor.MUTED); }
     }
-    @Override protected int contentWidth() { return 148; }
-    @Override protected int contentHeight() { return Math.max(1,lines.length)*14; }
+    @Override protected int contentWidth() {
+        int width=24;
+        for(int i=0;i<lines.length;i++)width=Math.max(width,6+text.width(lines[i])+(timers[i].isEmpty()?0:8+text.width(timers[i])));
+        return Math.min(220,width);
+    }
     @Override protected void renderContent(GuiGraphicsExtractor g,boolean preview) {
         var theme=Neon.config.theme;boolean shadow=Neon.config.hud(kind).shadow;
         for(int i=0;i<lines.length;i++) {
-            int y=4+i*14;
-            g.fill(5,y,7,y+9,colors[i]);
+            int y=3+i*(text.height()+1),width=contentWidth();
+            g.fill(5,y+1,7,y+text.height()-1,colors[i]);
             int timeWidth=text.width(timers[i]);
-            text.draw(g,text.trim(lines[i],138-timeWidth-8),11,y,theme.color(ThemeColor.TEXT),shadow);
-            text.draw(g,timers[i],153-timeWidth,y,theme.color(ThemeColor.ACCENT),shadow);
+            text.draw(g,text.trim(lines[i],width-6-(timeWidth==0?0:timeWidth+8)),11,y,theme.color(ThemeColor.TEXT),shadow);
+            text.draw(g,timers[i],5+width-timeWidth,y,theme.color(ThemeColor.ACCENT),shadow);
         }
     }
 }

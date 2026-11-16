@@ -1,21 +1,22 @@
 package me.xchro.neon.mixin;
 
-import com.llamalad7.mixinextras.injector.wrapoperation.*;
-import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 import me.xchro.neon.Neon;
 import me.xchro.neon.module.ClientModule;
 import net.minecraft.client.renderer.*;
-import net.minecraft.client.renderer.rendertype.RenderType;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import org.joml.Matrix4f;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(ScreenEffectRenderer.class)
 public abstract class FireOverlayMixin {
-    @WrapOperation(method="submitFire",at=@At(value="INVOKE",target="Lnet/minecraft/client/renderer/SubmitNodeCollector;submitCustomGeometry(Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/rendertype/RenderType;Lnet/minecraft/client/renderer/SubmitNodeCollector$CustomGeometryRenderer;)V"))
-    private static void neon$lowerFire(SubmitNodeCollector collector,PoseStack pose,RenderType type,SubmitNodeCollector.CustomGeometryRenderer geometry,Operation<Void> original) {
-        if(!ClientModule.LOW_FIRE.active()) { original.call(collector,pose,type,geometry);return; }
-        pose.pushPose();
-        try { pose.translate(0,-(float)Neon.config.fireLowering,0);original.call(collector,pose,type,geometry); }
-        finally { pose.popPose(); }
+    // Unity MixinNoRenderEffects: transform the actual quad, after deferred node submission.
+    // Minecraft supplies a disposable matrix for each side; the caller's pose remains untouched.
+    @Inject(method="buildFireQuad",at=@At("HEAD"))
+    private static void neon$lowerFire(TextureAtlasSprite sprite,VertexConsumer vertices,Matrix4f pose,CallbackInfo ci) {
+        if(ClientModule.LOW_FIRE.active())pose.translate(0,-(float)Neon.config.fireLowering*.7f,0);
     }
 }

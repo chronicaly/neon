@@ -25,7 +25,7 @@ public final class NeonHud {
     private static final List<ItemStack> normalFrame = new ArrayList<>(4), previewFrame = new ArrayList<>(4);
     private static boolean extracting, normalReady, previewReady;
     private static int frameTotems = -1;
-    public static void beginFrame() { extracting = true; normalReady = previewReady = false; frameTotems = -1; me.xchro.neon.ui.HudText.beginFrame(); }
+    public static void beginFrame() { extracting = true; normalReady = previewReady = false; frameTotems = -1; HudChrome.frame(System.nanoTime()); me.xchro.neon.ui.HudText.beginFrame(); }
     public static void endFrame() { extracting = false; me.xchro.neon.ui.HudText.flush(); }
     public static List<ItemStack> armor(boolean preview) {
         if (extracting && (preview ? previewReady : normalReady)) return preview ? previewFrame : normalFrame;
@@ -111,6 +111,15 @@ public final class NeonHud {
         drawPixels(graphics,preview,mc.getWindow().getWidth(),mc.getWindow().getHeight());graphics.pose().popMatrix();
     }
     public static void drawPixels(GuiGraphicsExtractor graphics,boolean preview,int width,int height){
+        HudChrome.begin();
+        try {
+        FpsHud.surface(graphics,width,height);
+        HudWidgets.surfaces(graphics,width,height,preview);
+        if(Neon.config.hudNeonPanels) {
+            if(Neon.config.armor.visible&&Neon.config.armorSlots&&!armor(preview).isEmpty())ARMOR_CHROME.draw(graphics,pixelBounds(width,height,preview));
+            if(Neon.config.totems.visible&&Neon.config.totemFloating&&(preview||totems()>0))TOTEM_CHROME.draw(graphics,totemPixelBounds(width,height));
+        }
+        HudChrome.flush(graphics);
         FpsHud.draw(graphics, width, height);
         HudWidgets.draw(graphics,width,height,preview);
         if (Neon.config.armor.visible) {
@@ -118,6 +127,7 @@ public final class NeonHud {
             if (!armor.isEmpty()) drawItems(graphics, armor,width,height);
         }
         if (Neon.config.totemFloating && Neon.config.totems.visible && (preview || totems() > 0)) drawTotemPixels(graphics,preview,width,height);
+        } finally {HudChrome.end();}
     }
     public static HudBounds totemBounds(int width, int height) {
         int scale=gameScale();return toGui(totemPixelBounds(width*scale,height*scale),scale);
@@ -152,7 +162,7 @@ public final class NeonHud {
         for (int i = 0; i < items.size(); i++) {
             int x = Neon.config.armorVertical ? 0 : i * stride(), y = Neon.config.armorVertical ? i * stride() : 0;
             if (Neon.config.armorSlots) {
-                if (!Neon.config.hudNeonPanels) {
+                if (!Neon.config.hudNeonPanels && HudChrome.backgrounds()) {
                 // Slice the native hotbar ends into one slot; resource packs supply its texture.
                 g.blitSprite(RenderPipelines.GUI_TEXTURED, HOTBAR, 182, 22, 0, 0, x, y, 21, 22);
                 g.blitSprite(RenderPipelines.GUI_TEXTURED, HOTBAR, 182, 22, 181, 0, x + 21, y, 1, 22);

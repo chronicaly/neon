@@ -1,4 +1,14 @@
 Neon is developed by chronicaly.
+At the author's request, 0.5.1 adapts Unity revision 5bbd639's selected-block
+silhouette renderer: BlockHighlightRenderer.java, ImmediateGeometry.java,
+the block pipelines/uniform layout in ShaderEspRenderer.java, EspBloomRenderer.java,
+and esp_outline.{vsh,fsh}/esp_bloom.fsh. Neon retains native target eligibility,
+depth testing and voxel shapes, and adds its own settings and GPU cleanup.
+No entity highlighting or through-wall selection is included. Low fire adapts
+MixinNoRenderEffects.buildFireQuad's final-geometry transform and height mapping.
+Coordinates follows HudManager's compact comma-separated coordinate formatting.
+The shared HUD surface union, contour tessellation and synchronized lighting
+are Neon implementations. Unity's separate checkout and artifacts are untouched.
 At the author's request, the crosshair raster coverage and bitmap-font origin
 snapping are adapted from Unity's CrosshairRaster.java and MinecraftFontLayout.java
 at revision 5bbd639. HUD typography also follows HudManager's native-pixel font

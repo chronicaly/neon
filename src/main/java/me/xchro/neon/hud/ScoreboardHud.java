@@ -18,7 +18,7 @@ final class ScoreboardHud extends HudCard {
     private FormattedCharSequence heading=FormattedCharSequence.EMPTY;
     private FormattedCharSequence[] names=new FormattedCharSequence[0],scores=new FormattedCharSequence[0];
     private int[] scoreWidths=new int[0];
-    private int width=80,headingWidth;
+    private int width=24,headingWidth;
     ScoreboardHud() { super(HudKind.SCOREBOARD); }
     @Override protected void update(Minecraft mc,boolean preview) {
         var labels=new ArrayList<Component>();var values=new ArrayList<Component>();
@@ -41,7 +41,7 @@ final class ScoreboardHud extends HudCard {
             else { lines=new String[0];return; }
         }
         var font=mc.font;boolean showTitle=Neon.config.scoreboardTitle;
-        width=showTitle?Math.max(80,text.width(title.getVisualOrderText())):80;
+        width=showTitle?Math.max(24,text.width(title.getVisualOrderText())):24;
         for(int i=0;i<labels.size();i++)width=Math.max(width,text.width(labels.get(i).getVisualOrderText())+text.width(values.get(i).getVisualOrderText())+8);
         width=Math.min(220,width);int count=labels.size();
         names=new FormattedCharSequence[count];scores=new FormattedCharSequence[count];scoreWidths=new int[count];
@@ -62,11 +62,11 @@ final class ScoreboardHud extends HudCard {
     @Override protected int contentWidth() { return width; }
     @Override protected void renderContent(GuiGraphicsExtractor g,boolean preview) {
         var theme=Neon.config.theme;boolean shadow=Neon.config.hud(kind).shadow;int y=3;
-        if(Neon.config.scoreboardTitle) { text.draw(g,heading,5+(width-headingWidth)/2,y,theme.color(ThemeColor.ACCENT),shadow);y+=text.height()+3; }
+        if(Neon.config.scoreboardTitle) { text.draw(g,heading,5+(width-headingWidth)/2,y,theme.color(ThemeColor.ACCENT),shadow);y+=text.height()+1; }
         for(int i=0;i<names.length;i++) {
             text.draw(g,names[i],5,y,theme.color(ThemeColor.TEXT),shadow);
             if(scoreWidths[i]>0)text.draw(g,scores[i],5+width-scoreWidths[i],y,theme.color(ThemeColor.MUTED),shadow);
-            y+=text.height()+3;
+            y+=text.height()+1;
         }
     }
 }

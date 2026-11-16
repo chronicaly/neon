@@ -19,7 +19,7 @@ public final class FpsHud {
         return inter()?Math.max(1,(int)Math.round(16*scale)):Math.max(1,(int)Math.round(2*scale))*8;
     }
     private static float textScale() { return fontPixels() / 8f; }
-    private static int paddingX() { return Math.max(1, (int) Math.round(3 * Neon.config.hudScale * Neon.config.fps.scale)); }
+    private static int paddingX() { return Math.max(1, (int) Math.round(4 * Neon.config.hudScale * Neon.config.fps.scale)); }
     private static int paddingY() { return Math.max(1, (int) Math.round(2 * Neon.config.hudScale * Neon.config.fps.scale)); }
     public static HudBounds bounds(int width, int height) {
         var font = Minecraft.getInstance().font;
@@ -40,14 +40,7 @@ public final class FpsHud {
         var c = Neon.config;
         if (!c.fps.visible) return;
         var b = bounds(width, height);
-        if (c.fpsBackground) {
-            int color = FpsColor.BACKGROUND.color(c);
-            g.fill(b.x(), b.y(), b.x() + b.width(), b.y() + b.height(), color & 0xffffff | (int) Math.round((color >>> 24) * .78) << 24);
-        }
-        if (c.fpsBorder) {
-            int color = FpsColor.BORDER.color(c);
-            CHROME.border(g,b,color,FpsColor.BORDER.synced(c) ? c.theme.color(me.xchro.neon.config.ThemeColor.SECONDARY) : color);
-        }
+        surface(g,width,height);
         var font = Minecraft.getInstance().font;
         if(inter()) {
             int x=b.x()+paddingX(),y=b.y()+paddingY();
@@ -62,5 +55,11 @@ public final class FpsHud {
         g.text(font, "FPS ", 0, 0, FpsColor.LABEL.color(c), c.fpsShadow);
         g.text(font, Integer.toString(value()), font.width("FPS "), 0, FpsColor.VALUE.color(c), c.fpsShadow);
         g.pose().popMatrix();
+    }
+    public static void surface(GuiGraphicsExtractor g,int width,int height) {
+        var c=Neon.config;if(!c.fps.visible)return;
+        int color=FpsColor.BORDER.color(c);
+        CHROME.panel(g,bounds(width,height),FpsColor.BACKGROUND.color(c),color,
+            FpsColor.BORDER.synced(c)?c.theme.color(me.xchro.neon.config.ThemeColor.SECONDARY):color,c.fpsBackground,c.fpsBorder);
     }
 }

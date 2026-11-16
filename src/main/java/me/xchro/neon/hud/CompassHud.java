@@ -13,7 +13,7 @@ final class CompassHud extends HudCard {
         lines=new String[]{HudNumbers.heading(yaw)+(Neon.config.compassDegrees?"  "+(int)HudNumbers.bearing(yaw)+"°":"")};
     }
     @Override protected int contentWidth() { return 120; }
-    @Override protected int contentHeight() { return 30; }
+    @Override protected int contentHeight() { return 21+text.height(); }
     @Override protected void renderContent(GuiGraphicsExtractor g,boolean preview) {
         super.renderContent(g,preview);
         var mc=Minecraft.getInstance();var theme=Neon.config.theme;

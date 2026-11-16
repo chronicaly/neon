@@ -10,15 +10,15 @@ import net.minecraft.world.item.*;
 final class InventoryHud extends HudCard {
     InventoryHud() { super(HudKind.INVENTORY); }
     @Override protected void update(Minecraft mc,boolean preview) { lines=new String[]{"Inventory"}; }
-    @Override protected int contentWidth() { return 162; }
-    @Override protected int contentHeight() { return 14+(Neon.config.inventoryHotbar?4:3)*18; }
+    @Override protected int contentWidth() { return 160; }
+    @Override protected int contentHeight() { return text.height()+(Neon.config.inventoryHotbar?4:3)*18; }
     @Override protected void renderContent(GuiGraphicsExtractor g,boolean preview) {
         var mc=Minecraft.getInstance();var theme=Neon.config.theme;
         text.draw(g,"Inventory",5,3,theme.color(ThemeColor.ACCENT),Neon.config.hud(kind).shadow);
         int rows=Neon.config.inventoryHotbar?4:3;
         for(int row=0;row<rows;row++) for(int column=0;column<9;column++) {
-            int slot=row==3?column:9+row*9+column,x=5+column*18,y=18+row*18;
-            if(Neon.config.inventorySlots) {
+            int slot=row==3?column:9+row*9+column,x=5+column*18,y=5+text.height()+row*18;
+            if(Neon.config.inventorySlots&&HudChrome.backgrounds()) {
                 int color=theme.color(ThemeColor.MUTED);
                 g.fill(x,y,x+16,y+16,Ui.alpha(color,(int)((color>>>24)*.10)));
             }

@@ -4,11 +4,13 @@ A customizable **Minecraft 26.2 / Java 25** Fabric client with a consistent cyan
 
 ![Neon modules and the Crosshair drawer](docs/images/neon-expansion-modules.png)
 
-[Download](https://github.com/chronicaly/neon/releases/latest) · [User guide](docs/user-guide.md) · [Research](docs/client-research.md) · [Release notes](docs/release-0.5.0.md)
+[Download](https://github.com/chronicaly/neon/releases/latest) · [User guide](docs/user-guide.md) · [Research](docs/client-research.md) · [Release notes](docs/release-0.5.1.md)
+
+**0.5.1 refines the HUD and visual modules:** tight glass panels join when placed together, every outline shares one animation, and FPS matches the other widgets. General has a master surface switch plus separate background/outline switches. Block outline now adapts Unity's silhouette, fill and bloom renderer; Low fire transforms the final fire geometry correctly.
 
 ## Install
 
-Use Minecraft **26.2**, **Java 25**, Fabric Loader **0.19.5+**, and Fabric API for 26.2. This release is built against **Fabric API 0.161.0+26.2**. Put the runnable `neon-0.5.0.jar` in your instance's `minecraft/mods` folder. Keep one Neon JAR; the sources JAR is for development. [Mod Menu](https://modrinth.com/mod/modmenu) is optional.
+Use Minecraft **26.2**, **Java 25**, Fabric Loader **0.19.5+**, and Fabric API for 26.2. This release is built against **Fabric API 0.161.0+26.2**. Put the runnable `neon-0.5.1.jar` in your instance's `minecraft/mods` folder. Keep one Neon JAR; the sources JAR is for development. [Mod Menu](https://modrinth.com/mod/modmenu) is optional.
 
 Open Neon with your saved menu key (**Insert** in the supplied Vanilla setup), **Right Shift**, or Mod Menu. A fresh configuration uses **P** as its primary key. Updates preserve saved keys, palette, alpha and custom HUD placements. New 0.5.0 modules and HUD widgets start disabled.
 
@@ -32,7 +34,7 @@ The 15 additions share the same compact buttons, attached drawers, profiles, Und
 | Weather | Clear/rainy visuals and precipitation intensity, retaining native biome rules. Actual weather and ambient weather audio remain unchanged. |
 | Fullbright | Adjustable lightmap enhancement. Suspends during darkness/blindness; grants no effect and leaves gamma unchanged. |
 | Clean view | Independently hides pumpkin, portal and vignette overlays. |
-| Block outline | Theme-linked color and display-pixel width; preserves native shape, depth and high-contrast backing. |
+| Block outline | Unity-derived Outline, Both, Fill and Glow styles, plus native Wire. Width, fill opacity, Neon gradient, bloom, and theme-linked color/Sync. Preserves native targeting, voxel shapes and depth; Wire retains high-contrast backing. |
 
 The existing seven remain: **Freelook**, **Zoom**, **Motion blur**, **Totem pops**, **Better chat**, **Better screenshot** and **Autoclicker**. Better chat preserves history, signatures and links, with independent message/mention ping volume. Better screenshot copies normal screenshots while preserving PNG saving. Motion blur starts disabled with 10% strength. See the [guide](docs/user-guide.md) for detailed behavior, including the existing autoclicker's persistent Toggle session.
 
@@ -48,11 +50,15 @@ Open **HUD editor** directly beneath Settings. Each element has its own visibili
 | Status and session | Potion effects, Scoreboard, Server, Ping, Clock, Session |
 | Client information | FPS, Memory, Resource packs |
 
-Panels use the saved Neon palette, thin animated outlines and localized traveling highlights. General offers native-resolution **Inter** or pixel-snapped **Minecraft** text, and can disable outline animation or the new armor/floating-totem plates. Text sizing, origin snapping and shadow ordering adapt Unity's fixes. FPS retains independent Label, Value, Background and Border colors, each with **Sync** to restore its theme link. Minecraft mode follows the active resource-pack font; item models and decorations remain native.
+Panels fit their content with tight padding and gently rounded corners. Bringing enabled panels within the editor's six-pixel spacing joins their glass backgrounds and outside contours; moving them apart separates them. Overlaps do not double the background opacity, and joined surfaces have no internal border. All outlines share one cyan/violet animation and the saved palette/alpha.
 
-![Scoreboard styling and compact HUD editing at 640×360](docs/images/neon-expansion-scoreboard.png)
+General offers **HUD surfaces** (master for both backgrounds and outlines), independent **Backgrounds** and **Outlines**, **Animated outline**, and **Equipment panels**. These switches preserve each widget's local preferences. Native-resolution **Inter** or pixel-snapped **Minecraft** text adapts Unity's font sizing, origin snapping and shadow ordering. FPS uses the same padding, label/value styling and outline renderer, retaining four independent colors and per-color **Sync**. Minecraft mode follows resource-pack fonts; item models and decorations remain native.
 
-Coordinates optionally show dimension and Nether conversion. CPS counts physical clicks, excluding menu and generated clicks; Keystrokes follows rebound movement keys. Item counter supports held item, pearls, arrows, rockets, both golden apples, experience bottles, obsidian and diamonds. Scoreboard optionally replaces the native sidebar, preserving team styles, hidden entries and number formatting; disable it to restore the native sidebar. World time reports actual synchronized time independently of Time changer.
+![Joined HUD surfaces and the General controls](docs/images/neon-glass-hud.png)
+
+![Scoreboard styling and compact HUD editing at 640×360](docs/images/neon-glass-scoreboard.png)
+
+Coordinates uses Unity's compact comma-separated format, with optional dimension and inline Nether conversion. CPS counts physical clicks, excluding menu and generated clicks; Keystrokes follows rebound movement keys. Item counter supports held item, pearls, arrows, rockets, both golden apples, experience bottles, obsidian and diamonds. Scoreboard optionally replaces the native sidebar, preserving team styles, hidden entries and number formatting; disable it to restore the native sidebar. World time reports actual synchronized time independently of Time changer.
 
 Drag enabled widgets directly, resize at invisible corners, or use the wheel to scale. Arrow keys nudge one display pixel; Shift nudges ten. Right-click a row or widget for settings. Numeric values support exact entry. Disabled widgets remain in the column but do not render, receive canvas input or attract snapping. Armor defaults left of the offhand/hotbar; attached totems stay on the real offhand slot.
 
@@ -76,7 +82,7 @@ Requires JDK 25. The project uses unobfuscated Fabric Loom.
 ./tools/build.ps1 -SkipInstall
 ```
 
-On this development setup, `./tools/build.ps1` also runs the silent packaged release suite and installs only its exact checked runnable JAR into PrismLauncher's Vanilla instance. The prepared verification world is isolated from user instances. See [verification](docs/verification.md) and [0.5.0 results](docs/expansion-results.md).
+On this development setup, `./tools/build.ps1` also runs the silent packaged release suite and installs only its exact checked runnable JAR into PrismLauncher's Vanilla instance. The prepared verification world is isolated from user instances. See [verification](docs/verification.md) and [0.5.1 results](docs/refinement-results.md).
 
 Performance instrumentation and sound/clipboard interception live only in the verification mod, excluded from releases. Measurements report allocations and frame times with their limits; no FPS increase is promised.
 

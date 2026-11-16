@@ -65,17 +65,15 @@ final class FpsHudSmoke {
         var text=new ArrayList<GuiTextRenderState>();state.forEachText(text::add);
         var color=GuiTextRenderState.class.getDeclaredField("color");color.setAccessible(true);
         check(text.size()==2 && color.getInt(text.get(0))==FpsColor.LABEL.color(Neon.config) && color.getInt(text.get(1))==FpsColor.VALUE.color(Neon.config),"renderer uses independent FPS label and value colors");
-        var rectangles=new ArrayList<ColoredRectangleRenderState>();
-        state.forEachElement(element->{if(element instanceof ColoredRectangleRenderState r)rectangles.add(r);},GuiRenderState.TraverseRange.ALL);
+        var glass=new ArrayList<GuiElementRenderState>();state.forEachElement(element->{if(element.getClass().getSimpleName().equals("Glass"))glass.add(element);},GuiRenderState.TraverseRange.ALL);
+        check(glass.size()==1,"FPS uses the shared glass surface mesh");
+        var fills=glass.getFirst().getClass().getDeclaredField("fills");fills.setAccessible(true);
+        var outlines=glass.getFirst().getClass().getDeclaredField("outlines");outlines.setAccessible(true);
+        var fill=(me.xchro.neon.hud.HudGlassRenderer.Surface)((List<?>)fills.get(glass.getFirst())).getFirst();
+        var outline=(me.xchro.neon.hud.HudGlassRenderer.Surface)((List<?>)outlines.get(glass.getFirst())).getFirst();
         int background=FpsColor.BACKGROUND.color(Neon.config);
-        int paint=background&0xffffff|(int)Math.round((background>>>24)*.78)<<24;
-        check(rectangles.stream().anyMatch(r->r.col1()==paint),"FPS background uses its own RGBA color");
-        var borders=new ArrayList<GuiElementRenderState>();state.forEachElement(element->{if(element.getClass().getSimpleName().equals("Border"))borders.add(element);},GuiRenderState.TraverseRange.ALL);
-        check(borders.size()==1,"FPS animated border uses one continuous mesh");
-        for(String field:List.of("outline","secondary")) {
-            var tint=borders.getFirst().getClass().getDeclaredField(field);tint.setAccessible(true);
-            check(tint.getInt(borders.getFirst())==FpsColor.BORDER.color(Neon.config),"FPS border override retains RGBA in "+field);
-        }
+        check(fill.background()==((background&0xffffff)|Math.round((background>>>24)*.74f)<<24),"FPS background keeps its own RGBA in shared glass");
+        check(outline.primary()==FpsColor.BORDER.color(Neon.config)&&outline.secondary()==FpsColor.BORDER.color(Neon.config),"FPS border override colors both ends of shared glass");
     }
     private void fitsColor() {
         var shell=editor.inspectorBounds();var picker=named("Color picker");

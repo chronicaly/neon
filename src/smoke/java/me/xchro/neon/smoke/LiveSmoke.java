@@ -57,6 +57,7 @@ public final class LiveSmoke implements ClientModInitializer {
     private ReleaseSmoke release;
     private ExpansionSmoke expansion;
     private ModulesSmoke modules;
+    private RefinementSmoke refinement;
     private InteractionSmoke interactions;
     private FpsHudSmoke fpsHud;
     private TotemPopSmoke totemPops;
@@ -150,6 +151,7 @@ public final class LiveSmoke implements ClientModInitializer {
                     if(Boolean.getBoolean("neon.smoke.releaseOnly")){release=new ReleaseSmoke(mc,checks);stage=73;stageTick=tick;return;}
                     if(Boolean.getBoolean("neon.smoke.expansionOnly")){expansion=new ExpansionSmoke(mc,checks);stage=74;stageTick=tick;return;}
                     if(Boolean.getBoolean("neon.smoke.modulesOnly")){modules=new ModulesSmoke(mc,checks);stage=75;stageTick=tick;return;}
+                    if(Boolean.getBoolean("neon.smoke.refinementOnly")){refinement=new RefinementSmoke(mc,checks);stage=76;stageTick=tick;return;}
                     if(System.getProperty("neon.smoke.pageIndex")!=null){pages=new PageLayoutSmoke(mc,checks);stage=72;stageTick=tick;return;}
                     if(Boolean.getBoolean("neon.smoke.premiumOnly")){premium=new PremiumSmoke(mc,checks);stage=71;stageTick=tick;return;}
                     if(Boolean.getBoolean("neon.smoke.hoverOnly")){hoverGlow=new HoverGlowSmoke(mc,checks);stage=70;stageTick=tick;return;}
@@ -703,6 +705,10 @@ public final class LiveSmoke implements ClientModInitializer {
                 case 75 -> {
                     if(!modules.run())return;checks=modules.checks();
                     Files.writeString(mc.gameDirectory.toPath().resolve("neon-verification.txt"),"PASS "+checks+" module expansion checks\n");stage=50;stageTick=tick;
+                }
+                case 76 -> {
+                    if(!refinement.run())return;checks=refinement.checks();
+                    Files.writeString(mc.gameDirectory.toPath().resolve("neon-verification.txt"),"PASS "+checks+" HUD glass, Unity block shader and low-fire checks\n");stage=50;stageTick=tick;
                 }
                 case 63 -> {
                     if (!betterScreenshot.run()) return;

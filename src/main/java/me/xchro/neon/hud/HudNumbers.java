@@ -1,6 +1,11 @@
 package me.xchro.neon.hud;
 
 public final class HudNumbers {
+    /** Unity HudTextContent: compact comma-separated coordinates and inline dimension conversion. */
+    public static String coordinates(double x,double y,double z,double factor) {
+        String actual=(long)Math.floor(x)+", "+(long)Math.floor(y)+", "+(long)Math.floor(z);
+        return factor==1?actual:actual+" ("+(long)Math.floor(x*factor)+", "+(long)Math.floor(z*factor)+")";
+    }
     private HudNumbers() {}
     /** Floor after conversion, including the west/north side of the origin. */
     public static long coordinate(double value, double factor) { return (long)Math.floor(value * factor); }

@@ -110,6 +110,7 @@ final class ModulesSmoke {
         }
     }
     private void blockOutline() throws Exception {
+        Neon.config.blockOutlineMode=NeonConfig.BlockOutlineMode.WIREFRAME;
         var calls=new ArrayList<Object[]>();var collector=(net.minecraft.client.renderer.SubmitNodeCollector)java.lang.reflect.Proxy.newProxyInstance(getClass().getClassLoader(),new Class[]{net.minecraft.client.renderer.SubmitNodeCollector.class},(proxy,method,args)->{
             if(method.getName().equals("submitShapeOutline"))calls.add(args.clone());return null;
         });
@@ -125,6 +126,7 @@ final class ModulesSmoke {
         calls.clear();state.blockOutlineRenderState=null;submit.invoke(mc.levelRenderer,pose,collector,state);
         check(calls.isEmpty(),"block outline never creates a target when vanilla has none");
         Neon.config.blockOutlineColor=null;Neon.config.blockOutlineWidth=2;
+        Neon.config.blockOutlineMode=NeonConfig.BlockOutlineMode.OUTLINE;
     }
     private int overlayElements(String name,Object value) throws Exception {
         var state=new net.minecraft.client.renderer.state.gui.GuiRenderState();var g=new net.minecraft.client.gui.GuiGraphicsExtractor(mc,state,0,0);
@@ -241,16 +243,31 @@ final class ModulesSmoke {
         var spritesField=renderer.getClass().getDeclaredField("sprites");spritesField.setAccessible(true);
         var sprites=(net.minecraft.client.resources.model.sprite.SpriteGetter)spritesField.get(renderer);
         var sprite=sprites.get(net.minecraft.client.resources.model.ModelBakery.FIRE_1);
-        var pose=new com.mojang.blaze3d.vertex.PoseStack();var captured=new org.joml.Matrix4f[1];
+        var pose=new com.mojang.blaze3d.vertex.PoseStack();
+        var deferred=new net.minecraft.client.renderer.SubmitNodeCollector.CustomGeometryRenderer[1];
         var collector=(net.minecraft.client.renderer.SubmitNodeCollector)java.lang.reflect.Proxy.newProxyInstance(getClass().getClassLoader(),new Class[]{net.minecraft.client.renderer.SubmitNodeCollector.class},(proxy,method,args)->{
-            if(method.getName().equals("submitCustomGeometry"))captured[0]=new org.joml.Matrix4f(((com.mojang.blaze3d.vertex.PoseStack)args[0]).last().pose());return null;
+            if(method.getName().equals("submitCustomGeometry"))deferred[0]=(net.minecraft.client.renderer.SubmitNodeCollector.CustomGeometryRenderer)args[2];return null;
         });
         var submit=renderer.getClass().getDeclaredMethod("submitFire",pose.getClass(),net.minecraft.client.renderer.SubmitNodeCollector.class,net.minecraft.client.renderer.texture.TextureAtlasSprite.class);submit.setAccessible(true);
         submit.invoke(null,pose,collector,sprite);
-        check(captured[0]!=null&&Math.abs(captured[0].m31()+.4)<.00001,"low fire lowers the actual submitted overlay geometry");
-        check(pose.last().pose().equals(new org.joml.Matrix4f(),.00001f),"low fire restores the shared pose stack");
-        ClientModule.LOW_FIRE.enabled(Neon.config,false);submit.invoke(null,pose,collector,sprite);
-        check(captured[0].equals(new org.joml.Matrix4f(),.00001f),"disabled low fire retains native geometry");ClientModule.LOW_FIRE.enabled(Neon.config,true);
+        var points=new ArrayList<org.joml.Vector3f>();
+        var vertices=(com.mojang.blaze3d.vertex.VertexConsumer)java.lang.reflect.Proxy.newProxyInstance(getClass().getClassLoader(),new Class[]{com.mojang.blaze3d.vertex.VertexConsumer.class},(proxy,method,args)->{
+            if(method.isDefault())return java.lang.reflect.InvocationHandler.invokeDefault(proxy,method,args);
+            if(method.getName().equals("addVertex"))points.add(new org.joml.Vector3f((float)args[0],(float)args[1],(float)args[2]));
+            return method.getReturnType()==void.class?null:proxy;
+        });
+        ClientModule.LOW_FIRE.enabled(Neon.config,false);deferred[0].render(pose.last(),vertices);
+        var nativePoints=new ArrayList<>(points);points.clear();
+        ClientModule.LOW_FIRE.enabled(Neon.config,true);Neon.config.fireLowering=.4;deferred[0].render(pose.last(),vertices);
+        check(nativePoints.size()==8&&points.size()==8,"low fire retains both native textured quads");
+        for(int i=0;i<points.size();i++) {
+            var a=nativePoints.get(i);var b=points.get(i);
+            check(Math.abs(b.y-a.y+.28)<.00001&&Math.abs(a.x-b.x)<.00001&&Math.abs(a.z-b.z)<.00001,"low fire lowers final deferred vertex "+i);
+        }
+        points.clear();Neon.config.fireLowering=0;deferred[0].render(pose.last(),vertices);
+        check(points.equals(nativePoints),"zero lowering exactly restores native fire vertices");
+        check(pose.last().pose().equals(new org.joml.Matrix4f(),.00001f),"low fire leaves the shared pose intact");
+        Neon.config.fireLowering=.4;
     }
     private void viewBobbing() throws Exception {
         var state=new net.minecraft.client.renderer.state.level.CameraRenderState();var entity=state.entityRenderState;

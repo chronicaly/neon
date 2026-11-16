@@ -2,6 +2,10 @@ The current module grid and earlier interface revisions are documented below. Ea
 
 # Neon verification
 
+## HUD and visual refinement — 16 November 2026
+
+Version 0.5.1 refines the shared HUD surfaces, compact typography, Unity-derived block silhouette rendering and final-quad Low fire hook. See [refinement-results.md](refinement-results.md) for current evidence and measurements. `prodSmoke -PrefinementOnly` performs actual framebuffer checks for joined/separated surfaces, independent FPS colors, master switches, block styles and visible lowered flames. The installing release suite includes these checks in addition to the existing suites.
+
 ## Client expansion — 16 November 2026
 
 The 0.5.0 expansion adds fifteen modules and twenty HUD elements after improving the existing HUD. See [expansion-results.md](expansion-results.md) for the current packaged checks, screenshots, allocation/frame-time measurements and artifact identity. Earlier sections describe historical versions.

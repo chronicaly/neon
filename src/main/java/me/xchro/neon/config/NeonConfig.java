@@ -31,6 +31,10 @@ public final class NeonConfig {
     public boolean hidePumpkin=true, hidePortal=true, hideVignette=true;
     public Integer blockOutlineColor;
     public double blockOutlineWidth=2;
+    public enum BlockOutlineMode { OUTLINE, OUTLINE_FILL, FILL, GLOW, WIREFRAME }
+    public BlockOutlineMode blockOutlineMode=BlockOutlineMode.OUTLINE;
+    public double blockOutlineFill=.18;
+    public boolean blockOutlineGradient=true,blockOutlineGlow;
     public int blockOutlineColor() { return blockOutlineColor==null?theme.color(ThemeColor.ACCENT):blockOutlineColor; }
     public int hitColor() { return hitColor==null?theme.color(ThemeColor.ACCENT):hitColor; }
     public Viewmodel viewmodel=new Viewmodel();
@@ -157,6 +161,7 @@ public final class NeonConfig {
     public boolean editorGuides = true, editorSnap = false;
     public double hudScale = 1;
     public boolean hudNeonPanels = true, hudAnimatedOutline = true;
+    public boolean hudSurfaces = true, hudBackgrounds = true, hudOutlines = true;
     public boolean coordinatesDimension = true, coordinatesConversion;
     public boolean compassDegrees = true;
     public boolean keystrokesMouse = true, keystrokesJump = true;
@@ -222,6 +227,7 @@ public final class NeonConfig {
         fpsAnimation = fpsBackground = fpsBorder = false; fpsShadow = true; totemFloating = false;
         editorGuides = true; editorSnap = false; hudScale=1;snapSensitivity=10; hudWidgets.clear();
         hudNeonPanels=hudAnimatedOutline=coordinatesDimension=compassDegrees=true;
+        hudSurfaces=hudBackgrounds=hudOutlines=true;
         keystrokesMouse=keystrokesJump=inventorySlots=heldItemOffhand=clock24Hour=lightSky=serverPlayers=true;
         coordinatesConversion=inventoryHotbar=heldItemPercent=clockSeconds=serverAddress=false;
         potionMaxRows=8;packMaxRows=3;
@@ -260,7 +266,9 @@ public final class NeonConfig {
         visualTime=Math.floorMod(visualTime,24000);
         if(weather==null)weather=Weather.CLEAR;weatherIntensity=finite(weatherIntensity,.6,0,1);
         fullbrightStrength=finite(fullbrightStrength,1,0,1);
-        blockOutlineWidth=finite(blockOutlineWidth,2,1,5);
+        blockOutlineWidth=finite(blockOutlineWidth,2,.5,8);
+        blockOutlineFill=finite(blockOutlineFill,.18,0,1);
+        if(blockOutlineMode==null)blockOutlineMode=BlockOutlineMode.OUTLINE;
         if(viewmodel==null)viewmodel=new Viewmodel();viewmodel.sanitize();
         if (freelookMode == null) freelookMode = BindMode.HOLD;
         if (motionBlurMode == null) motionBlurMode = BindMode.TOGGLE;

@@ -20,6 +20,7 @@ final class ReleaseSmoke {
     private PageLayoutSmoke pages;
     private ExpansionSmoke expansion;
     private ModulesSmoke modules;
+    private RefinementSmoke refinement;
     ReleaseSmoke(Minecraft mc,int checks)throws Exception{
         this.mc=mc;this.checks=checks;
         production=Path.of(Neon.class.getProtectionDomain().getCodeSource().getLocation().toURI());
@@ -41,6 +42,7 @@ final class ReleaseSmoke {
             case 5->{if(pages==null)pages=new PageLayoutSmoke(mc,checks);if(!pages.run())return false;checks=pages.checks();}
             case 6->{if(expansion==null)expansion=new ExpansionSmoke(mc,checks);if(!expansion.run())return false;checks=expansion.checks();}
             case 7->{if(modules==null)modules=new ModulesSmoke(mc,checks);if(!modules.run())return false;checks=modules.checks();}
+            case 8->{if(refinement==null)refinement=new RefinementSmoke(mc,checks);if(!refinement.run())return false;checks=refinement.checks();}
             default->{
                 if(!hash(production).equals(productionHash)||!hash(verification).equals(verificationHash))throw new AssertionError("Loaded artifacts changed during verification");
                 var proof=new com.google.gson.JsonObject();proof.addProperty("schema",1);proof.addProperty("passed",true);proof.addProperty("suite","release");

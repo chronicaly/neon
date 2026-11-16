@@ -1,5 +1,13 @@
 # Neon design language
 
+## HUD refinement — 16 November 2026
+
+The latest request replaces isolated sharp HUD boxes with tight, gently rounded glass surfaces. Use four display pixels of horizontal padding and two vertical pixels at default HUD scale; fit multiline, potion, held-item and inventory content. Nearby enabled surfaces merge across the editor's six-pixel spacing into one non-overlapping translucent fill and outside contour, with no internal border. Moving them apart separates the surfaces. Sample one framebuffer-space cyan/violet light field for every HUD outline; retain saved palette/alpha and FPS's independent colors. Keep FPS's reserved four-digit width and make its typography, padding and line height consistent with information widgets. Coordinates adapts Unity's compact comma-separated format with optional inline Nether conversion.
+
+General exposes HUD surfaces (master for both), Backgrounds and Outlines, without changing local visibility preferences or saved placement. Preserve profiles and Undo. Animated outline and Equipment panels remain independent preferences. The HUD editor column keeps its quiet static border; menu design and interactions are unchanged. This direction supersedes the earlier isolated sharp HUD panels.
+
+Block outline adapts Unity's actual selected-block silhouette shader, with Outline/Both/Fill/Glow/Wire modes, width, fill opacity, Neon gradient, bloom and the existing color/Sync. Keep native targeting, voxel shape and depth eligibility. Low fire transforms each final native fire quad using Unity's percentage-to-height mapping; retain burn state and native fire textures.
+
 ## Client expansion — 16 November 2026
 
 The user's follow-up rejects the first expansion's crosshair alignment and HUD typography. Adapt Unity's actual fixes: symmetric coverage around odd/even framebuffer centers, fractional thin strokes, physical font measurement, snapped bitmap origins and correctly layered pixel-offset shadows. Information widgets and FPS default to native-resolution Inter; General offers Minecraft text for resource-pack users, quantizing bitmap text size to whole display pixels while retaining the precise saved scale. Keep native item models/decorations. Preserve scoreboard colors and styles. Compact text panels fit measured content with consistent leading and padding; keystrokes stay readable at rest. This direction supersedes the earlier mandatory Minecraft-font-only FPS wording.

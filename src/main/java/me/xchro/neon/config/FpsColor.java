@@ -2,7 +2,7 @@ package me.xchro.neon.config;
 
 /** Optional per-widget overrides; absent values keep following the saved menu theme. */
 public enum FpsColor {
-    LABEL("Label color", ThemeColor.MUTED),
+    LABEL("Label color", ThemeColor.ACCENT),
     VALUE("Value color", ThemeColor.TEXT),
     BACKGROUND("Background color", ThemeColor.BACKGROUND),
     BORDER("Border color", ThemeColor.OUTLINE);
