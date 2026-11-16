@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "version": "0.5.2",
+  "target": "PrismLauncher Vanilla",
+  "installedAt": "2026-11-16T18:49:53.7132693Z",
+  "method": "Atomic replacement after the existing JAR lock released",
+  "productionCommit": "8bc1b44f996cc7e4a64eb534b32fcd00656388b7",
+  "productionSha256": "77c904ba95376ea31cb4d80c1e478a583e406244568515286ec4c25828f36dab",
+  "installedMatchesVerifiedBuild": true,
+  "installedMatchesPublicDownload": true,
+  "release": "https://github.com/chronicaly/neon/releases/tag/v0.5.2",
+  "verificationReceipt": "corners-receipt.json"
+}

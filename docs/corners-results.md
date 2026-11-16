@@ -14,7 +14,7 @@ The final transparency request adds an 84% surface-alpha factor to the combined 
 
 ## Evidence
 
-The release gate passed 143 unit tests and 19,911 packaged-client assertions; the non-installing Gradle build also completed successfully. Its [receipt](corners-receipt.json) binds this evidence to the exact production and verification JAR hashes. The automatic replacement encountered the running Vanilla client's Windows file lock. The verified JAR is staged for atomic replacement when that lock releases; the game was kept open.
+The release gate passed 143 unit tests and 19,911 packaged-client assertions; the non-installing Gradle build also completed successfully. Its [receipt](corners-receipt.json) binds this evidence to the exact production and verification JAR hashes. The initial automatic replacement encountered the running Vanilla client's Windows file lock. The queued installer completed atomic replacement at 2026-11-16 18:49:53 UTC after the lock released. The installed JAR, checked build and public GitHub download have identical SHA-256 hashes; see the [installation receipt](corners-installation.json). No running game was closed by the installer.
 
 - 143 unit tests, including actual Inter raster coverage centered at 12, 16, 20, 24 and 32 pixels, local-font enumeration/rasterization and family persistence/fallback.
 - 30 focused installed-font checks with Papyrus: real mouse selection, silent search/unchanged selection, live family resolution, query retention, Undo, settings/profile serialization, minimum resizing with search focus, nested wheel scrolling and missing-font fallback. Actual default/minimum and 640×360 pages were inspected.
