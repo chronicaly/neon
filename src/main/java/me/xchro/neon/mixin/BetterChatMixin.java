@@ -27,6 +27,16 @@ abstract class BetterChatMixin {
     @Shadow private void refreshTrimmedMessages() {}
     @Unique private long neon$messageTime;
 
+    // This pose is shared by drawing and native clickable-style collection.
+    @ModifyArg(method="lambda$extractRenderState$0",at=@At(value="INVOKE",target="Lorg/joml/Matrix3x2f;translate(FF)Lorg/joml/Matrix3x2f;"),index=0)
+    private static float neon$messageInset(float inset){return Neon.config.betterChat.messageBar?inset:0;}
+    @ModifyConstant(method="lambda$extractRenderState$1",constant=@Constant(intValue=-4))
+    private static int neon$messageBackgroundInset(int inset){return Neon.config.betterChat.messageBar?inset:0;}
+    @Inject(method="getLinesPerPage",at=@At("RETURN"),cancellable=true)
+    private void neon$dockedLines(org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable<Integer> cir){
+        if(me.xchro.neon.hud.HudChatDock.active())cir.setReturnValue(ChatHud.visibleLines(cir.getReturnValue()));
+    }
+
     @WrapWithCondition(method="extractRenderState(Lnet/minecraft/client/gui/components/ChatComponent$ChatGraphicsAccess;IILnet/minecraft/client/gui/components/ChatComponent$DisplayMode;)V",at={
         @At(value="INVOKE",target="Lnet/minecraft/client/gui/components/ChatComponent$ChatGraphicsAccess;fill(IIIII)V",ordinal=2),
         @At(value="INVOKE",target="Lnet/minecraft/client/gui/components/ChatComponent$ChatGraphicsAccess;fill(IIIII)V",ordinal=3)})

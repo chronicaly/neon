@@ -57,20 +57,21 @@ final class BetterChatSmoke {
     }
     private void shot(String name){Screenshot.grab(mc.gameDirectory,"neon-chat-"+name+".png",mc.gameRenderer.mainRenderTarget(),1,c->{});}
     private void messageBars()throws Exception {
-        int cues=SoundAudit.cues.size();var originals=List.copyOf(history());
+        int cues=SoundAudit.cues.size();var originals=List.copyOf(history());boolean placement=Neon.config.hud(me.xchro.neon.hud.HudKind.CHAT).placement.visible;
         for(String name:new String[]{"DrawingBackgroundGraphicsAccess","DrawingFocusedGraphicsAccess"}) {
             var type=Class.forName("net.minecraft.client.gui.components.ChatComponent$"+name);
             var tag=type.getDeclaredMethod("handleTag",int.class,int.class,int.class,int.class,float.class,GuiMessageTag.class);tag.setAccessible(true);
-            for(int mode=0;mode<3;mode++) {
-                Neon.config.betterChat.messageBar=mode==0;Neon.config.betterChat.enabled=mode!=2;
+            for(int mode=0;mode<8;mode++) {
+                Neon.config.betterChat.messageBar=(mode&1)!=0;Neon.config.betterChat.enabled=(mode&2)!=0;
+                Neon.config.hud(me.xchro.neon.hud.HudKind.CHAT).placement.visible=(mode&4)!=0;
                 var state=new net.minecraft.client.renderer.state.gui.GuiRenderState();
                 var g=new net.minecraft.client.gui.GuiGraphicsExtractor(mc,state,-100,-100);
                 var constructor=type.getDeclaredConstructors()[0];constructor.setAccessible(true);
                 var access=name.contains("Background")?constructor.newInstance(g):constructor.newInstance(g,mc.font,-100,-100,false);
                 tag.invoke(access,20,20,22,40,1f,GuiMessageTag.system());
                 int[] count={0};state.forEachElement(e->count[0]++,net.minecraft.client.renderer.state.gui.GuiRenderState.TraverseRange.ALL);
-                check(count[0]==(mode==1?0:1),name+" draws message bar only when allowed, mode "+mode);
-                if(mode==1&&name.contains("Focused")) {
+                check(count[0]==(mode&1),name+" respects the HUD message-bar preference independently, mode "+mode);
+                if(mode==0&&name.contains("Focused")) {
                     var modified=GuiMessageTag.chatModified("Original signed message");
                     var icon=type.getDeclaredMethod("handleTagIcon",int.class,int.class,boolean.class,GuiMessageTag.class,GuiMessageTag.Icon.class);icon.setAccessible(true);
                     icon.invoke(access,30,20,true,modified,modified.icon());
@@ -80,6 +81,7 @@ final class BetterChatSmoke {
             }
         }
         Neon.config.betterChat.enabled=Neon.config.betterChat.messageBar=true;
+        Neon.config.hud(me.xchro.neon.hud.HudKind.CHAT).placement.visible=placement;
         check(history().equals(originals),"bar visibility never changes original chat history or signatures");
         check(cues==SoundAudit.cues.size(),"bar changes and redraws stay silent");
     }

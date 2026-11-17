@@ -25,15 +25,20 @@ public final class ChatHud extends HudCard {
     public static boolean enabled(){return Neon.config.hud(HudKind.CHAT).placement.visible;}
     private static float nativeScale(){return Math.max(.01f,mc().options.chatScale().get().floatValue());}
     private static int lineHeight(){return (int)(9*(mc().options.chatLineSpacing().get()+1));}
-    private static int naturalWidth(){return (int)Math.ceil((Math.ceil(ChatComponent.getWidth(mc().options.chatWidth().get())/nativeScale())+12)*nativeScale());}
-    private static int naturalHeight(){return (int)Math.ceil((ChatComponent.getHeight(mc().options.chatHeightFocused().get())/lineHeight()*lineHeight()+9)*nativeScale());}
+    private static int naturalWidth(){return (int)Math.ceil((Math.ceil(ChatComponent.getWidth(mc().options.chatWidth().get())/nativeScale())+(Neon.config.betterChat.messageBar?12:10))*nativeScale());}
+    private static int bottomPadding(){return !HudChatDock.active()||mc().gui.chatListener().queueSize()>0?9:0;}
+    private static int naturalHeight(){return (int)Math.ceil((ChatComponent.getHeight(mc().options.chatHeightFocused().get())/lineHeight()*lineHeight()+bottomPadding())*nativeScale());}
     private static float scale(){return (float)(HudBounds.scale(Neon.config.hud(HudKind.CHAT).placement,naturalWidth(),naturalHeight(),mc().getWindow().getWidth(),mc().getWindow().getHeight(),NeonHud.gameScale()*Neon.config.hudScale)/NeonHud.gameScale());}
     @Override protected void update(Minecraft mc,boolean preview){lines=preview?new String[]{"Chat messages appear here"}:new String[0];}
     @Override public boolean hasContent(boolean preview){return preview;}
-    @Override public HudBounds bounds(int width,int height,boolean preview){return HudBounds.of(Neon.config.hud(HudKind.CHAT).placement,naturalWidth(),naturalHeight(),width,height,NeonHud.gameScale()*Neon.config.hudScale);}
+    @Override public HudBounds bounds(int width,int height,boolean preview){
+        var b=HudBounds.of(Neon.config.hud(HudKind.CHAT).placement,naturalWidth(),naturalHeight(),width,height,NeonHud.gameScale()*Neon.config.hudScale);
+        return HudChatDock.active()?HudChatDock.stack(b,HudChatDock.coordinates(width,height,preview)):b;
+    }
     public static HudBounds reserved(){return HudWidgets.get(HudKind.CHAT).bounds(mc().getWindow().getWidth(),mc().getWindow().getHeight(),false);}
     public static HudBounds displayed(){
         var b=reserved();boolean preview=mc().gui.screen() instanceof HudEditor;
+        if(HudChatDock.active())return preview?b:HudChatDock.place(b);
         if(world!=mc().level||preview){lift.snap(0);world=mc().level;}
         boolean chat=!preview&&mc().gui.screen() instanceof ChatScreen;
         int inputTop=(mc().getWindow().getGuiScaledHeight()-14)*NeonHud.gameScale()-4;
@@ -44,8 +49,13 @@ public final class ChatHud extends HudCard {
     public static void transform(Matrix3x2f pose,int screenHeight){
         if(!enabled())return;
         var b=displayed();float factor=NeonHud.gameScale(),fit=scale(),nativeBottom=(float)Math.floor((screenHeight-40)/nativeScale())*nativeScale();
-        float bottom=(b.y()+b.height())/factor-9*nativeScale()*fit;
-        pose.translate(b.x()/factor,bottom-nativeBottom*fit).scale(fit);
+        float bottom=(b.y()+b.height())/factor-bottomPadding()*nativeScale()*fit;
+        float padding=Neon.config.betterChat.messageBar?0:2*nativeScale()*fit;
+        pose.translate(b.x()/factor+padding,bottom-nativeBottom*fit).scale(fit);
+    }
+    public static int visibleLines(int original){
+        float unit=nativeScale()*scale()*NeonHud.gameScale();
+        return Math.min(original,Math.max(0,(int)Math.floor((displayed().height()-bottomPadding()*unit)/(lineHeight()*unit))));
     }
     public static void frame(GuiGraphicsExtractor g,int ticks,ChatComponent.DisplayMode mode,List<GuiMessage.Line> lines,int scroll,int perPage){
         messages=!lines.isEmpty();if(!enabled()||mc().gui.screen() instanceof HudEditor)return;
@@ -58,7 +68,7 @@ public final class ChatHud extends HudCard {
         if(mode.showRestrictedPrompt){extent=Math.max(extent,count+1);opacity=1;}if(queue)opacity=1;
         if(opacity<=0)return;
         var b=displayed();float unit=nativeScale()*scale()*NeonHud.gameScale();
-        int bottom=Math.round(b.y()+b.height()-9*unit),height=Math.round(extent*lineHeight()*unit);
+        int bottom=Math.round(b.y()+b.height()-bottomPadding()*unit),height=Math.round(extent*lineHeight()*unit);
         var rect=new HudBounds(b.x(),bottom-height,b.width(),height+(queue?Math.round(9*unit):0));
         var c=Neon.config.hud(HudKind.CHAT);var t=Neon.config.theme;
         g.pose().pushMatrix();g.pose().scale(1f/NeonHud.gameScale());

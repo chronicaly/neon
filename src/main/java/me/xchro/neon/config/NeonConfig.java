@@ -30,6 +30,7 @@ public final class NeonConfig {
     public double weatherIntensity=.6;
     public double fullbrightStrength=1;
     public boolean hidePumpkin=true, hidePortal=true, hideVignette=true;
+    public boolean hideStatusEffects, potionHideVanillaIcons;
     public Integer blockOutlineColor;
     public double blockOutlineWidth=2;
     public enum BlockOutlineMode { OUTLINE, OUTLINE_FILL, FILL, GLOW, WIREFRAME }

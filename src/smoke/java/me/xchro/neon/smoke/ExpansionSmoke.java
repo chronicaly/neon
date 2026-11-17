@@ -184,6 +184,32 @@ final class ExpansionSmoke {
         check(Math.abs(restored.scrollAmount()-before)<1,kind+" column hide/show preserves scrolled options ("+before+" -> "+restored.scrollAmount()+")");
         mc.setLastInputType(InputType.MOUSE);
     }
+    private void chatBarControl()throws Exception {
+        Neon.config.betterChat.enabled=false;
+        var row=named("Message bar");var group=(ContainerEventHandler)named("Chat settings");
+        check(widgets(group).contains(row),"message bar is a direct Chat HUD option");
+        var scroll=(AbstractScrollArea)widgets(editor).stream().filter(AbstractScrollArea.class::isInstance).findFirst().orElseThrow();
+        check(row.getY()>=scroll.getY()&&row.getBottom()<=scroll.getBottom(),"Chat message-bar row fits the HUD column");
+        var e=new MouseButtonEvent(editor.guiCoordinate(row.getX()+16),editor.guiCoordinate(row.getY()+10),new MouseButtonInfo(0,0));
+        int cues=SoundAudit.cues.size();check(editor.mouseClicked(e,false),"Chat message-bar row accepts a real pointer");editor.mouseReleased(e);
+        check(!Neon.config.betterChat.messageBar,"HUD toggle hides the line with Better chat disabled");
+        check(SoundAudit.cues.size()==cues+1&&SoundAudit.cues.getLast().cue()==me.xchro.neon.core.UiSoundPolicy.Cue.DISABLE,"HUD toggle emits one muted disable cue");
+        var file=mc.gameDirectory.toPath().resolve("config/neon-chat-hud-line-profile.json");var profiles=new ProfileStore(file);profiles.initialize(Neon.config);profiles.put("Hidden line",Neon.config);
+        var loaded=new ProfileStore(file);loaded.initialize(new NeonConfig());check(!loaded.get("Hidden line").betterChat.messageBar,"Chat HUD line preference survives disk profile reload");
+        editor.keyPressed(new KeyEvent(GLFW.GLFW_KEY_Z,0,GLFW.GLFW_MOD_CONTROL));check(Neon.config.betterChat.messageBar,"HUD Undo restores the shared line setting");
+        // Keep the disabled state in the actual default/minimum screenshots.
+        row=named("Message bar");e=new MouseButtonEvent(editor.guiCoordinate(row.getX()+16),editor.guiCoordinate(row.getY()+10),new MouseButtonInfo(0,0));editor.mouseClicked(e,false);editor.mouseReleased(e);
+    }
+    private void potionIconControl()throws Exception {
+        var row=named("Hide vanilla icons");var group=(ContainerEventHandler)named("Potion effects settings");
+        check(widgets(group).contains(row),"native icon visibility is a direct Potion effects HUD option");
+        var e=new MouseButtonEvent(editor.guiCoordinate(row.getX()+16),editor.guiCoordinate(row.getY()+10),new MouseButtonInfo(0,0));
+        check(editor.mouseClicked(e,false),"Potion effects icon switch accepts a real pointer");editor.mouseReleased(e);
+        check(Neon.config.potionHideVanillaIcons,"HUD icon switch applies immediately");
+        var file=mc.gameDirectory.toPath().resolve("config/neon-potion-icons-profile.json");var profiles=new ProfileStore(file);profiles.initialize(Neon.config);profiles.put("Hidden icons",Neon.config);
+        var loaded=new ProfileStore(file);loaded.initialize(new NeonConfig());check(loaded.get("Hidden icons").potionHideVanillaIcons,"native icon preference survives disk profile reload");
+        editor.keyPressed(new KeyEvent(GLFW.GLFW_KEY_Z,0,GLFW.GLFW_MOD_CONTROL));check(!Neon.config.potionHideVanillaIcons,"HUD Undo restores the icon setting");
+    }
     boolean run() throws Exception {
         if(index>=HudKind.values().length) {
             if(viewport==0) { viewport=1;index=0;age=0;return false; }
@@ -218,6 +244,8 @@ final class ExpansionSmoke {
         }
         if(age==5)dataChecks(kind);
         if(age==12)revealSettings(kind);
+        if(age==13&&kind==HudKind.CHAT)chatBarControl();
+        if(age==13&&kind==HudKind.POTIONS)potionIconControl();
         if(age==8) {
             var b=HudWidgets.get(kind).bounds(mc.getWindow().getWidth(),mc.getWindow().getHeight(),true);
             check(b.width()>0&&b.height()>0&&b.x()>=0&&b.y()>=0&&b.x()+b.width()<=mc.getWindow().getWidth()&&b.y()+b.height()<=mc.getWindow().getHeight(),kind+" bounds fit viewport");

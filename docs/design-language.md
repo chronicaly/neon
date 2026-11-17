@@ -1,5 +1,13 @@
 # Neon design language
 
+## Chat stack and effect icons — 17 November 2026
+
+Chat's HUD fold includes Message bar, sharing the existing Better chat preference. Apply it independently of Better chat and custom Chat placement. Hiding the stripe also removes its four-unit native text gutter from the shared drawing/click pose and background. Keep two native chat units of ordinary padding inside a custom panel. Preserve trust/signature metadata, warning icons, hover details, links and original history.
+
+When enabled Chat and Coordinates both have normalized x ≤ 0.1 and y ≥ 0.8, keep Chat above Coordinates with at least six physical pixels between them, including editor bounds. Derive this arrangement without writing saved positions. Both use exactly one cached displacement per render frame, driven by the existing velocity-preserving 220 ms motion and the real input widget. Remove the unused queue gutter when no queued messages are present. Shorten chat at the top of small displays and cap native visible lines accordingly; keep native scrolling/click collection. Releasing the bottom-left arrangement restores ordinary widget behavior. Armor stays fixed and other widgets retain deliberate overlap.
+
+Potion effects adds Hide vanilla icons directly in its HUD fold. It suppresses native top-right status icons only while that HUD is enabled. Clean view adds an independent Hide effect icons switch. Either active setting can suppress the icon renderer; never change actual effects. Both new preferences default off, persist in settings/profiles and participate in Undo. Keep the existing compact cyan switches, smooth folds/drawers and shared animated outline.
+
 ## HUD contact and chat indicator — 16 November 2026
 
 Button hover bloom follows the same three-display-pixel rounded contour as its surface. Include the rounded corner cutouts in the Gaussian texture and snap its bounds to the surface's native pixels; never leave a square inner cutout that exposes dark corner dots. Keep the cyan/violet gradient, broad falloff, transparent interior, fixed hitbox, two-pixel lift and reversible fade. Apply consistently to module and Settings grid buttons.

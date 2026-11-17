@@ -10,6 +10,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(Hud.class)
 public abstract class CleanViewMixin {
+    @Inject(method="extractEffects",at=@At("HEAD"),cancellable=true)
+    private void neon$statusEffects(CallbackInfo ci) {
+        if(ClientModule.CLEAN_VIEW.active()&&Neon.config.hideStatusEffects
+            ||Neon.config.hud(me.xchro.neon.hud.HudKind.POTIONS).placement.visible&&Neon.config.potionHideVanillaIcons)ci.cancel();
+    }
     private static final Identifier NEON_PUMPKIN=Identifier.withDefaultNamespace("textures/misc/pumpkinblur.png");
     @Inject(method="extractTextureOverlay",at=@At("HEAD"),cancellable=true)
     private void neon$pumpkin(GuiGraphicsExtractor g,Identifier texture,float alpha,CallbackInfo ci) {

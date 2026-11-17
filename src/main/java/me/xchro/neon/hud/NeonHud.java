@@ -25,7 +25,7 @@ public final class NeonHud {
     private static final List<ItemStack> normalFrame = new ArrayList<>(4), previewFrame = new ArrayList<>(4);
     private static boolean extracting, normalReady, previewReady;
     private static int frameTotems = -1;
-    public static void beginFrame() { extracting = true; normalReady = previewReady = false; frameTotems = -1; HudChrome.frame(System.nanoTime()); me.xchro.neon.ui.HudText.beginFrame(); }
+    public static void beginFrame() { extracting = true; normalReady = previewReady = false; frameTotems = -1; long now=System.nanoTime(); HudChrome.frame(now); HudChatDock.frame(now); me.xchro.neon.ui.HudText.beginFrame(); }
     public static void endFrame() { extracting = false; me.xchro.neon.ui.HudText.flush(); }
     public static List<ItemStack> armor(boolean preview) {
         if (extracting && (preview ? previewReady : normalReady)) return preview ? previewFrame : normalFrame;

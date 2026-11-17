@@ -193,6 +193,7 @@ public final class SettingsScreen extends PixelScreen {
                 toggle("Hide pumpkin",()->c.hidePumpkin,v->c.hidePumpkin=v);
                 toggle("Hide portal",()->c.hidePortal,v->c.hidePortal=v);
                 toggle("Hide vignette",()->c.hideVignette,v->c.hideVignette=v);
+                toggle("Hide effect icons",()->c.hideStatusEffects,v->c.hideStatusEffects=v);
             }
             case "Weather" -> {
                 segments("Precipitation",new String[]{"Clear","Rain"},()->c.weather.ordinal(),v->c.weather=NeonConfig.Weather.values()[v]);

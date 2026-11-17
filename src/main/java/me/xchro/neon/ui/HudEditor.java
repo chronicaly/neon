@@ -142,6 +142,8 @@ public final class HudEditor extends PixelScreen {
                 bool(out,e+":background","Background",1,appearance.background,()->appearance.background=!appearance.background);
                 bool(out,e+":border","Border",1,appearance.border,()->appearance.border=!appearance.border);
                 bool(out,e+":shadow","Shadow",1,appearance.shadow,()->appearance.shadow=!appearance.shadow);
+                if(e==Element.CHAT) bool(out,e+":messageBar","Message bar",1,c.betterChat.messageBar,()->c.betterChat.messageBar=!c.betterChat.messageBar);
+                if(e==Element.POTIONS) bool(out,e+":vanillaIcons","Hide vanilla icons",1,c.potionHideVanillaIcons,()->c.potionHideVanillaIcons=!c.potionHideVanillaIcons);
                 if(e==Element.COORDINATES) {
                     bool(out,e+":conversion","Nether conversion",1,c.coordinatesConversion,()->c.coordinatesConversion=!c.coordinatesConversion);
                 }

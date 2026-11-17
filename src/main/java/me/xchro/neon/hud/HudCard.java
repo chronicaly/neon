@@ -54,7 +54,7 @@ public abstract class HudCard {
     public void draw(GuiGraphicsExtractor g,int width,int height,boolean preview) {
         var options = Neon.config.hud(kind);
         if (!options.placement.visible || !hasContent(preview)) return;
-        var b=HudChatLift.place(bounds(width,height,preview));
+        var b=renderBounds(width,height,preview);
         chrome.panel(g,b,options.background,options.border);
         g.pose().pushMatrix(); g.pose().translate(b.x(),b.y()); g.pose().scale(renderScale);
         g.pose().translate(-3,-2);
@@ -63,7 +63,11 @@ public abstract class HudCard {
     }
     public void surface(GuiGraphicsExtractor g,int width,int height,boolean preview) {
         var options=Neon.config.hud(kind);
-        if(options.placement.visible&&hasContent(preview))chrome.panel(g,HudChatLift.place(bounds(width,height,preview)),options.background,options.border);
+        if(options.placement.visible&&hasContent(preview))chrome.panel(g,renderBounds(width,height,preview),options.background,options.border);
+    }
+    private HudBounds renderBounds(int width,int height,boolean preview){
+        var b=bounds(width,height,preview);
+        return !preview&&kind==HudKind.COORDINATES&&HudChatDock.active()?HudChatDock.place(b):HudChatLift.place(b);
     }
     protected void renderContent(GuiGraphicsExtractor g,boolean preview) {
         var theme=Neon.config.theme;

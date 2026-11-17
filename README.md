@@ -4,9 +4,9 @@ A customizable **Minecraft 26.2 / Java 25** Fabric client with a consistent cyan
 
 ![Neon modules with attached settings and color controls](docs/images/neon-corners-menu.png)
 
-[Download](https://github.com/chronicaly/neon/releases/latest) · [User guide](docs/user-guide.md) · [Research](docs/client-research.md) · [Release notes](docs/release-0.5.4.md)
+[Download](https://github.com/chronicaly/neon/releases/latest) · [User guide](docs/user-guide.md) · [Research](docs/client-research.md) · [Release notes](docs/release-0.5.5.md)
 
-**0.5.4 reduces the rendering cost when HUD panels meet**, fixes dark dots at button-glow corners, and adds **Visuals → Better chat → Message bar** to hide the white stripe beside chat. Joined backgrounds and animated outlines remain continuous, and translating a cluster reuses its geometry. Chat signatures, links and warning icons remain intact.
+**0.5.5 keeps bottom-left Chat and Coordinates together**, with a six-pixel gap and shared smooth movement above the chat input. **HUD editor → Chat → Message bar** hides the server-message stripe and removes its reserved left space, including when Better chat is disabled. **Potion effects → Hide vanilla icons** removes duplicate top-right status icons while that HUD is enabled; **Visuals → Clean view → Hide effect icons** works independently. Both icon options start off and preserve active effects.
 
 Widget edges catch at six-pixel spacing and align before overlapping; push farther to overlap deliberately, or hold Alt to bypass snapping. Clicking a canvas widget smoothly opens its settings. The HUD editor and its attached color drawer share one animated neon outline. Armor stays fixed beneath chat, and Coordinates no longer adds dimension text.
 
@@ -16,7 +16,7 @@ The **HUD editor and Settings** now share Neon's translucent dark panels, native
 
 ## Install
 
-Use Minecraft **26.2**, **Java 25**, Fabric Loader **0.19.5+**, and Fabric API for 26.2. This release is built against **Fabric API 0.161.0+26.2**. Put the runnable `neon-0.5.4.jar` in your instance's `minecraft/mods` folder. Keep one Neon JAR; the sources JAR is for development. [Mod Menu](https://modrinth.com/mod/modmenu) is optional.
+Use Minecraft **26.2**, **Java 25**, Fabric Loader **0.19.5+**, and Fabric API for 26.2. This release is built against **Fabric API 0.161.0+26.2**. Put the runnable `neon-0.5.5.jar` in your instance's `minecraft/mods` folder. Keep one Neon JAR; the sources JAR is for development. [Mod Menu](https://modrinth.com/mod/modmenu) is optional.
 
 Open Neon with your saved menu key (**Insert** in the supplied Vanilla setup), **Right Shift**, or Mod Menu. A fresh configuration uses **P** as its primary key. Updates preserve saved keys, palette, alpha and custom HUD placements. New 0.5.0 modules and HUD widgets start disabled.
 
@@ -39,7 +39,7 @@ The 15 additions share the same compact buttons, attached drawers, profiles, Und
 | Time changer | Cosmetic time of day; actual world time and gameplay rules remain unchanged. |
 | Weather | Clear/rainy visuals and precipitation intensity, retaining native biome rules. Actual weather and ambient weather audio remain unchanged. |
 | Fullbright | Adjustable lightmap enhancement. Suspends during darkness/blindness; grants no effect and leaves gamma unchanged. |
-| Clean view | Independently hides pumpkin, portal and vignette overlays. |
+| Clean view | Independently hides pumpkin, portal and vignette overlays and top-right effect icons. |
 | Block outline | Unity-derived Outline, Both, Fill and Glow styles, plus native Wire. Width, fill opacity, Neon gradient, bloom, and theme-linked color/Sync. Preserves native targeting, voxel shapes and depth; Wire retains high-contrast backing. |
 
 The existing seven remain: **Freelook**, **Zoom**, **Motion blur**, **Totem pops**, **Better chat**, **Better screenshot** and **Autoclicker**. Better chat preserves history, signatures and links, with independent message/mention ping volume. Better screenshot copies normal screenshots while preserving PNG saving. Motion blur starts disabled with 10% strength. See the [guide](docs/user-guide.md) for detailed behavior, including the existing autoclicker's persistent Toggle session.
@@ -71,6 +71,8 @@ Drag enabled widgets directly, resize at invisible corners, or use the wheel to 
 
 **Better chat** now adapts Unity's font layout, native click areas, chat frame and input styling. Client font and Input frame are on by default under Visuals → Better chat. Disable Client font to restore Minecraft's chat font. Enable **Chat** in the HUD editor to move/resize native chat and give it a Neon background, outline and shadow; the optional Chat HUD starts disabled. Duplicate counts, entry animation, name highlighting, original history, signatures and clickable links remain intact. Reflows and local notices never trigger message pings.
 
+**Chat → Message bar** shares its preference with Better chat's setting and also works with the custom Chat HUD disabled. Hiding it closes the native four-unit gutter and keeps links aligned; the custom panel retains two units of ordinary text padding. When Chat and Coordinates are both enabled near the bottom-left, chat stays above Coordinates without overlap. They rise and return together over 220 ms, including interrupted openings. Small displays shorten the visible chat area while retaining native scrolling. Moving either widget away releases this special arrangement; saved placements are never rewritten. Armor stays fixed.
+
 ## Controls and appearance
 
 - **Left-click a module:** toggle it. **Right-click:** open its settings drawer.
@@ -96,7 +98,7 @@ Requires JDK 25. The project uses unobfuscated Fabric Loom.
 ./tools/build.ps1 -SkipInstall
 ```
 
-On this development setup, `./tools/build.ps1` also runs the silent packaged release suite and installs only its exact checked runnable JAR into PrismLauncher's Vanilla instance. The prepared verification world is isolated from user instances. See [verification](docs/verification.md) and [0.5.4 results](docs/contact-results.md).
+On this development setup, `./tools/build.ps1` also runs the silent packaged release suite and installs only its exact checked runnable JAR into PrismLauncher's Vanilla instance. The prepared verification world is isolated from user instances. See [verification](docs/verification.md) and [0.5.5 results](docs/chat-dock-results.md).
 
 Performance instrumentation and sound/clipboard interception live only in the verification mod, excluded from releases. Measurements report allocations and frame times with their limits; no FPS increase is promised.
 

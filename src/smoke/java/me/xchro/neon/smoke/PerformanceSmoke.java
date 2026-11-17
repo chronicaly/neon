@@ -13,7 +13,7 @@ import net.minecraft.client.input.*;
 
 /** Deterministic production-JAR benchmark. All instrumentation lives in the test-only mod. */
 public final class PerformanceSmoke {
-    private static final String[] CASES = {"gameplay", "motion-blur", "idle-menu", "navigation-scroll", "color-edit", "hud-placement", "font-churn", "first-open", "drawer-reversals", "category-switch", "continuous-color", "menu-resize", "hud-catalog", "chat-visible", "hud-contact", "hud-joined"};
+    private static final String[] CASES = {"gameplay", "motion-blur", "idle-menu", "navigation-scroll", "color-edit", "hud-placement", "font-churn", "first-open", "drawer-reversals", "category-switch", "continuous-color", "menu-resize", "hud-catalog", "chat-visible", "hud-contact", "hud-joined", "chat-docked"};
     private static final Set<String> ONLY = System.getProperty("neon.perf.scenario") == null ? Set.of()
         : new LinkedHashSet<>(Arrays.asList(System.getProperty("neon.perf.scenario").split(",")));
     private static final int WARM = 240, SAMPLES = 480;
@@ -128,18 +128,25 @@ public final class PerformanceSmoke {
             Neon.config.fpsBackground=Neon.config.fpsBorder=true;
             // Empty potion/scoreboard data correctly draws nothing during gameplay.
         }
-        if(scenario==13) {
+        if(scenario==13||scenario==16) {
             for(int i=0;i<24;i++)mc.gui.hud.getChat().addPlayerMessage(net.minecraft.network.chat.Component.literal("<Player"+i+"> ")
                 .withColor(0x84dce6).append(net.minecraft.network.chat.Component.literal("Chat rendering: coordinates 123, 64, 456 and a ").withColor(0xffffff))
                 .append(net.minecraft.network.chat.Component.literal("clickable link").withStyle(s->s.withColor(0x9985cc).withUnderlined(true)
                     .withClickEvent(new net.minecraft.network.chat.ClickEvent.SuggestCommand("/help")))),null,null);
             mc.gui.setScreen(new net.minecraft.client.gui.screens.ChatScreen("/",false));
         }
-        if(scenario>=14) {
+        if(scenario==14||scenario==15) {
             Neon.config.armor.visible=Neon.config.totems.visible=false;
             Neon.config.fps.visible=Neon.config.fpsBackground=Neon.config.fpsBorder=true;
             Neon.config.hud(me.xchro.neon.hud.HudKind.INVENTORY).placement.visible=true;
             contact(6,0);
+        }
+        if(scenario==16){
+            Neon.config.armor.visible=Neon.config.totems.visible=Neon.config.fps.visible=false;
+            Neon.config.betterChat.messageBar=false;
+            for(var kind:new me.xchro.neon.hud.HudKind[]{me.xchro.neon.hud.HudKind.CHAT,me.xchro.neon.hud.HudKind.COORDINATES}){
+                var p=Neon.config.hud(kind).placement;p.visible=true;p.x=0;p.y=1;
+            }
         }
         System.out.println("NEON_PERF run=" + (stage / CASES.length + 1) + " scenario=" + CASES[scenario]);
     }

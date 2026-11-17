@@ -28,6 +28,7 @@ final class HudPolishSmoke {
     private long foldOpened;
     private HudBounds before;
     private Component linked;
+    private ChatDockSmoke dock;
     HudPolishSmoke(Minecraft mc,int checks){this.mc=mc;this.checks=checks;original=ConfigStore.copy(Neon.config);chatBefore=mc.gui.hud.getChat().storeState();}
     int checks(){return checks;}
     private void check(boolean ok,String message){if(!ok)throw new AssertionError("HUD polish "+stage+": "+message);checks++;System.out.println("NEON_CHECK "+message);}
@@ -118,8 +119,9 @@ final class HudPolishSmoke {
                 var card=HudWidgets.get(HudKind.CHAT);var graphics=new GuiGraphicsExtractor(mc,new GuiRenderState(),0,0);card.draw(graphics,1280,800,true);
                 check(!(boolean)field(card,"messages"),"empty Chat HUD preview uses its placeholder without inserting history");chat.addPlayerMessage(Component.literal("Arrived while editing"),null,null);
                 card.draw(graphics,1280,800,true);check((boolean)field(card,"messages"),"Chat HUD preview picks up messages arriving while the editor stays open");
-                Neon.applyConfig(original);chat.restoreState(chatBefore);mc.gui.setScreen(null);return true;
+                Neon.applyConfig(original);chat.restoreState(chatBefore);mc.gui.setScreen(null);dock=new ChatDockSmoke(mc,checks);stage=30;
             }
+            case 30->{if(dock.run()){checks=dock.checks();return true;}}
         }
         return false;
     }
