@@ -1,0 +1,1 @@
+PASS native desktop input: configured menu keys 295/296, chat priority, exact numeric entry, pointer activity and actual focus round trip

@@ -1,6 +1,26 @@
-The current module grid and earlier interface revisions are documented below. Earlier performance measurements are in [quality-results.md](quality-results.md); historical sections describe their respective builds.
+Current evidence is in [0.5.6 results](improvements-results.md). Dated sections below describe their own historical builds, not current design requirements; use [the consolidated contract](design-language.md) for implementation.
 
 # Neon verification
+
+## Search, chat efficiency and endurance — 17 November 2026
+
+The full `releaseSmoke` suite includes search hidden by default, Ctrl+F reveal, Escape clearing/hiding, restored list space and per-category query/visibility retention. Focused commands:
+
+```powershell
+./tools/build.ps1 -SkipInstall
+./gradlew.bat prodSmoke -PsearchOnly --console=plain
+./gradlew.bat prodSmoke -PchatOnly --console=plain
+./gradlew.bat prodSmoke -PrefinementOnly -PrefinementAfterModules --console=plain
+./gradlew.bat prodSmoke -PstabilityOnly -PstabilityCycles=1000 --console=plain
+```
+
+The stability target defaults to 200 cycles, accepts 50–10,000, and reloads resources after every 50 cycles except the final one. It checks repeated menu/color/HUD/search/chat use, Undo, immediate closing, font/chat cache limits and absence of Neon audio clips. Test sound-request history is cleared each cycle to avoid retaining harness-only observations. Heap samples after requested GC are diagnostic observations, not proof of leak freedom.
+
+Use separate prepared disposable game directories and artifact directories for simultaneous clients; never share an active world. `-PsmokeDir=...` selects a focused test directory and `-PneonVerificationDir=...` selects the release-suite directory. Keep Minecraft/Neon playback interception enabled and set isolated voice-chat `disabled=true`, `muted=true`, `voice_chat_volume=0.0`, `run_local_server=false` when that optional mod is present.
+
+`-PdesktopOnly` enables physical window input while retaining clipboard/audio interception. The default keys are Insert/Right Shift. Optional `-PdesktopPrimary=295 -PdesktopAlternate=296` uses F6/F7 in the disposable client only, for automation tools unable to emit the default scan codes. That fallback does **not** establish physical Insert/Right Shift coverage. Read the native key log, status and GLFW monitor inventory. GUI-scale tests are not mixed-DPI monitor tests.
+
+Before installation, `releaseSmoke` checks the packaged production JAR and writes a receipt bound to both production and harness SHA-256. `installNeon` verifies that receipt again. A passing older or comparison JAR is insufficient. See [the current result report](improvements-results.md) for exact hashes, native limitations and delivery status.
 
 ## HUD contact and chat indicator — 16 November 2026
 

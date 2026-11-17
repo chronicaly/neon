@@ -15,6 +15,7 @@ import org.lwjgl.glfw.GLFW;
 
 /** A timed, rendered soak. All inputs, clipboard and sounds stay in the verification client. */
 final class StabilitySmoke {
+    private final int targetCycles=Math.clamp(Integer.getInteger("neon.smoke.stabilityCycles",200),50,10000);
     private Minecraft mc;
     private SettingsScreen menu;
     private int ticks,age,stage,cycles,checks,reloads;
@@ -35,18 +36,29 @@ final class StabilitySmoke {
         }
         var scratch=(java.awt.image.BufferedImage)((ThreadLocal<?>)field(Class.forName("me.xchro.neon.ui.TextRaster"),"SCRATCH")).get();
         check(scratch==null||(long)scratch.getWidth()*scratch.getHeight()<=1_048_576,"text scratch stays within 4 MiB");
+        var chatText=Class.forName("me.xchro.neon.chat.ChatText");
+        check(((Map<?,?>)field(chatText,"LAYOUTS")).size()<=128,"chat layout cache remains bounded");
+        check(((Map<?,?>)field(chatText,"GLYPHS")).size()<=1024,"chat glyph cache remains bounded");
+        var groups=field(mc.gui.hud.getChat(),"neon$groups");
+        check(((Map<?,?>)field(groups,"groups")).size()<=100,"chat group cache remains bounded");
+        check(((Map<?,?>)field(UiSounds.class,"CLIPS")).isEmpty(),"verification never opens Neon audio clips");
     }
     void start(){ClientTickEvents.END_CLIENT_TICK.register(client->{
         mc=client;if(done||mc.player==null||++ticks<40)return;
         Path root=mc.gameDirectory.toPath();
         try{
-            if(!ready){ready=true;started=System.nanoTime();mc.options.pauseOnLostFocus=false;mc.options.framerateLimit().set(60);Files.writeString(root.resolve("neon-stability.csv"),"cycles,elapsed_seconds,heap_used_bytes,checks,reloads\n");}
+            if(!ready){ready=true;started=System.nanoTime();mc.options.pauseOnLostFocus=false;mc.options.framerateLimit().set(60);Neon.config.betterChat.enabled=true;Neon.config.betterChat.duplicates=true;Neon.config.betterChat.clientFont=true;Files.writeString(root.resolve("neon-stability.csv"),"cycles,elapsed_seconds,heap_used_bytes,checks,reloads\n");}
             if(reload!=null){if(!reload.isDone()||mc.gui.overlay()!=null)return;reload.join();reload=null;reloads++;}
             if(++age<6)return;age=0;
             switch(stage++){
                 case 0->{
                     if(cycles%25==0){boolean small=(cycles/25)%2==1;mc.getWindow().setWindowed(small?640:1280,small?480:800);mc.options.guiScale().set(cycles/25%3+1);mc.resizeGui();}
-                    mc.gui.setScreen(menu=Menus.fresh(null));press("Settings");press("Colors");
+                    mc.gui.hud.getChat().addPlayerMessage(net.minecraft.network.chat.Component.literal("Soak chat "+cycles/3+" — shared glyphs, bounded groups"),null,null);
+                    mc.gui.setScreen(menu=Menus.fresh(null));press("Settings");
+                    menu.keyPressed(new net.minecraft.client.input.KeyEvent(org.lwjgl.glfw.GLFW.GLFW_KEY_F,0,org.lwjgl.glfw.GLFW.GLFW_MOD_CONTROL));
+                    var search=widgets(menu).stream().filter(w->w instanceof EditBox&&w.getMessage().getString().equals("Search settings")).map(w->(EditBox)w).findFirst().orElseThrow();
+                    search.setValue("col");check(widgets(menu).stream().noneMatch(w->w.getMessage().getString().equals("Profiles")),"search repeatedly filters settings");
+                    search.setValue("");press("Colors");
                     widgets(menu).stream().filter(w->w instanceof AbstractScrollArea).map(w->(AbstractScrollArea)w).reduce((a,b)->b).orElseThrow().setScrollAmount(150);
                 }
                 case 1->click(widget("Accent"));
@@ -60,15 +72,15 @@ final class StabilitySmoke {
                 case 3->{press("HUD editor");check(mc.gui.screen() instanceof HudEditor,"direct HUD editor remains reachable");mc.gui.screen().onClose();check(mc.gui.screen()==menu,"HUD returns to the same menu");}
                 case 4->{menu.onClose();check(mc.gui.screen()==null,"closing releases gameplay immediately");}
                 case 5->{
-                    cacheBounds();cycles++;stage=0;
+                    cacheBounds();SoundAudit.cues.clear();cycles++;stage=0;
                     if(cycles%25==0){Neon.SAVES.flush().join();System.gc();}
                     if(cycles%50==0){
                         long heap=Runtime.getRuntime().totalMemory()-Runtime.getRuntime().freeMemory();double elapsed=(System.nanoTime()-started)/1e9;
                         Files.writeString(root.resolve("neon-stability.csv"),cycles+","+elapsed+","+heap+","+checks+","+reloads+"\n",StandardOpenOption.APPEND);
                         System.out.println("NEON_STABILITY cycles="+cycles+" checks="+checks+" elapsed="+elapsed+" heap="+heap);
-                        if(cycles<200)reload=mc.reloadResourcePacks();
+                        if(cycles<targetCycles)reload=mc.reloadResourcePacks();
                     }
-                    if(cycles==200){check(reloads==3,"three full resource reloads finish");Files.writeString(root.resolve("neon-verification.txt"),"PASS "+checks+" stability checks, 200 rendered menu/color/HUD cycles, 3 resource reloads, "+((System.nanoTime()-started)/1e9)+" seconds\n");done=true;mc.stop();}
+                    if(cycles==targetCycles){check(reloads==(targetCycles-1)/50,"all full resource reloads finish");Files.writeString(root.resolve("neon-verification.txt"),"PASS "+checks+" stability checks, "+cycles+" rendered menu/color/HUD/search/chat cycles, "+reloads+" resource reloads, "+((System.nanoTime()-started)/1e9)+" seconds\n");done=true;mc.stop();}
                 }
             }
         }catch(Throwable failure){failure.printStackTrace();done=true;try{Files.writeString(root.resolve("neon-verification.txt"),"FAIL "+failure);}catch(Exception ignored){}mc.stop();}

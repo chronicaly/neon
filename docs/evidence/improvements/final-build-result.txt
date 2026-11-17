@@ -1,0 +1,3 @@
+PASS 23497 packaged release checks
+Installed verified Neon JAR: C:\Users\Martin Krisch\AppData\Roaming\PrismLauncher\instances\Vanilla\minecraft\mods\neon.jar
+BUILD SUCCESSFUL in 8m 29s

@@ -13,7 +13,7 @@ import net.minecraft.client.input.*;
 
 /** Deterministic production-JAR benchmark. All instrumentation lives in the test-only mod. */
 public final class PerformanceSmoke {
-    private static final String[] CASES = {"gameplay", "motion-blur", "idle-menu", "navigation-scroll", "color-edit", "hud-placement", "font-churn", "first-open", "drawer-reversals", "category-switch", "continuous-color", "menu-resize", "hud-catalog", "chat-visible", "hud-contact", "hud-joined", "chat-docked"};
+    private static final String[] CASES = {"gameplay", "motion-blur", "idle-menu", "navigation-scroll", "color-edit", "hud-placement", "font-churn", "first-open", "drawer-reversals", "category-switch", "continuous-color", "menu-resize", "hud-catalog", "chat-visible", "hud-contact", "hud-joined", "chat-docked", "chat-receive"};
     private static final Set<String> ONLY = System.getProperty("neon.perf.scenario") == null ? Set.of()
         : new LinkedHashSet<>(Arrays.asList(System.getProperty("neon.perf.scenario").split(",")));
     private static final int WARM = 240, SAMPLES = 480;
@@ -128,7 +128,7 @@ public final class PerformanceSmoke {
             Neon.config.fpsBackground=Neon.config.fpsBorder=true;
             // Empty potion/scoreboard data correctly draws nothing during gameplay.
         }
-        if(scenario==13||scenario==16) {
+        if(scenario==13||scenario==16||scenario==17) {
             for(int i=0;i<24;i++)mc.gui.hud.getChat().addPlayerMessage(net.minecraft.network.chat.Component.literal("<Player"+i+"> ")
                 .withColor(0x84dce6).append(net.minecraft.network.chat.Component.literal("Chat rendering: coordinates 123, 64, 456 and a ").withColor(0xffffff))
                 .append(net.minecraft.network.chat.Component.literal("clickable link").withStyle(s->s.withColor(0x9985cc).withUnderlined(true)
@@ -162,6 +162,11 @@ public final class PerformanceSmoke {
         mc.getFramerateLimitTracker().onInputReceived();
         int scenario = stage % CASES.length;
         event="";
+        if(scenario==17&&frame%4==0){
+            event="receive";
+            var message=net.minecraft.network.chat.Component.literal("<Player> incoming group "+frame/12+" "+"wrapped message ".repeat(7));
+            begin();try{mc.gui.hud.getChat().addPlayerMessage(message,null,null);}finally{end();}
+        }
         if(scenario==14){contact((int)Math.round(6+18*Math.sin(frame*.067)),frame%7-3);event="contact";}
         if(scenario>=12)return;
         mc.player.setYRot(scenario == 1 ? (float) (Math.sin(frame * .007) * 20) : 0); mc.player.setXRot(0);

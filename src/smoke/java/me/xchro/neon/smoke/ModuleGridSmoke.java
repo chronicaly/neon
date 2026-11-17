@@ -46,7 +46,12 @@ public final class ModuleGridSmoke {
     private void press(String label){button(label).onPress(null);}
     private MouseButtonEvent pointer(double x,double y,int b){return new MouseButtonEvent(menu.guiCoordinate(x),menu.guiCoordinate(y),new MouseButtonInfo(b,0));}
     private void click(double x,double y,int b){var e=pointer(x,y,b);check(menu.mouseClicked(e,false),"pointer accepted");menu.mouseReleased(e);}
-    private void body(String label,int b){var w=tile(label);click(w.getX()+5,w.getY()+12,b);}
+    private void body(String label,int b){
+        var w=tile(label);var grid=(AbstractScrollArea)widgets(menu).stream().filter(c->c.getClass().getSimpleName().equals("UiScroll")).findFirst().orElseThrow();
+        if(w.getBottom()>grid.getBottom())grid.setScrollAmount(grid.scrollAmount()+w.getBottom()-grid.getBottom());
+        if(w.getY()<grid.getY())grid.setScrollAmount(grid.scrollAmount()+w.getY()-grid.getY());
+        click(w.getX()+5,w.getY()+12,b);
+    }
     private void binding(String label,int b){var w=bind(label);click(w.getX()+3,w.getY()+12,b);}
     private void key(int key,int mods){menu.keyPressed(new KeyEvent(key,0,mods));}
     private AbstractScrollArea drawer(){return (AbstractScrollArea)widgets(menu).stream().filter(w->w.getClass().getSimpleName().equals("UiScroll")).reduce((a,b)->b).orElseThrow();}
@@ -133,7 +138,7 @@ public final class ModuleGridSmoke {
             }
             case 11->{
                 fits();drawer().setScrollAmount(drawer().maxScrollAmount());shot("settings-profiles-minimum");
-                var name=(EditBox)widgets(menu).stream().filter(w->w instanceof EditBox).findFirst().orElseThrow();
+                var name=(EditBox)widgets(menu).stream().filter(w->w instanceof EditBox&&w.getMessage().getString().equals("Profile name")).findFirst().orElseThrow();
                 name.setValue("Drawer verification");press("Save");
                 check(Neon.profiles.names().contains("Drawer verification"),"profile name and Save work inside the minimum drawer");
                 Neon.config.theme.soundVolume=.17;press("Drawer verification");
@@ -171,7 +176,7 @@ public final class ModuleGridSmoke {
                 check(mc.gui.screen()==menu&&Neon.freelook.matches(new KeyEvent(GLFW.GLFW_KEY_RIGHT_SHIFT,0,GLFW.GLFW_MOD_SHIFT)),"bind capture accepts Right Shift without closing the menu");
                 key(GLFW.GLFW_KEY_Z,GLFW.GLFW_MOD_CONTROL);
                 press("Settings");body("Profiles",0);
-                var field=(EditBox)widgets(menu).stream().filter(w->w instanceof EditBox).findFirst().orElseThrow();
+                var field=(EditBox)widgets(menu).stream().filter(w->w instanceof EditBox&&w.getMessage().getString().equals("Profile name")).findFirst().orElseThrow();
                 focus(menu,field);key(GLFW.GLFW_KEY_RIGHT_SHIFT,GLFW.GLFW_MOD_SHIFT);
                 check(mc.gui.screen()==menu&&field.isFocused(),"Right Shift preserves focused profile text entry");
                 mc.gui.setScreen(new net.minecraft.client.gui.screens.ChatScreen("unsent menu shortcut check",false));

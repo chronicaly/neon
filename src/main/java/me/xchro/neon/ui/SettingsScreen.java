@@ -43,6 +43,10 @@ public final class SettingsScreen extends PixelScreen {
     private int page, sx, sy, sw, sh, side, contentX, contentY, panelWidth;
     private String module = "", renderedView = "", error = "", profileDraft = "", expandedColor = "";
     private String fontQuery="";
+    private final String[] queries={"","",""};
+    private final double[] unfilteredScroll=new double[3];
+    private UiSearch search;
+    private final boolean[] searchOpen=new boolean[3];
     private ColorPicker colorPicker;
     private ColorPicker closingPicker;
     private String colorDrawerName = "";
@@ -65,6 +69,7 @@ public final class SettingsScreen extends PixelScreen {
     }
     private String view() { return page + "/" + module; }
     @Override protected void init() {
+        boolean searchFocused=searchOpen[page]&&search!=null&&search.isFocused();
         if (hasPointerGesture()) finishPointerGesture();
         boolean sameView = renderedView.equals(view());
         if(!sameView)presentation.change();
@@ -105,7 +110,10 @@ public final class SettingsScreen extends PixelScreen {
         }
         rows = LinearLayout.vertical().spacing(0);
         moduleRows();
-        scroll = addWidget(new UiScroll(contentX, contentY, panelWidth + 8, contentHeight(), rows));
+        scroll = addWidget(new UiScroll(contentX, contentY+searchHeight(), panelWidth + 8, contentHeight()-searchHeight(), rows));
+        search=new UiSearch(page==2?"Search settings":"Search modules",queries[page],this::filterModules);
+        if(searchOpen[page])addWidget(search);
+        layoutSearch();
         details = null;
         if (!module.isEmpty()) {
             drawerName = module; detailWidths.clear();
@@ -129,6 +137,7 @@ public final class SettingsScreen extends PixelScreen {
         if (memory != null) memory.restore(scroll, false, sameColor, true);
         if (scroll.getFocused() != null) setFocused(scroll);
         if (details != null && !module.isEmpty() && details.getFocused() != null) setFocused(details);
+        if(searchFocused)setFocused(search);
         layoutDrawer();
         if (colorPicker != null) {
             addWidget(colorPicker);
@@ -138,7 +147,10 @@ public final class SettingsScreen extends PixelScreen {
         refresh();
     }
     private void rememberScroll() {
-        if (scroll != null) NAVIGATION.remember(renderedView, scroll.scrollAmount());
+        if (scroll != null) {
+            int previousPage=Integer.parseInt(renderedView.substring(0,1));
+            NAVIGATION.remember(renderedView, queries[previousPage].isEmpty()?scroll.scrollAmount():unfilteredScroll[previousPage]);
+        }
         if (details != null && !renderedView.endsWith("/")) NAVIGATION.remember(renderedView + "/details", details.scrollAmount());
     }
     private void open(String name) { capturing = null; expandedColor = ""; colorOpen = false; module = module.equals(name) ? "" : name; error = ""; rebuildWidgets(); UiSounds.cue(module.isEmpty() ? Cue.BACK : Cue.NAVIGATE); }
@@ -153,12 +165,14 @@ public final class SettingsScreen extends PixelScreen {
     }
     private void moduleRows() {
         var grid = rows.addChild(new ModuleGrid(() -> panelWidth + 8));
+        int count=0;
         if (page == 2) {
             for (String name : new String[]{"Colors", "Appearance", "Fonts", "Profiles"})
-                grid.add(new UiModuleTile(name, () -> open(name), () -> module.equals(name)));
+                if(UiSearch.matches(name,queries[page])){grid.add(new UiModuleTile(name, () -> open(name), () -> module.equals(name)));count++;}
+            if(count==0)rows.addChild(new UiLabel("No matching settings",panelWidth,26,Ui.MUTED));
             return;
         }
-        for (var entry : ClientModule.values()) if (entry.page == page) {
+        for (var entry : ClientModule.values()) if (entry.page == page&&UiSearch.matches(entry.label,queries[page])) {
             var tile = new UiModuleTile(entry, () -> {
                 session.change(() -> entry.enabled(Neon.config, !entry.enabled(Neon.config)));
                 UiSounds.toggled(entry.enabled(Neon.config)); refresh();
@@ -168,7 +182,32 @@ public final class SettingsScreen extends PixelScreen {
                     refresh(); UiSounds.cue(Cue.CONFIRM);
                 });
             grid.add(tile);
+            count++;
         }
+        if(count==0)rows.addChild(new UiLabel("No matching modules",panelWidth,26,Ui.MUTED));
+    }
+    private int searchHeight(){return searchOpen[page]?29:0;}
+    private void showSearch(boolean open){
+        if(searchOpen[page]==open)return;
+        presentation.change();searchOpen[page]=open;
+        if(!open)setFocused((net.minecraft.client.gui.components.events.GuiEventListener)null);
+        rebuildWidgets();
+    }
+    private void layoutSearch(){
+        if(search==null)return;
+        search.setX(contentX+7);search.setY(contentY+4);search.setWidth(Math.max(1,panelWidth-6));
+    }
+    private void filterModules(String value){
+        if(queries[page].equals(value))return;
+        if(queries[page].isEmpty())unfilteredScroll[page]=scroll.scrollAmount();
+        queries[page]=value;
+        var memory=new WidgetMemory(scroll);
+        rows=LinearLayout.vertical().spacing(0);moduleRows();
+        scroll.replace(rows);clearRemovedPresses();
+        memory.restore(scroll,false,false,false);
+        scroll.setFocused((net.minecraft.client.gui.components.events.GuiEventListener)null);
+        scroll.setScrollAmount(value.isEmpty()?unfilteredScroll[page]:0);
+        setFocused(search);
     }
     private void controls() {
         var c = Neon.config;
@@ -456,6 +495,14 @@ public final class SettingsScreen extends PixelScreen {
             return true;
         }
         if (e.key() == GLFW.GLFW_KEY_ESCAPE && window.dragging()) { window.cancel(); layoutWindow(); return true; }
+        if(e.key()==GLFW.GLFW_KEY_F&&(e.modifiers()&GLFW.GLFW_MOD_CONTROL)!=0&&(search.isFocused()||!editingText())){
+            showSearch(true);setFocused(search);search.moveCursorToEnd(false);search.setHighlightPos(0);return true;
+        }
+        if(search.isFocused()){
+            if(e.key()==GLFW.GLFW_KEY_ESCAPE){if(!search.getValue().isEmpty())search.setValue("");else showSearch(false);return true;}
+            if(e.key()==GLFW.GLFW_KEY_ENTER||e.key()==GLFW.GLFW_KEY_KP_ENTER||e.key()==GLFW.GLFW_KEY_DOWN){if(UiSearch.focusFirst(scroll))setFocused(scroll);return true;}
+            if(e.key()==GLFW.GLFW_KEY_Z&&(e.modifiers()&GLFW.GLFW_MOD_CONTROL)!=0)return true;
+        }
         if (e.key() == GLFW.GLFW_KEY_ESCAPE && colorOpen) { closeColor(); return true; }
         if (e.key() == GLFW.GLFW_KEY_ESCAPE && !module.isEmpty()) { back(); return true; }
         if (e.key() == GLFW.GLFW_KEY_Z && (e.modifiers() & GLFW.GLFW_MOD_CONTROL) != 0) { if (session.undo()) rebuildWidgets(); return true; }
@@ -515,8 +562,9 @@ public final class SettingsScreen extends PixelScreen {
         for (var child : children()) if (child instanceof AbstractWidget widget) { widget.setX(widget.getX() + dx); widget.setY(widget.getY() + dy); }
         anchorBottomControls();
         if (resized && scroll != null) {
-            scroll.setWidth(panelWidth + 8); scroll.setHeight(contentHeight()); scroll.relayout();
+            scroll.setWidth(panelWidth + 8); scroll.setHeight(contentHeight()-searchHeight()); scroll.relayout();
         }
+        layoutSearch();
         layoutDrawer();
         layoutColor();
     }
@@ -574,6 +622,7 @@ public final class SettingsScreen extends PixelScreen {
         renderWidgets(g, mx, my, delta);
         presentation.content(g,sx+side,sy+1,(int)Math.ceil(frame.width())-side,sh-2);
         Ui.title(g, TABS[page], contentX, sy + 14);
+        if(searchOpen[page])search.extractRenderState(g,mx,my,delta);
         scroll.extractRenderState(g,mx,my,delta);
         if (details!=null && frame.drawerWidth()>1) {
             Ui.clip(g,sx+sw,sy+1,(int)Math.floor(frame.x()+frame.mainWidth()+frame.drawerWidth()-1),sy+sh-1);

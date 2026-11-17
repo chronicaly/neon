@@ -68,6 +68,7 @@ public final class LiveSmoke implements ClientModInitializer {
     private BetterChatSmoke betterChat;
     private HudPolishSmoke hudPolish;
     private BetterScreenshotSmoke betterScreenshot;
+    private SearchSmoke search;
     private int interactionPhase;
     public static void optionsWrite() { QualitySmoke.optionsWrites++; }
     @Override public void onInitializeClient() {
@@ -153,6 +154,7 @@ public final class LiveSmoke implements ClientModInitializer {
                 case 0 -> {
                     if (age < 80) return;
                     if(Boolean.getBoolean("neon.smoke.releaseOnly")){release=new ReleaseSmoke(mc,checks);stage=73;stageTick=tick;return;}
+                    if(Boolean.getBoolean("neon.smoke.searchOnly")){search=new SearchSmoke(mc,checks);stage=81;stageTick=tick;return;}
                     if(Boolean.getBoolean("neon.smoke.expansionOnly")){expansion=new ExpansionSmoke(mc,checks);stage=74;stageTick=tick;return;}
                     if(Boolean.getBoolean("neon.smoke.modulesOnly")){modules=new ModulesSmoke(mc,checks);stage=75;stageTick=tick;return;}
                     if(Boolean.getBoolean("neon.smoke.refinementOnly")){refinement=new RefinementSmoke(mc,checks);stage=76;stageTick=tick;return;}
@@ -729,6 +731,10 @@ public final class LiveSmoke implements ClientModInitializer {
                 case 80 -> {
                     if(!hudPolish.run())return;checks=hudPolish.checks();
                     Files.writeString(mc.gameDirectory.toPath().resolve("neon-verification.txt"),"PASS "+checks+" Unity chat and HUD polish checks\n");stage=50;stageTick=tick;
+                }
+                case 81 -> {
+                    if(!search.run())return;checks=search.checks();
+                    Files.writeString(mc.gameDirectory.toPath().resolve("neon-verification.txt"),"PASS "+checks+" module and HUD search checks\n");stage=50;stageTick=tick;
                 }
                 case 79 -> {
                     if(!fonts.run())return;checks=fonts.checks();

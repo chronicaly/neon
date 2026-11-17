@@ -18,7 +18,13 @@ public final class ChatText {
     private static final Map<FormattedCharSequence,Layout> LAYOUTS=new LinkedHashMap<>(128,.75f,true){protected boolean removeEldestEntry(Map.Entry<FormattedCharSequence,Layout> e){return size()>128;}};
     private static String family;
     private record Glyph(String text,Style style,float x,float width){}
-    private record Layout(List<Glyph> glyphs,float width){}
+    private static final class Layout {
+        final List<Glyph> glyphs;
+        final float width;
+        float preparedX,preparedY;
+        Font.PreparedText prepared;
+        Layout(List<Glyph> glyphs,float width){this.glyphs=glyphs;this.width=width;}
+    }
     private ChatText(){}
     public static boolean enabled(){return BetterChat.active()&&Neon.config.betterChat.clientFont;}
     public static Style style(Style style){return enabled()?style.withFont(FONT):style;}
@@ -33,7 +39,9 @@ public final class ChatText {
     public static float width(FormattedCharSequence text){return layout(text).width;}
     public static Style at(FormattedCharSequence text,float mouseX){for(var glyph:layout(text).glyphs)if(mouseX>=glyph.x&&mouseX<glyph.x+glyph.width)return glyph.style;return null;}
     public static Font.PreparedText areas(FormattedCharSequence text,float x,float y){
-        var layout=layout(text);var areas=new ArrayList<EmptyArea>();Style style=null;float start=0,end=0;
+        var layout=layout(text);
+        if(layout.prepared!=null&&layout.preparedX==x&&layout.preparedY==y)return layout.prepared;
+        var areas=new ArrayList<EmptyArea>();Style style=null;float start=0,end=0;
         // Native pointer collection needs style spans, not one allocated rectangle per letter.
         for(var glyph:layout.glyphs){
             if(style!=null&&!style.equals(glyph.style)){areas.add(new EmptyArea(x+start,y,end-start,7,9,style));style=null;}
@@ -41,7 +49,8 @@ public final class ChatText {
         }
         if(style!=null)areas.add(new EmptyArea(x+start,y,end-start,7,9,style));
         var bounds=new ScreenRectangle((int)Math.floor(x),(int)Math.floor(y),(int)Math.ceil(layout.width),9);
-        return new Font.PreparedText(){public void visit(Font.GlyphVisitor v){areas.forEach(v::acceptEmptyArea);}public ScreenRectangle bounds(){return bounds;}};
+        layout.preparedX=x;layout.preparedY=y;
+        return layout.prepared=new Font.PreparedText(){public void visit(Font.GlyphVisitor v){for(var area:areas)v.acceptEmptyArea(area);}public ScreenRectangle bounds(){return bounds;}};
     }
     public static void draw(GuiGraphicsExtractor g,FormattedCharSequence text,float x,float y,float opacity){
         float physical=Math.abs(g.pose().m11())*Minecraft.getInstance().getWindow().getGuiScale();
@@ -53,7 +62,7 @@ public final class ChatText {
     }
     private static void layer(GuiGraphicsExtractor g,FormattedCharSequence text,float x,float y,float opacity,int pixels,int baseline,boolean shadow){
         var layout=layout(text);
-        try(var batch=HudText.batch(g)){
+        try(var batch=HudText.batch(g,layout.glyphs.size())){
             for(var glyph:layout.glyphs){var s=glyph.style;int color=(Math.clamp(Math.round(opacity*255),0,255)<<24)|(shadow?0:s.getColor()==null?0xffffff:s.getColor().getValue());
                 g.pose().pushMatrix();g.pose().translate(x+glyph.x,y);HudText.draw(g,glyph.text,0,0,color,pixels,false,s.isBold(),s.isItalic(),baseline);g.pose().popMatrix();
             }

@@ -14,7 +14,7 @@ final class UiScroll extends AbstractContainerWidget {
     private final List<AbstractWidget> children = new ArrayList<>();
     private final Map<AbstractWidget, int[]> offsets = new IdentityHashMap<>();
     private int contentHeight;
-    private final Layout layout;
+    private Layout layout;
     private double targetScroll;
     private me.xchro.neon.core.TimedValue scrollMotion = new me.xchro.neon.core.TimedValue(0);
     private boolean moduleCards;
@@ -90,10 +90,14 @@ final class UiScroll extends AbstractContainerWidget {
     }
     UiScroll(int x, int y, int width, int height, Layout layout) {
         super(x, y, width, height, Component.empty());
+        replace(layout);
+    }
+    void replace(Layout layout) {
+        setFocused((GuiEventListener)null);children.clear();offsets.clear();appearing.clear();pinned=null;
         this.layout = layout;
         layout.setX(0); layout.setY(0); layout.arrangeElements(); contentHeight = layout.getHeight();
         layout.visitWidgets(widget -> { children.add(widget); offsets.put(widget, new int[]{widget.getX(), widget.getY()}); });
-        place();
+        setScrollAmount(0);
     }
     UiScroll moduleCards() { moduleCards = true; return this; }
     void stopMotion() { targetScroll = scrollAmount(); scrollMotion.snap(targetScroll); }

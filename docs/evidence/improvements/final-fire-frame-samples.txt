@@ -1,0 +1,17 @@
+[16:57:21] [Render thread/INFO]: [STDOUT]: NEON_FIRE phase=14 sample=0 pixels=138765 burning=true lowering=0.2 active=false
+[16:57:21] [Render thread/INFO]: [STDOUT]: NEON_FIRE phase=14 sample=1 pixels=113482 burning=true lowering=0.2 active=false
+[16:57:21] [Render thread/INFO]: [STDOUT]: NEON_FIRE phase=14 sample=2 pixels=186055 burning=true lowering=0.2 active=false
+[16:57:22] [Render thread/INFO]: [STDOUT]: NEON_FIRE phase=14 sample=3 pixels=35715 burning=true lowering=0.2 active=false
+[16:57:22] [Render thread/INFO]: [STDOUT]: NEON_FIRE phase=14 sample=4 pixels=131441 burning=true lowering=0.2 active=false
+[16:57:22] [Render thread/INFO]: [STDOUT]: NEON_FIRE phase=14 sample=5 pixels=121185 burning=true lowering=0.2 active=false
+[16:57:22] [Render thread/INFO]: [STDOUT]: NEON_FIRE phase=14 sample=6 pixels=104680 burning=true lowering=0.2 active=false
+[16:57:23] [Render thread/INFO]: [STDOUT]: NEON_FIRE phase=14 sample=7 pixels=180479 burning=true lowering=0.2 active=false
+[16:57:25] [Render thread/INFO]: [STDOUT]: NEON_FIRE phase=15 sample=0 pixels=864 burning=true lowering=0.2 active=true
+[16:57:25] [Render thread/INFO]: [STDOUT]: NEON_FIRE phase=15 sample=1 pixels=40817 burning=true lowering=0.2 active=true
+[16:57:25] [Render thread/INFO]: [STDOUT]: NEON_FIRE phase=15 sample=2 pixels=33107 burning=true lowering=0.2 active=true
+[16:57:26] [Render thread/INFO]: [STDOUT]: NEON_FIRE phase=15 sample=3 pixels=85803 burning=true lowering=0.2 active=true
+[16:57:26] [Render thread/INFO]: [STDOUT]: NEON_FIRE phase=15 sample=4 pixels=100886 burning=true lowering=0.2 active=true
+[16:57:26] [Render thread/INFO]: [STDOUT]: NEON_FIRE phase=15 sample=5 pixels=130831 burning=true lowering=0.2 active=true
+[16:57:27] [Render thread/INFO]: [STDOUT]: NEON_FIRE phase=15 sample=6 pixels=864 burning=true lowering=0.2 active=true
+[16:57:27] [Render thread/INFO]: [STDOUT]: NEON_FIRE phase=15 sample=7 pixels=29887 burning=true lowering=0.2 active=true
+[16:57:27] [Render thread/INFO]: [STDOUT]: NEON_CHECK low fire lowers visible flames across animation frames: 588.0661542475701 -> 667.4366648623478

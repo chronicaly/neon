@@ -2,9 +2,11 @@
 
 A customizable **Minecraft 26.2 / Java 25** Fabric client with a consistent cyan/violet interface, **22 modules** and **24 HUD elements**. Neon focuses on everyday play, camera comfort, useful information and visual customization.
 
-![Neon modules with attached settings and color controls](docs/images/neon-corners-menu.png)
+![Neon module grid with search hidden](docs/images/neon-grid-default-collapsed.png)
 
-[Download](https://github.com/chronicaly/neon/releases/latest) · [User guide](docs/user-guide.md) · [Research](docs/client-research.md) · [Release notes](docs/release-0.5.5.md)
+[Published downloads](https://github.com/chronicaly/neon/releases/latest) · [User guide](docs/user-guide.md) · [Research](docs/client-research.md) · [0.5.6 notes](docs/release-0.5.6.md)
+
+**0.5.6 adds search on demand** to the module/Settings grids and HUD column. Search is hidden by default. Press **Ctrl+F** to reveal it, type a few words, then **Enter/Down** to focus a result without activating it. **Escape** clears the query, then hides search; clearing restores the previous scroll position. Filters never change enabled states or saved settings. Chat now reuses unchanged display groups and packed glyph batches, reducing measured allocation costs while preserving original history, signatures, links and sound rules. See the [verification and measurement report](docs/improvements-results.md) and [0.5.6 downloads](https://github.com/chronicaly/neon/releases/tag/v0.5.6).
 
 **0.5.5 keeps bottom-left Chat and Coordinates together**, with a six-pixel gap and shared smooth movement above the chat input. **HUD editor → Chat → Message bar** hides the server-message stripe and removes its reserved left space, including when Better chat is disabled. **Potion effects → Hide vanilla icons** removes duplicate top-right status icons while that HUD is enabled; **Visuals → Clean view → Hide effect icons** works independently. Both icon options start off and preserve active effects.
 
@@ -16,7 +18,7 @@ The **HUD editor and Settings** now share Neon's translucent dark panels, native
 
 ## Install
 
-Use Minecraft **26.2**, **Java 25**, Fabric Loader **0.19.5+**, and Fabric API for 26.2. This release is built against **Fabric API 0.161.0+26.2**. Put the runnable `neon-0.5.5.jar` in your instance's `minecraft/mods` folder. Keep one Neon JAR; the sources JAR is for development. [Mod Menu](https://modrinth.com/mod/modmenu) is optional.
+Use Minecraft **26.2**, **Java 25**, Fabric Loader **0.19.5+**, and Fabric API for 26.2. This build uses **Fabric API 0.161.0+26.2**. Put the runnable `neon-0.5.6.jar` in your instance's `minecraft/mods` folder. Keep one Neon JAR; the sources JAR is for development. [Mod Menu](https://modrinth.com/mod/modmenu) is optional.
 
 Open Neon with your saved menu key (**Insert** in the supplied Vanilla setup), **Right Shift**, or Mod Menu. A fresh configuration uses **P** as its primary key. Updates preserve saved keys, palette, alpha and custom HUD placements. New 0.5.0 modules and HUD widgets start disabled.
 
@@ -98,7 +100,7 @@ Requires JDK 25. The project uses unobfuscated Fabric Loom.
 ./tools/build.ps1 -SkipInstall
 ```
 
-On this development setup, `./tools/build.ps1` also runs the silent packaged release suite and installs only its exact checked runnable JAR into PrismLauncher's Vanilla instance. The prepared verification world is isolated from user instances. See [verification](docs/verification.md) and [0.5.5 results](docs/chat-dock-results.md).
+On this development setup, `./tools/build.ps1` also runs the silent packaged release suite and installs only its exact checked runnable JAR into PrismLauncher's Vanilla instance. The prepared verification world is isolated from user instances. See [verification](docs/verification.md) and [0.5.6 results](docs/improvements-results.md).
 
 Performance instrumentation and sound/clipboard interception live only in the verification mod, excluded from releases. Measurements report allocations and frame times with their limits; no FPS increase is promised.
 

@@ -23,7 +23,14 @@ final class RefinementSmoke {
     private boolean pending,done;
     private String failure;
     private HudBounds fps,coordinates;
-    private double fireY;
+    private double fireY,fireSum;
+    private int fireSamples,firePixels;
+    private ModulesSmoke prelude;
+    private boolean preludeDone;
+    private volatile boolean fireReady;
+    private net.minecraft.server.level.ServerPlayer firePlayer;
+    private int previousFireTicks;
+    private boolean previousInvulnerable;
     private final BlockPos target=new BlockPos(0,102,3);
     private net.minecraft.world.level.block.state.BlockState oldBlock;
     RefinementSmoke(Minecraft mc,int checks){this.mc=mc;this.checks=checks;original=ConfigStore.copy(Neon.config);}
@@ -71,8 +78,24 @@ final class RefinementSmoke {
                 ClientModule.BLOCK_OUTLINE.enabled(c,true);c.blockOutlineColor=0xffff00ff;c.blockOutlineGradient=false;c.blockOutlineWidth=2;
                 c.blockOutlineFill=.5;c.blockOutlineMode=NeonConfig.BlockOutlineMode.values()[phase-8];c.blockOutlineGlow=phase==9;
             }
-            if(phase>=14){mc.player.setSharedFlagOnFire(true);ClientModule.LOW_FIRE.enabled(c,phase==15);c.fireLowering=.4;}
+            if(phase==14)mc.getSingleplayerServer().execute(()->{
+                firePlayer=mc.getSingleplayerServer().getPlayerList().getPlayers().getFirst();
+                previousFireTicks=firePlayer.getRemainingFireTicks();previousInvulnerable=firePlayer.isInvulnerable();
+                // A client-only flag can be overwritten by entity-data synchronization between
+                // the tick and deferred screenshot. Keep both sides burning for both captures.
+                firePlayer.setInvulnerable(true);firePlayer.setRemainingFireTicks(200);firePlayer.setSharedFlagOnFire(true);fireReady=true;
+            });
+            // Keep flames comfortably in-frame across native animation frames. The module
+            // vertex checks separately cover the default 40% and the exact zero transform.
+            if(phase>=14){ClientModule.LOW_FIRE.enabled(c,phase==15);c.fireLowering=.2;}
         }
+    }
+    private void restoreFire(){
+        if(!fireReady)return;fireReady=false;
+        mc.getSingleplayerServer().execute(()->{
+            firePlayer.setRemainingFireTicks(previousFireTicks);firePlayer.setInvulnerable(previousInvulnerable);
+            firePlayer.setSharedFlagOnFire(previousFireTicks>0);
+        });
     }
     private List<AbstractWidget> widgets(ContainerEventHandler root){var result=new ArrayList<AbstractWidget>();for(var child:root.children()){if(child instanceof AbstractWidget w)result.add(w);if(child instanceof ContainerEventHandler c)result.addAll(widgets(c));}return result;}
     private void click(HudEditor editor,String label,int button) {
@@ -104,20 +127,24 @@ final class RefinementSmoke {
         check(Neon.config.hudBackgrounds&&Neon.config.hudOutlines,"Undo restores both global visibility gates");
     }
     boolean run()throws Exception {
-        if(failure!=null)throw new AssertionError(failure);
+        if(Boolean.getBoolean("neon.smoke.refinementAfterModules")&&!preludeDone){
+            if(prelude==null)prelude=new ModulesSmoke(mc,checks);
+            if(!prelude.run())return false;checks=prelude.checks();preludeDone=true;
+        }
+        if(failure!=null){restoreFire();throw new AssertionError(failure);}
         if(phase==16) {
-            mc.player.setSharedFlagOnFire(false);Neon.applyConfig(original);mc.gui.setScreen(null);
+            restoreFire();mc.player.setSharedFlagOnFire(false);Neon.applyConfig(original);mc.gui.setScreen(null);
             if(oldBlock!=null)mc.getSingleplayerServer().execute(()->mc.getSingleplayerServer().overworld().setBlockAndUpdate(target,oldBlock));
             return true;
         }
         if(age++==0)setup();
-        if(phase>=14)mc.player.setSharedFlagOnFire(true);
+        if(phase>=14){if(!fireReady)return false;mc.player.setSharedFlagOnFire(true);}
         if(age<30)return false;
         if(phase==7&&age==30){controls();return false;}
         if(age<40)return false;
         if(!pending){pending=true;Screenshot.takeScreenshot(mc.gameRenderer.mainRenderTarget(),image->{
             try(image) {
-                image.writeToFile(mc.gameDirectory.toPath().resolve("screenshots/neon-refinement-"+phase+".png"));
+                image.writeToFile(mc.gameDirectory.toPath().resolve("screenshots/neon-refinement-"+phase+(phase>=14?"-"+fireSamples:"")+".png"));
                 if(phase<=6) {
                     int edge=image.getPixel(fps.x(),fps.y()+fps.height()/2)&0xffffff;
                     int bridge=image.getPixel(phase==6?fps.x()+fps.width()+3:fps.x()+20,phase==6?fps.y()+12:fps.y()+fps.height()+3)&0xffffff;
@@ -150,12 +177,22 @@ final class RefinementSmoke {
                         int color=image.getPixel(x,y),r=color>>>16&255,g=color>>>8&255,b=color&255;
                         if(r>150&&g>40&&g<180&&b<70){sum+=y;count++;}
                     }
-                    check(count>500,"burning fixture renders actual fire pixels");double center=sum/count;
-                    if(phase==14)fireY=center;else check(center>fireY+30,"low fire lowers visible flames: "+fireY+" -> "+center);
+                    System.out.println("NEON_FIRE phase="+phase+" sample="+fireSamples+" pixels="+count+" burning="+mc.player.isOnFire()+" lowering="+Neon.config.fireLowering+" active="+ClientModule.LOW_FIRE.active());
+                    check(mc.player.isOnFire(),"burning fixture stays active through native animation samples");
+                    fireSum+=sum;firePixels+=count;
+                    if(fireSamples==7){
+                        // Orange coverage varies sharply across native texture frames; assert
+                        // presence and the weighted position over the sample, not each sprite.
+                        check(firePixels>4000,"burning fixture renders actual fire pixels across animation frames");
+                        double center=fireSum/firePixels;
+                        if(phase==14)fireY=center;else check(center>fireY+30,"low fire lowers visible flames across animation frames: "+fireY+" -> "+center);
+                    }
                 }
                 done=true;
             }catch(Throwable error){failure=error.toString();}
         });return false;}
-        if(!done)return false;phase++;age=0;pending=done=false;return false;
+        if(!done)return false;
+        if(phase>=14&&++fireSamples<8){age=35;pending=done=false;return false;}
+        fireSamples=0;firePixels=0;fireSum=0;phase++;age=0;pending=done=false;return false;
     }
 }

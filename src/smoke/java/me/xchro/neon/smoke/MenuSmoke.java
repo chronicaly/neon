@@ -136,7 +136,7 @@ final class MenuSmoke {
         check(mc.gui.screen() instanceof SettingsScreen && Neon.freelook.matches(key(GLFW.GLFW_KEY_P)), "bind capture accepts the menu key without closing");
         undo();
         button("Settings").onPress(null); button("Profiles").onPress(null);
-        var field = widgets().stream().filter(w -> w instanceof EditBox).map(w -> (EditBox) w).findFirst().orElseThrow();
+        var field = widgets().stream().filter(w -> w instanceof EditBox&&w.getMessage().getString().equals("Profile name")).map(w -> (EditBox) w).findFirst().orElseThrow();
         var screen = (SettingsScreen) mc.gui.screen();
         check(focus(screen, field) && field.isFocused(), "profile text field receives keyboard focus");
         field.setValue(""); screen.keyPressed(key(GLFW.GLFW_KEY_P)); screen.charTyped(new CharacterEvent('p'));

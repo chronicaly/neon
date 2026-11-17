@@ -56,6 +56,41 @@ final class BetterChatSmoke {
         check(toggle("Message ping").active&&toggle("Mention ping").active,"both ping controls are available");
     }
     private void shot(String name){Screenshot.grab(mc.gameDirectory,"neon-chat-"+name+".png",mc.gameRenderer.mainRenderTarget(),1,c->{});}
+    @SuppressWarnings("unchecked") private List<GuiMessage.Line> lines()throws Exception{return (List<GuiMessage.Line>)field(chat,"trimmedMessages");}
+    private void incremental()throws Exception {
+        chat.clearMessages(false);
+        for(int i=0;i<45;i++)player("<Reader> history "+i);
+        mc.gui.setScreen(new net.minecraft.client.gui.screens.ChatScreen("",false));
+        chat.scrollChat(8);int scroll=(int)field(chat,"chatScrollbarPos");var anchor=lines().get(scroll);
+        player("<Reader> new message");
+        check(lines().get((int)field(chat,"chatScrollbarPos"))==anchor,"new messages retain the native scrolled line object and reading position");
+        var previous=lines().getFirst();player("<Reader> another message");
+        check(lines().get(1)==previous,"unchanged displayed messages are reused without wrapping again");
+        chat.resetChatScroll();mc.gui.setScreen(null);chat.clearMessages(false);
+        var refresh=chat.getClass().getDeclaredMethod("refreshTrimmedMessages");refresh.setAccessible(true);
+        for(int i=0;i<125;i++) {
+            var signatureBytes=new byte[256];signatureBytes[0]=(byte)i;
+            var original=Component.literal("<Reader> repeated "+i/3+" ")
+                .append(Component.literal("a long clickable line ".repeat(5)).withStyle(s->s.withClickEvent(new ClickEvent.SuggestCommand("/reply"))));
+            var signature=new MessageSignature(signatureBytes);
+            chat.addPlayerMessage(original,signature,null);
+            check(history().getFirst().content()==original&&history().getFirst().signature()==signature,"incremental grouping preserves original signed message "+i);
+            String optimized=visible();int cues=SoundAudit.cues.size();
+            refresh.invoke(chat);
+            check(visible().equals(optimized),"incremental display matches a fresh grouped reflow at history size "+history().size());
+            check(SoundAudit.cues.size()==cues,"forced grouped reflow remains silent");
+        }
+        check(history().size()==100&&lines().size()<=100,"group cache obeys native original/display history bounds");
+        chat.setVisibleMessageFilter(m->m.content().getString().contains("repeated 40 "));
+        check(visible().contains("[x3]")&&!visible().contains("repeated 39 "),"filter changes rebuild grouped history");
+        chat.setVisibleMessageFilter(m->true);
+        var text=BetterChat.display(Component.literal("linked").withStyle(s->s.withClickEvent(new ClickEvent.SuggestCommand("/help"))),GuiMessageSource.PLAYER).getVisualOrderText();
+        var prepared=me.xchro.neon.chat.ChatText.areas(text,1,2);
+        check(prepared==me.xchro.neon.chat.ChatText.areas(text,1,2),"unchanged clickable spans reuse their immutable preparation");
+        var moved=me.xchro.neon.chat.ChatText.areas(text,10,20);
+        check(moved!=prepared&&prepared.bounds().left()==1&&moved.bounds().left()==10,"moved clickable spans leave earlier render submissions unchanged");
+        chat.clearMessages(false);check(history().isEmpty()&&lines().isEmpty(),"native clear discards grouped display and originals");
+    }
     private void messageBars()throws Exception {
         int cues=SoundAudit.cues.size();var originals=List.copyOf(history());boolean placement=Neon.config.hud(me.xchro.neon.hud.HudKind.CHAT).placement.visible;
         for(String name:new String[]{"DrawingBackgroundGraphicsAccess","DrawingFocusedGraphicsAccess"}) {
@@ -131,7 +166,7 @@ final class BetterChatSmoke {
                 Neon.config.betterChat=new NeonConfig.BetterChat();expect(()->BetterChat.tick(mc));
                 check(visible().contains("[x3]"),"reenabling rebuilds duplicate display without pinging");
                 var audio=UiSounds.class.getDeclaredField("CLIPS");audio.setAccessible(true);check(((Map<?,?>)audio.get(null)).isEmpty(),"silent interception never opens audio clips");
-                messageBars();setup(false,1);
+                incremental();messageBars();setup(false,1);
             }
             case 2->{geometry();shot("scale1-default");expect(()->click(toggle("Message bar")),Cue.DISABLE);check(!Neon.config.betterChat.messageBar,"native toggle hides the message bar");var profiles=new ProfileStore(mc.gameDirectory.toPath().resolve("config/neon-chat-bar-profiles.json"));profiles.initialize(Neon.config);profiles.put("Bar hidden",Neon.config);check(!profiles.get("Bar hidden").betterChat.messageBar,"message bar preference survives profiles");menu.keyPressed(new KeyEvent(GLFW.GLFW_KEY_Z,0,GLFW.GLFW_MOD_CONTROL));check(Neon.config.betterChat.messageBar,"Undo restores message bar");expect(()->click(toggle("Message ping")),Cue.DISABLE);check(!Neon.config.betterChat.messagePing,"native toggle changes message pings");menu.keyPressed(new KeyEvent(GLFW.GLFW_KEY_Z,0,GLFW.GLFW_MOD_CONTROL));check(Neon.config.betterChat.messagePing,"Undo restores chat setting");setup(true,1);}
             case 3->{geometry();shot("scale1-minimum");drawer().setScrollAmount(drawer().maxScrollAmount());}

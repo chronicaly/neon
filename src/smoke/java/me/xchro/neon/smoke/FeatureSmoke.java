@@ -52,7 +52,7 @@ final class FeatureSmoke {
     private List<AbstractWidget> widgets() { return widgets(mc.gui.screen()); }
     private Button button(String name) { return widgets().stream().filter(w -> w instanceof Button && w.getMessage().getString().equals(name)).map(w -> (Button) w).findFirst().orElseThrow(() -> new AssertionError("No button " + name)); }
     private Button starts(String name) { return widgets().stream().filter(w -> w instanceof Button && w.getMessage().getString().startsWith(name)).map(w -> (Button) w).findFirst().orElseThrow(); }
-    private EditBox input() { return InlineInput.slider(mc.gui.screen()) != null ? InlineInput.field(mc.gui.screen()) : widgets().stream().filter(w -> w instanceof EditBox).map(w -> (EditBox) w).findFirst().orElseThrow(); }
+    private EditBox input() { return InlineInput.slider(mc.gui.screen()) != null ? InlineInput.field(mc.gui.screen()) : widgets().stream().filter(w -> w instanceof EditBox&&w.getMessage().getString().equals("Profile name")).map(w -> (EditBox) w).findFirst().orElseThrow(); }
     private void number(String text) { check(InlineInput.slider(mc.gui.screen()) != null, "exact value edits inline"); input().setValue(text); mc.gui.screen().keyPressed(new KeyEvent(GLFW.GLFW_KEY_ENTER, 0, 0)); }
     private MouseButtonEvent mouse(double x, double y) { return new MouseButtonEvent(x, y, new MouseButtonInfo(0, 0)); }
     private void clickValue(AbstractWidget slider) { slider.mouseClicked(mouse(slider.getRight() - 8, slider.getY() + 8), false); }

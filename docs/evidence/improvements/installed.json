@@ -1,0 +1,10 @@
+{
+  "version": "0.5.6",
+  "installed": true,
+  "verifiedAt": "2026-11-17T16:45:03.9906939Z",
+  "sourceSha256": "ff8353a5a3ef239fec1962fb261a73e18aa693359a98335db8db8814894e6e41",
+  "installedSha256": "ff8353a5a3ef239fec1962fb261a73e18aa693359a98335db8db8814894e6e41",
+  "verificationSha256": "a38b26fbc19bda76b5513b696aa74eba49344d0341932bb01966d4ff89942f29",
+  "releaseChecks": 23497,
+  "destination": "PrismLauncher/instances/Vanilla/minecraft/mods/neon.jar"
+}

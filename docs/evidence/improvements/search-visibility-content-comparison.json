@@ -1,0 +1,12 @@
+{
+  "beforeSha256": "f987e3d7ac4a933bc19f9dbac11301618828fa93cc8a4bf6002c0288d546d565",
+  "afterSha256": "ff8353a5a3ef239fec1962fb261a73e18aa693359a98335db8db8814894e6e41",
+  "beforeEntries": 338,
+  "afterEntries": 338,
+  "differentEntries": [
+    "me/xchro/neon/ui/HudEditor.class",
+    "me/xchro/neon/ui/SettingsScreen.class",
+    "me/xchro/neon/ui/UiModuleTile$1.class"
+  ],
+  "notes": "Entry totals include directories. UiModuleTile source is unchanged; javap -p -c output is identical for its anonymous class."
+}

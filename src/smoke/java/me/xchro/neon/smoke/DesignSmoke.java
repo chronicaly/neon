@@ -254,7 +254,7 @@ final class DesignSmoke {
                 var before = ((SettingsScreen) mc.gui.screen()).menuBounds();
                 button("Settings").onPress(null); button("Profiles").onPress(null);
                 String profile = "Design verification";
-                widgets().stream().filter(w -> w instanceof EditBox).map(w -> (EditBox) w).findFirst().orElseThrow().setValue(profile);
+                widgets().stream().filter(w -> w instanceof EditBox&&w.getMessage().getString().equals("Profile name")).map(w -> (EditBox) w).findFirst().orElseThrow().setValue(profile);
                 button("Save").onPress(null);
                 Neon.config.theme.accent = 0xffbb7799; button(profile).onPress(null);
                 check(Neon.config.theme.accent == original.theme.accent && ((SettingsScreen) mc.gui.screen()).menuBounds().equals(before), "profiles restore appearance without moving the menu");

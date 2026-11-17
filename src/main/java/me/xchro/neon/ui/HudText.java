@@ -10,6 +10,7 @@ public final class HudText {
     public interface Batch extends AutoCloseable { @Override void close(); }
     /** Submit a glyph layer together while retaining each glyph's snapped display-pixel origin. */
     public static Batch batch(GuiGraphicsExtractor g){return UiFont.beginHudBatch(g);}
+    public static Batch batch(GuiGraphicsExtractor g,int glyphs){return UiFont.beginHudBatch(g,glyphs);}
     public static int width(String text, int pixels) { return UiFont.hudWidth(text, pixels); }
     public static int width(String text,int pixels,boolean bold,boolean italic) { return UiFont.hudWidth(text,pixels,bold,italic); }
     public static float advance(String text,int pixels,boolean bold,boolean italic) { return UiFont.hudAdvance(text,pixels,bold,italic); }

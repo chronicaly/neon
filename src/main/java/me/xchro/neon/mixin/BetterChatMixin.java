@@ -4,13 +4,13 @@ import java.util.List;
 import java.util.function.Predicate;
 import me.xchro.neon.Neon;
 import me.xchro.neon.chat.BetterChat;
+import me.xchro.neon.chat.GroupedChat;
 import me.xchro.neon.hud.ChatHud;
 import com.llamalad7.mixinextras.injector.v2.WrapWithCondition;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.components.ChatComponent;
 import net.minecraft.client.multiplayer.chat.GuiMessage;
-import net.minecraft.network.chat.Component;
 import org.spongepowered.asm.mixin.*;
 import org.spongepowered.asm.mixin.injection.*;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -22,10 +22,13 @@ abstract class BetterChatMixin {
     @Final @Shadow private List<GuiMessage.Line> trimmedMessages;
     @Shadow private Predicate<GuiMessage> visibleMessageFilter;
     @Shadow private int chatScrollbarPos;
+    @Shadow private boolean newMessageSinceScroll;
+    @Shadow public abstract int getWidth();
+    @Shadow private double getScale() { return 1; }
+    @Shadow public abstract boolean isChatFocused();
     @Shadow public abstract int getLinesPerPage();
-    @Shadow private void addMessageToDisplayQueue(GuiMessage message) {}
-    @Shadow private void refreshTrimmedMessages() {}
     @Unique private long neon$messageTime;
+    @Unique private final GroupedChat neon$groups = new GroupedChat();
 
     // This pose is shared by drawing and native clickable-style collection.
     @ModifyArg(method="lambda$extractRenderState$0",at=@At(value="INVOKE",target="Lorg/joml/Matrix3x2f;translate(FF)Lorg/joml/Matrix3x2f;"),index=0)
@@ -52,29 +55,37 @@ abstract class BetterChatMixin {
         return new GuiMessage(message.addedTime(), BetterChat.display(message.content(), message.source()),
             message.signature(), message.source(), message.tag());
     }
+    @WrapWithCondition(method="addMessage", at=@At(value="INVOKE",target="Lnet/minecraft/client/gui/components/ChatComponent;addMessageToDisplayQueue(Lnet/minecraft/client/multiplayer/chat/GuiMessage;)V"))
+    private boolean neon$deferGroupedDisplay(ChatComponent chat, GuiMessage message) {
+        return !BetterChat.active() || !Neon.config.betterChat.duplicates;
+    }
     @Inject(method="addMessageToQueue", at=@At("TAIL"))
     private void neon$received(GuiMessage message, CallbackInfo ci) {
         neon$messageTime = System.nanoTime();
         BetterChat.received(message);
-        if (BetterChat.active() && Neon.config.betterChat.duplicates) refreshTrimmedMessages();
+        if (BetterChat.active() && Neon.config.betterChat.duplicates) neon$updateGroups(true);
+    }
+    @Inject(method="clearMessages",at=@At("HEAD"))
+    private void neon$clearGroups(boolean history, CallbackInfo ci) { neon$groups.clear(); }
+    @Unique private void neon$updateGroups(boolean received) {
+        int previousSize = trimmedMessages.size(), previousScroll = chatScrollbarPos;
+        var anchor = previousScroll > 0 && previousScroll < previousSize ? trimmedMessages.get(previousScroll) : null;
+        var lines = neon$groups.update(allMessages, visibleMessageFilter, net.minecraft.client.Minecraft.getInstance().font,
+            (int)Math.floor(getWidth() / getScale()));
+        trimmedMessages.clear(); trimmedMessages.addAll(lines);
+        if (previousScroll > 0) {
+            int index = anchor == null ? -1 : lines.indexOf(anchor);
+            chatScrollbarPos = Math.clamp(index >= 0 ? index : previousScroll + lines.size() - previousSize,
+                0, Math.max(0, lines.size() - getLinesPerPage()));
+            if (received && isChatFocused()) newMessageSinceScroll = true;
+        }
     }
     @Inject(method="refreshTrimmedMessages", at=@At("HEAD"), cancellable=true)
     private void neon$duplicates(CallbackInfo ci) {
+        // Resize, font/settings changes, filtering and deletion must rebuild affected layout.
+        neon$groups.clear();
         if (!BetterChat.active() || !Neon.config.betterChat.duplicates) return;
-        trimmedMessages.clear(); var chronological = allMessages.reversed();
-        for (int i = 0; i < chronological.size();) {
-            GuiMessage first = chronological.get(i), latest = first; int count = 1, j = i + 1;
-            while (j < chronological.size()) {
-                GuiMessage other = chronological.get(j);
-                if (other.source() != first.source() || !other.content().equals(first.content())) break;
-                latest = other; count++; j++;
-            }
-            if (visibleMessageFilter.test(latest)) {
-                Component text = count > 1 ? latest.content().copy().append(Component.literal(" [x" + count + "]").withColor(0x98abb4)) : latest.content();
-                addMessageToDisplayQueue(new GuiMessage(latest.addedTime(), text, latest.signature(), latest.source(), latest.tag()));
-            }
-            i = j;
-        }
+        neon$updateGroups(false);
         ci.cancel();
     }
     @Inject(method="extractRenderState(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/client/gui/Font;IIILnet/minecraft/client/gui/components/ChatComponent$DisplayMode;Z)V", at=@At("HEAD"))

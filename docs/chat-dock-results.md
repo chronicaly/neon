@@ -6,7 +6,7 @@ Neon 0.5.5 adds shared Chat/Coordinates placement at the bottom-left, a gap-free
 
 The Gradle compilation/unit build passed **153 tests**. The full packaged release suite passed **21,973 live checks** against runnable JAR SHA-256 `8883fb98b42edb9e8bce96099df72145acf32638508250abb8cf55aee7cd167e`, using verification harness `3b54192803da638911f41d5e23a2243b5bc438eb918bb562f9213ae943a913b0`. The release includes that exact-JAR receipt and checksums. Profiling, clipboard interception and audio interception remain in the separate verification mod.
 
-The build's installation step encountered a Windows lock on the running Vanilla client's JAR. Both direct replacement and a safe rename were refused; the running game was kept open and its existing JAR left intact. The checked update is staged outside `mods`, with a silent one-shot installer waiting for the lock to release. It verifies the source and current installed hashes, replaces the directory entry without truncating the old file, and stops if another version has been installed meanwhile. It expires after 24 hours if the game remains open. Unity's checkout and artifacts remain untouched.
+Installation completed after the original Windows lock was released: the guarded one-shot installer recorded `installed` at **2026-11-17T13:32:25.3700542Z**. Vanilla's `neon.jar` was rechecked at the start of the 0.5.6 work and matched the exact 0.5.5 hash above. The earlier pending-install note is therefore resolved. The running game was never closed for installation, and Unity's checkout/artifacts were preserved. Status evidence remains in Vanilla's `minecraft/neon-pending/0.5.5/status.json`; later delivery is tracked in the [0.5.6 report](improvements-results.md).
 
 ## Behavior checked
 

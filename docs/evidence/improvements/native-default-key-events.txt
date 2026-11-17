@@ -1,0 +1,4 @@
+[16:11:06] [Render thread/INFO]: [STDOUT]: NEON_NATIVE_KEY key=-1 action=1 scan=256 modifiers=0
+[16:11:06] [Render thread/INFO]: [STDOUT]: NEON_NATIVE_KEY key=-1 action=0 scan=256 modifiers=0
+[16:11:13] [Render thread/INFO]: [STDOUT]: NEON_NATIVE_KEY key=340 action=1 scan=42 modifiers=1
+[16:11:13] [Render thread/INFO]: [STDOUT]: NEON_NATIVE_KEY key=340 action=0 scan=42 modifiers=0

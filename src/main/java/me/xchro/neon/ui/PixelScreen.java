@@ -61,7 +61,7 @@ public abstract class PixelScreen extends Screen {
         clearRemovedPresses();
     }
     @Override protected void removeWidget(GuiEventListener widget) { super.removeWidget(widget);clearRemovedPresses(); }
-    private void clearRemovedPresses() {
+    protected final void clearRemovedPresses() {
         heldPresses.removeIf(held->{if(containsControl(this,held.identity))return false;held.state.clear();presses.remove(held.identity);return true;});
     }
     final void capturePointer(GuiEventListener owner, MouseButtonEvent event) {

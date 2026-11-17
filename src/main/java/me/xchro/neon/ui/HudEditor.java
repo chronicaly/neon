@@ -24,7 +24,8 @@ import org.lwjgl.glfw.GLFW;
 /** Unity HudEditorScreen's root/group/bool/range row model, adapted to Neon's widgets and renderer. */
 public final class HudEditor extends PixelScreen {
     private enum Element { ARMOR, TOTEMS, FPS, COORDINATES, COMPASS, PING, SPEED, CPS, KEYSTROKES, POTIONS, INVENTORY, HELD_ITEM, CLOCK, SESSION, BIOME, LIGHT, PACKS, SERVER, MOVEMENT, WORLD_TIME, ITEM_COUNTER, SCOREBOARD, MEMORY, CHAT }
-    private static final int COLLAPSED_HEIGHT = 23 + Math.min(7,Element.values().length + 1) * 22;
+    private static final int COLUMN_TOP=28;
+    private static final int COLLAPSED_HEIGHT = COLUMN_TOP + 1 + Math.min(7,Element.values().length + 1) * 22;
     private enum Gesture { NONE, MOVE, RESIZE, PANEL }
     private final Screen parent;
     private final SettingsSession session;
@@ -38,6 +39,10 @@ public final class HudEditor extends PixelScreen {
     private record Row(String key, String label, int depth, Object value, Runnable left, Runnable right) {}
     private record Range(double value, double min, double max, double step, DoubleConsumer setter) {}
     private UiScroll column;
+    private UiSearch search;
+    private String query="";
+    private boolean filtering,refocusSearch,searchOpen;
+    private double unfilteredPosition;
     private double columnPosition;
     private boolean initialFocusSet;
     private Element selected = Element.ARMOR;
@@ -114,7 +119,9 @@ public final class HudEditor extends PixelScreen {
     private List<Row> makeRows() {
         List<Row> out = new ArrayList<>(); var c = Neon.config;
         for (Element e : Element.values()) {
-            root(out, e, switch (e) { case ARMOR -> "Armor"; case TOTEMS -> "Totems"; case FPS -> "FPS"; default -> HudKind.valueOf(e.name()).label; });
+            String name=elementName(e);
+            if(!UiSearch.matches(name+" "+e.name(),query))continue;
+            root(out, e, name);
             var widget = widget(e);
             if (e != Element.TOTEMS || c.totemFloating)
                 range(out, e + ":Scale", "Scale", 1, widget.scale, .5, 3, .05,
@@ -183,6 +190,7 @@ public final class HudEditor extends PixelScreen {
                 }
             }
         }
+        if(!UiSearch.matches("General",query))return out;
         group(out, "general", "General", 0);
         {
             range(out, "general:scale", "HUD scale", 1, c.hudScale, .5, 2, .05, v -> c.hudScale = v);
@@ -199,10 +207,11 @@ public final class HudEditor extends PixelScreen {
         return out;
     }
     @Override protected void init() {
+        boolean searchFocused=searchOpen&&(refocusSearch||search!=null&&search.isFocused());refocusSearch=false;
         HudWidgets.invalidate();
         finishPointerGesture();
         WidgetMemory memory = new WidgetMemory(column);
-        double position = column == null ? columnPosition : column.scrollAmount(); columnPosition=position; column = null;
+        double position = filtering?(query.isEmpty()?unfilteredPosition:0):column == null ? columnPosition : column.scrollAmount(); columnPosition=position; column = null;
         session.end(); gesture = Gesture.NONE; resizeGesture = null; refreshers.clear(); inspector.clear(); guideX = guideY = -1;
         if (!toolbar) return;
         pw = Math.min(188, canvasWidth() - 16);
@@ -215,6 +224,7 @@ public final class HudEditor extends PixelScreen {
         py = Math.clamp(py, 8, Math.max(8, canvasHeight() - COLLAPSED_HEIGHT));
         LinearLayout rows = LinearLayout.vertical().spacing(0);
         List<Row> model = makeRows();
+        if(model.isEmpty())rows.addChild(new UiLabel("No matching HUD elements",pw-12,26,Ui.MUTED));
         for (int i = 0; i < model.size();) {
             Row root = model.get(i++);
             rows.addChild(control(root));
@@ -227,11 +237,16 @@ public final class HudEditor extends PixelScreen {
             }
         }
         rows.arrangeElements();
-        ph = Math.min(23 + rows.getHeight(), Math.min(300,canvasHeight() - py - 8));
-        column = addInspector(new UiScroll(px + 1, py + 22, pw - 2, Math.max(22, ph - 23), rows));
+        ph = Math.min(columnTop()+1 + rows.getHeight(), Math.min(300,canvasHeight() - py - 8));
+        column = addInspector(new UiScroll(px + 1, py + columnTop(), pw - 2, Math.max(22, ph-columnTop()-1), rows));
         if (animateRows) column.restorePosition(position); else column.setScrollAmount(position);
-        memory.restore(column, false); animateRows = false;
+        memory.restore(column,false,true,!filtering);animateRows=false;
+        if(filtering)column.setFocused((GuiEventListener)null);
+        filtering=false;
         if (column.getFocused() != null) setFocused(column);
+        if(search==null)search=new UiSearch("Search HUD",query,this::filter);
+        if(searchOpen)addInspector(search);
+        if(searchFocused)setFocused(search);
         if (colorPicker != null) {
             FpsColor role=colorRole;
             colorPicker.bind(() -> role.color(Neon.config),(value,rgb) -> role.color(Neon.config,value));
@@ -239,6 +254,17 @@ public final class HudEditor extends PixelScreen {
         }
         layoutColor();
         refresh();
+    }
+    private static String elementName(Element element){return switch(element){case ARMOR->"Armor";case TOTEMS->"Totems";case FPS->"FPS";default->HudKind.valueOf(element.name()).label;};}
+    private void filter(String value){
+        if(query.equals(value))return;
+        if(query.isEmpty()&&column!=null)unfilteredPosition=column.scrollAmount();
+        query=value;filtering=refocusSearch=true;closeColor(false);rebuildWidgets();
+    }
+    private void revealSelected(){
+        if(search!=null&&!UiSearch.matches(elementName(selected)+" "+selected.name(),query)){
+            search.setValue("");refocusSearch=false;setFocused((GuiEventListener)null);
+        }
     }
     private AbstractWidget control(Row row) {
         if (row.value instanceof FpsColor role) return new ColorRow(role.label,pw-2,() -> role.color(Neon.config),
@@ -248,11 +274,12 @@ public final class HudEditor extends PixelScreen {
         return new HudEntry(row.label, pw - 2, () -> Boolean.TRUE.equals(row.value),
             () -> expanded.contains(row.key), row.left == null ? () -> {} : row.left, row.right).depth(row.depth).toggleRow(row.value instanceof Boolean).identity(row.key);
     }
+    private int columnTop(){return COLUMN_TOP+(searchOpen?23:0);}
     private void layoutColumn() {
         if (column == null) return;
         column.relayout();
-        ph = Math.min(23 + column.contentHeight(), Math.min(300,canvasHeight() - py - 8));
-        column.setHeight(Math.max(22, ph - 23));
+        ph = Math.min(columnTop()+1 + column.contentHeight(), Math.min(300,canvasHeight() - py - 8));
+        column.setHeight(Math.max(22, ph-columnTop()-1));
         column.relayout();
         layoutColor();
     }
@@ -281,7 +308,8 @@ public final class HudEditor extends PixelScreen {
         shellHeight = ph + (int)Math.round(Math.max(0,Math.min(260,canvasHeight()-16)-ph)*reveal);
         shellX = Math.clamp(px,8,Math.max(8,canvasWidth()-shellWidth-8));
         shellY = Math.clamp(py,8,Math.max(8,canvasHeight()-shellHeight-8));
-        if (column != null) { column.setX(shellX+1); column.setY(shellY+22); }
+        if (column != null) { column.setX(shellX+1); column.setY(shellY+columnTop()); }
+        if(search!=null){search.setX(shellX+9);search.setY(shellY+28);search.setWidth(pw-18);}
         var picker = colorPicker != null ? colorPicker : closingPicker;
         if (picker != null) picker.layout(shellX+pw+12,shellY+22,ExpandingMenu.COLOR_WIDTH-24,
             Math.min(230,Math.max(110,shellHeight-30)),Math.max(0,colorWidth-24));
@@ -396,7 +424,7 @@ public final class HudEditor extends PixelScreen {
         e = new MouseButtonEvent(hudCoordinate(e.x()), hudCoordinate(e.y()), e.buttonInfo());
         if (e.button() == 1) {
             for (Element element : Element.values()) if (visible(element) && bounds(element).contains(e.x(), e.y())) {
-                selected = element; animateRows = expanded.add(element.name());
+                selected = element; revealSelected();animateRows = expanded.add(element.name());
                 boolean opened = animateRows || !toolbar; toolbar = true; rebuildWidgets();
                 if (opened) UiSounds.cue(Cue.NAVIGATE);
                 column.children().stream().filter(w -> w instanceof HudEntry entry && entry.identity().equals(element.name()))
@@ -452,7 +480,7 @@ public final class HudEditor extends PixelScreen {
         boolean open=(gesture==Gesture.MOVE||gesture==Gesture.RESIZE)&&!dragMoved;
         boolean handled = gesture != Gesture.NONE; gesture = Gesture.NONE; guideX = guideY = -1; session.end();
         boolean control = super.pixelMouseReleased(e);
-        if(open){boolean expandedNow=expanded.add(selected.name());animateRows=expandedNow;boolean show=expandedNow||!toolbar;toolbar=true;if(show)UiSounds.cue(Cue.NAVIGATE);}
+        if(open){revealSelected();boolean expandedNow=expanded.add(selected.name());animateRows=expandedNow;boolean show=expandedNow||!toolbar;toolbar=true;if(show)UiSounds.cue(Cue.NAVIGATE);}
         if (handled) rebuildWidgets();
         if(open)column.children().stream().filter(w->w instanceof HudEntry entry&&entry.identity().equals(selected.name())).findFirst().ifPresent(w->column.reveal(w.getY(),w.getBottom()+22));
         return handled || control;
@@ -472,6 +500,16 @@ public final class HudEditor extends PixelScreen {
         if (colorPicker != null && colorPicker.editingHex() && (e.key()==GLFW.GLFW_KEY_ESCAPE || e.key()==GLFW.GLFW_KEY_ENTER || e.key()==GLFW.GLFW_KEY_KP_ENTER)) return colorPicker.keyPressed(e);
         ExactSlider editing = editingSlider();
         if (editing != null) return editing.keyPressed(e);
+        if(e.key()==GLFW.GLFW_KEY_F&&(e.modifiers()&GLFW.GLFW_MOD_CONTROL)!=0&&(colorPicker==null||!colorPicker.editingHex())){
+            if(!toolbar||!searchOpen){toolbar=searchOpen=true;rebuildWidgets();}setFocused(search);search.moveCursorToEnd(false);search.setHighlightPos(0);return true;
+        }
+        if(search!=null&&search.isFocused()){
+            if(e.key()==GLFW.GLFW_KEY_ESCAPE){if(!query.isEmpty())search.setValue("");else{searchOpen=false;setFocused((GuiEventListener)null);rebuildWidgets();}return true;}
+            if(e.key()==GLFW.GLFW_KEY_ENTER||e.key()==GLFW.GLFW_KEY_KP_ENTER||e.key()==GLFW.GLFW_KEY_DOWN){if(UiSearch.focusFirst(column))setFocused(column);return true;}
+            // H, Tab, arrows, and the menu keys belong to the focused editor first.
+            if(e.key()==GLFW.GLFW_KEY_Z&&(e.modifiers()&GLFW.GLFW_MOD_CONTROL)!=0)return true;
+            return super.pixelKeyPressed(e);
+        }
         if (e.key() == GLFW.GLFW_KEY_Z && (e.modifiers() & GLFW.GLFW_MOD_CONTROL) != 0) { session.undo(); rebuildWidgets(); return true; }
         if (e.key() == GLFW.GLFW_KEY_ESCAPE && gesture != Gesture.NONE) {
             if (gesture == Gesture.PANEL) { px = panelOriginX; py = panelOriginY; }

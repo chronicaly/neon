@@ -155,42 +155,51 @@ final class UiFont {
             run.v / (float) PAGE_SIZE, (run.v + run.h) / (float) PAGE_SIZE, color, g.scissorStack.peek()));
     }
     static HudText.Batch beginHudBatch(GuiGraphicsExtractor graphics){
-        if(activeBatch!=null)throw new IllegalStateException("Nested HUD glyph batch");
-        return activeBatch=new HudBatch(graphics);
+        return beginHudBatch(graphics,16);
     }
-    private record GlyphQuad(int x,int y,Run run,int color){}
+    static HudText.Batch beginHudBatch(GuiGraphicsExtractor graphics,int glyphs){
+        if(activeBatch!=null)throw new IllegalStateException("Nested HUD glyph batch");
+        return activeBatch=new HudBatch(graphics,glyphs);
+    }
     private static final class HudBatch implements HudText.Batch {
         final GuiGraphicsExtractor graphics;
+        final int capacity;
         Page page;
-        ArrayList<GlyphQuad> quads=new ArrayList<>();
+        Run[] runs;
+        int[] vertices;
+        int count,start;
         int minX=Integer.MAX_VALUE,minY=Integer.MAX_VALUE,maxX=Integer.MIN_VALUE,maxY=Integer.MIN_VALUE;
-        HudBatch(GuiGraphicsExtractor graphics){this.graphics=graphics;}
+        HudBatch(GuiGraphicsExtractor graphics,int capacity){this.graphics=graphics;this.capacity=Math.max(1,capacity);}
         void add(Page next,Run run,int x,int y,int color){
             // Preserve style order even when adjacent fonts live in different atlas pages.
             if(page!=null&&page!=next)submit();page=next;
-            quads.add(new GlyphQuad(x+run.left,y+run.top,run,color));
+            if(runs==null){runs=new Run[capacity];vertices=new int[capacity*3];}
+            else if(count==runs.length){runs=Arrays.copyOf(runs,count*2);vertices=Arrays.copyOf(vertices,count*6);}
+            runs[count]=run;vertices[count*3]=x+run.left;vertices[count*3+1]=y+run.top;vertices[count*3+2]=color;count++;
             minX=Math.min(minX,x+run.left);minY=Math.min(minY,y+run.top);
             maxX=Math.max(maxX,x+run.left+run.w);maxY=Math.max(maxY,y+run.top+run.h);
         }
         void submit(){
-            if(quads.isEmpty())return;
+            if(count==start)return;
             var pose=new Matrix3x2f().scale(1f/Math.max(1,Minecraft.getInstance().getWindow().getGuiScale()));
             var clip=graphics.scissorStack.peek();var bounds=new ScreenRectangle(minX,minY,maxX-minX,maxY-minY).transformMaxBounds(pose);
             if(clip!=null)bounds=bounds.intersection(clip);
             var texture=TextureSetup.singleTexture(page.texture.getTextureView(),RenderSystem.getSamplerCache().getClampToEdge(FilterMode.NEAREST));
-            if(bounds!=null)graphics.guiRenderState.addGuiElement(new GlyphBatchState(pose,texture,quads,clip,bounds));
-            quads=new ArrayList<>();minX=minY=Integer.MAX_VALUE;maxX=maxY=Integer.MIN_VALUE;
+            if(bounds!=null)graphics.guiRenderState.addGuiElement(new GlyphBatchState(pose,texture,runs,vertices,start,count,clip,bounds));
+            // Later spans append beyond this immutable range. Growth copies existing values;
+            // submitted states retain their arrays, so atlas switches need no fresh buffers.
+            start=count;minX=minY=Integer.MAX_VALUE;maxX=maxY=Integer.MIN_VALUE;
         }
         @Override public void close(){try{submit();}finally{activeBatch=null;}}
     }
-    private record GlyphBatchState(Matrix3x2f pose,TextureSetup textureSetup,List<GlyphQuad> quads,ScreenRectangle scissorArea,ScreenRectangle bounds) implements GuiElementRenderState {
+    private record GlyphBatchState(Matrix3x2f pose,TextureSetup textureSetup,Run[] runs,int[] verticesData,int start,int count,ScreenRectangle scissorArea,ScreenRectangle bounds) implements GuiElementRenderState {
         public RenderPipeline pipeline(){return RenderPipelines.GUI_TEXTURED;}
         public void buildVertices(VertexConsumer vertices){
-            for(var glyph:quads){var run=glyph.run;float left=run.u/(float)PAGE_SIZE,right=(run.u+run.w)/(float)PAGE_SIZE,top=run.v/(float)PAGE_SIZE,bottom=(run.v+run.h)/(float)PAGE_SIZE;
-                vertices.addVertexWith2DPose(pose,glyph.x,glyph.y).setUv(left,top).setColor(glyph.color);
-                vertices.addVertexWith2DPose(pose,glyph.x,glyph.y+run.h).setUv(left,bottom).setColor(glyph.color);
-                vertices.addVertexWith2DPose(pose,glyph.x+run.w,glyph.y+run.h).setUv(right,bottom).setColor(glyph.color);
-                vertices.addVertexWith2DPose(pose,glyph.x+run.w,glyph.y).setUv(right,top).setColor(glyph.color);
+            for(int i=start;i<count;i++){var run=runs[i];int x=verticesData[i*3],y=verticesData[i*3+1],color=verticesData[i*3+2];float left=run.u/(float)PAGE_SIZE,right=(run.u+run.w)/(float)PAGE_SIZE,top=run.v/(float)PAGE_SIZE,bottom=(run.v+run.h)/(float)PAGE_SIZE;
+                vertices.addVertexWith2DPose(pose,x,y).setUv(left,top).setColor(color);
+                vertices.addVertexWith2DPose(pose,x,y+run.h).setUv(left,bottom).setColor(color);
+                vertices.addVertexWith2DPose(pose,x+run.w,y+run.h).setUv(right,bottom).setColor(color);
+                vertices.addVertexWith2DPose(pose,x+run.w,y).setUv(right,top).setColor(color);
             }
         }
     }
