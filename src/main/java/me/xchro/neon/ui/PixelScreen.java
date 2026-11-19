@@ -185,7 +185,7 @@ public abstract class PixelScreen extends Screen {
         if (handled && p.button() == 0 && pointerOwner == null) {
             var focused = getFocused();
             while (focused instanceof ContainerEventHandler group && group.getFocused() != null) focused = group.getFocused();
-            if (focused instanceof EditBox) capturePointer(focused, p);
+            if (focused instanceof EditBox box && box.isMouseOver(p.x(), p.y())) capturePointer(box, p);
         }
         if (hasPointerGesture()) freezeScroll(this);
         return handled;

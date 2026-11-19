@@ -1,6 +1,8 @@
 package me.xchro.neon.ui;
 import java.util.function.*;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.components.events.ContainerEventHandler;
+import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.input.MouseButtonEvent;
 final class ColorRow extends UiButton {
     private final IntSupplier color;
@@ -9,6 +11,13 @@ final class ColorRow extends UiButton {
     private boolean hud;
     ColorRow(String name,int width,IntSupplier color,Runnable toggle,BooleanSupplier open){super(name,0,0,width,27,Kind.SWATCH,toggle);this.color=color;this.toggle=toggle;this.open=open;}
     ColorRow hudRow(){hud=true;setHeight(22);return this;}
+    static boolean underPointer(UiScroll pane, MouseButtonEvent event) {
+        if (pane == null || event.button() > 1 || !pane.isMouseOver(event.x(), event.y())) return false;
+        GuiEventListener target = pane;
+        while (target instanceof ContainerEventHandler group)
+            target = group.getChildAt(event.x(), event.y()).orElse(null);
+        return target instanceof ColorRow row && row.active && row.visible;
+    }
     @Override public boolean mouseClicked(MouseButtonEvent event,boolean twice){
         if(event.button()==1&&isMouseOver(event.x(),event.y())){feedback(event);playDownSound(net.minecraft.client.Minecraft.getInstance().getSoundManager());toggle.run();return true;}
         return super.mouseClicked(event,twice);

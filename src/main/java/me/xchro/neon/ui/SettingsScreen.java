@@ -50,7 +50,6 @@ public final class SettingsScreen extends PixelScreen {
     private ColorPicker colorPicker;
     private ColorPicker closingPicker;
     private String colorDrawerName = "";
-    private ColorRow colorSource;
     private LinearLayout rows;
     private UiScroll scroll;
     private UiButton settingsNav, hudEditorButton;
@@ -82,7 +81,7 @@ public final class SettingsScreen extends PixelScreen {
         if (!colorOpen && colorPicker != null) {
             colorPicker.finish(); colorPicker.active = false; closingPicker = colorPicker;
         }
-        session.end(); rememberScroll(); scroll = null; colorPicker = null; colorSource = null; renderedView = view(); refreshers.clear(); Ui.refreshTheme();
+        session.end(); rememberScroll(); scroll = null; colorPicker = null; renderedView = view(); refreshers.clear(); Ui.refreshTheme();
         NAVIGATION.select(page, module);
         window.fit(canvasWidth(), canvasHeight()); var bounds = window.bounds();
         expansion.open(!module.isEmpty(), System.nanoTime());
@@ -385,7 +384,6 @@ public final class SettingsScreen extends PixelScreen {
         var row = rows.addChild(new ColorRow(name, controlWidth(), value, () -> openColor(name), () -> colorOpen && expandedColor.equals(name)));
         controlResize(row::setWidth);
         if (expandedColor.equals(name)) {
-            colorSource = row;
             colorPicker = reusablePicker != null ? reusablePicker : new ColorPicker(name, value.getAsInt(), session, value, set);
             colorPicker.bind(value, set);
             colorPicker.syncRole(role);
@@ -410,7 +408,7 @@ public final class SettingsScreen extends PixelScreen {
         }
         closingPicker = colorPicker;
         if (closingPicker != null) closingPicker.active = false;
-        colorPicker = reusablePicker = null; colorSource = null; colorOpen = false; expandedColor = renderedColor = "";
+        colorPicker = reusablePicker = null; colorOpen = false; expandedColor = renderedColor = "";
         expansion.color(false, System.nanoTime()); layoutWindow();
         if (wasOpen) UiSounds.cue(Cue.BACK);
     }
@@ -495,11 +493,17 @@ public final class SettingsScreen extends PixelScreen {
             return true;
         }
         if (e.key() == GLFW.GLFW_KEY_ESCAPE && window.dragging()) { window.cancel(); layoutWindow(); return true; }
+        if (e.key() == GLFW.GLFW_KEY_ESCAPE && hasPointerGesture()) { finishPointerGesture(); return true; }
         if(e.key()==GLFW.GLFW_KEY_F&&(e.modifiers()&GLFW.GLFW_MOD_CONTROL)!=0&&(search.isFocused()||!editingText())){
             showSearch(true);setFocused(search);search.moveCursorToEnd(false);search.setHighlightPos(0);return true;
         }
+        if (e.key() == GLFW.GLFW_KEY_ESCAPE && searchOpen[page]) {
+            if (!search.isFocused() && editingText()) setFocused((net.minecraft.client.gui.components.events.GuiEventListener)null);
+            else if (!search.getValue().isEmpty()) search.setValue("");
+            else showSearch(false);
+            return true;
+        }
         if(search.isFocused()){
-            if(e.key()==GLFW.GLFW_KEY_ESCAPE){if(!search.getValue().isEmpty())search.setValue("");else showSearch(false);return true;}
             if(e.key()==GLFW.GLFW_KEY_ENTER||e.key()==GLFW.GLFW_KEY_KP_ENTER||e.key()==GLFW.GLFW_KEY_DOWN){if(UiSearch.focusFirst(scroll))setFocused(scroll);return true;}
             if(e.key()==GLFW.GLFW_KEY_Z&&(e.modifiers()&GLFW.GLFW_MOD_CONTROL)!=0)return true;
         }
@@ -531,10 +535,12 @@ public final class SettingsScreen extends PixelScreen {
                 if (e.button() == 0 && colorPicker.draggingPointer()) capturePointer(colorPicker, e);
                 return true;
             }
-            // The selected row handles its own toggle; other outside clicks dismiss before dispatch.
-            boolean selectedRow = (scroll.isMouseOver(e.x(),e.y()) || details!=null&&!module.isEmpty()&&details.isMouseOver(e.x(),e.y())) && colorSource != null && colorSource.isMouseOver(e.x(),e.y());
-            boolean header = e.x() >= frame.x() && e.x() < frame.x()+frame.width() && e.y() >= sy && e.y() < sy+37;
-            if (!selectedRow && !header && shellCorner(e.x(),e.y()) < 0) closeColor();
+            boolean header = e.button() == 0 && e.x() >= frame.x() && e.x() < frame.x()+frame.width() && e.y() >= sy && e.y() < sy+37;
+            boolean resize = e.button() == 0 && shellCorner(e.x(),e.y()) >= 0;
+            if (!header && !resize && (frame.replacesDetails() || !ColorRow.underPointer(details, e))) {
+                closeColor();
+                return true;
+            }
         }
         if (e.button() == 0) {
             int corner = shellCorner(e.x(),e.y());

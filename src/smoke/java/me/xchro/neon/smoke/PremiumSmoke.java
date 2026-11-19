@@ -31,7 +31,7 @@ public final class PremiumSmoke {
     private Button button(String name) { return widgets(menu).stream().filter(w->w instanceof Button&&w.getMessage().getString().equals(name)).map(w->(Button)w).findFirst().orElseThrow(); }
     private AbstractWidget tile() { return widgets(menu).stream().filter(w->w.getClass().getSimpleName().equals("UiModuleTile")&&w.getMessage().getString().equals("Freelook")).findFirst().orElseThrow(); }
     public static int[] pointer() { if(active==null)return null;var w=active.widgets(active.menu).stream().filter(item->item.getClass().getSimpleName().equals("UiModuleTile")&&item.getMessage().getString().equals("Freelook")).findFirst();return w.isPresent()?new int[]{w.get().getX()+12,w.get().getY()+12}:new int[]{-10000,-10000}; }
-    private Object field(Object object,String name) throws Exception { Class<?> type=object instanceof Class<?> c?c:object.getClass();while(type!=null){try{var f=type.getDeclaredField(name);f.setAccessible(true);return f.get(object instanceof Class<?>?null:object);}catch(NoSuchFieldException ignored){type=type.getSuperclass();}}throw new NoSuchFieldException(name); }
+    private static Object field(Object object,String name) throws Exception { Class<?> type=object instanceof Class<?> c?c:object.getClass();while(type!=null){try{var f=type.getDeclaredField(name);f.setAccessible(true);return f.get(object instanceof Class<?>?null:object);}catch(NoSuchFieldException ignored){type=type.getSuperclass();}}throw new NoSuchFieldException(name); }
     private MouseButtonEvent mouse(double x,double y,int button) { return new MouseButtonEvent(menu.guiCoordinate(x),menu.guiCoordinate(y),new MouseButtonInfo(button,0)); }
     private double pressed(Button button) throws Exception { var m=UiButton.class.getDeclaredMethod("pressFraction");m.setAccessible(true);return (double)m.invoke(button); }
     private me.xchro.neon.core.ActionFeedback acknowledgement(Button button) throws Exception {
@@ -43,8 +43,8 @@ public final class PremiumSmoke {
     private void requestSave(String name) throws Exception {
         var method=SettingsScreen.class.getDeclaredMethod("saveProfile",String.class,boolean.class);method.setAccessible(true);method.invoke(menu,name,true);
     }
-    private Object cursor(PixelScreen screen,double x,double y) throws Exception {
-        var g=new net.minecraft.client.gui.GuiGraphicsExtractor(mc,new net.minecraft.client.renderer.state.gui.GuiRenderState(),-10000,-10000);
+    static Object cursor(PixelScreen screen,double x,double y) throws Exception {
+        var g=new net.minecraft.client.gui.GuiGraphicsExtractor(Minecraft.getInstance(),new net.minecraft.client.renderer.state.gui.GuiRenderState(),-10000,-10000);
         var method=PixelScreen.class.getDeclaredMethod("cursor",net.minecraft.client.gui.GuiGraphicsExtractor.class,int.class,int.class);method.setAccessible(true);method.invoke(screen,g,(int)x,(int)y);
         return field(g,"pendingCursor");
     }

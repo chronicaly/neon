@@ -24,6 +24,8 @@ import org.lwjgl.glfw.GLFW;
 /** Unity HudEditorScreen's root/group/bool/range row model, adapted to Neon's widgets and renderer. */
 public final class HudEditor extends PixelScreen {
     private enum Element { ARMOR, TOTEMS, FPS, COORDINATES, COMPASS, PING, SPEED, CPS, KEYSTROKES, POTIONS, INVENTORY, HELD_ITEM, CLOCK, SESSION, BIOME, LIGHT, PACKS, SERVER, MOVEMENT, WORLD_TIME, ITEM_COUNTER, SCOREBOARD, MEMORY, CHAT }
+    private static final Element[] CANVAS_ORDER = Element.values();
+    private record CanvasHit(Element element, int corner) {}
     private static final int COLUMN_TOP=28;
     private static final int COLLAPSED_HEIGHT = COLUMN_TOP + 1 + Math.min(7,Element.values().length + 1) * 22;
     private enum Gesture { NONE, MOVE, RESIZE, PANEL }
@@ -259,7 +261,9 @@ public final class HudEditor extends PixelScreen {
     private void filter(String value){
         if(query.equals(value))return;
         if(query.isEmpty()&&column!=null)unfilteredPosition=column.scrollAmount();
-        query=value;filtering=refocusSearch=true;closeColor(false);rebuildWidgets();
+        query=value;filtering=refocusSearch=true;
+        if (colorPicker != null && !UiSearch.matches("FPS", query)) closeColor(false);
+        rebuildWidgets();
     }
     private void revealSelected(){
         if(search!=null&&!UiSearch.matches(elementName(selected)+" "+selected.name(),query)){
@@ -316,10 +320,6 @@ public final class HudEditor extends PixelScreen {
         if (colorPicker == null && colorWidth == 0) closingPicker = null;
     }
     private <T extends AbstractWidget> T addInspector(T widget) { inspector.add(widget); return addRenderableWidget(widget); }
-    private void select(Element next) {
-        if (selected == next) return;
-        selected = next;
-    }
     private void detachTotem() {
         if (selected != Element.TOTEMS || Neon.config.totemFloating) return;
         HudBounds before = bounds(); Neon.config.totemFloating = true; widget().scale = detachedScale();
@@ -384,14 +384,28 @@ public final class HudEditor extends PixelScreen {
             if(my<shellY+22)g.requestCursor(com.mojang.blaze3d.platform.cursor.CursorTypes.RESIZE_ALL);
             return;
         }
-        double x=hudCoordinate(mx),y=hudCoordinate(my);
-        for(Element element:hitOrder()){
-            if(!visible(element))continue;HudBounds b=bounds(element);
-            for(int i=0;i<4;i++)if((element!=Element.TOTEMS||Neon.config.totemFloating)&&handle(b,i).contains(x,y)){g.requestCursor(UiCursors.corner(i));return;}
-            if(b.contains(x,y)){g.requestCursor(com.mojang.blaze3d.platform.cursor.CursorTypes.RESIZE_ALL);return;}
-        }
+        if (colorPicker != null) return;
+        CanvasHit hit = canvasHit(hudCoordinate(mx), hudCoordinate(my));
+        if (hit != null) g.requestCursor(hit.corner() >= 0 ? UiCursors.corner(hit.corner()) : com.mojang.blaze3d.platform.cursor.CursorTypes.RESIZE_ALL);
     }
-    private java.util.List<Element> hitOrder(){var order=new ArrayList<>(List.of(Element.values()));order.remove(selected);order.addFirst(selected);return order;}
+    private CanvasHit canvasHit(double x, double y) {
+        CanvasHit hit = hit(selected, x, y);
+        if (hit != null) return hit;
+        for (Element element : CANVAS_ORDER) {
+            if (element == selected) continue;
+            hit = hit(element, x, y);
+            if (hit != null) return hit;
+        }
+        return null;
+    }
+    private CanvasHit hit(Element element, double x, double y) {
+        if (!visible(element)) return null;
+        HudBounds b = bounds(element);
+        if (element != Element.TOTEMS || Neon.config.totemFloating)
+            for (int corner = 0; corner < 4; corner++)
+                if (handle(b, corner).contains(x, y)) return new CanvasHit(element, corner);
+        return b.contains(x, y) ? new CanvasHit(element, -1) : null;
+    }
     private void move(double x, double y, boolean snap) {
         detachTotem();
         HudBounds b = bounds(); guideX = guideY = -1;
@@ -404,47 +418,47 @@ public final class HudEditor extends PixelScreen {
         if (selected == Element.ARMOR) Neon.config.armorAnchor = ArmorAnchor.CUSTOM;
     }
     @Override protected boolean pixelMouseClicked(MouseButtonEvent e, boolean twice) {
+        boolean header = toolbar && e.button() == 0 && e.x() >= shellX && e.x() <= shellX + shellWidth && e.y() >= shellY && e.y() < shellY + 22;
         if (colorPicker != null) {
             if (colorPicker.isMouseOver(e.x(),e.y())) {
                 colorPicker.mouseClicked(e,twice); setFocused(colorPicker); setDragging(e.button()==0);
                 if (e.button()==0 && colorPicker.draggingPointer()) capturePointer(colorPicker,e);
                 return true;
             }
-            if (e.x()<shellX || e.x()>shellX+shellWidth || e.y()<shellY || e.y()>shellY+shellHeight) closeColor(true);
+            if (!header && !ColorRow.underPointer(column, e)) {
+                closeColor(true);
+                return true;
+            }
         }
         ExactSlider editing = editingSlider();
         if (editing != null && !editing.isMouseOver(e.x(), e.y()) && !editing.finishInline(true)) return true;
-        if (toolbar && e.button() == 0 && e.x() >= shellX && e.x() <= shellX + shellWidth && e.y() >= shellY && e.y() < shellY + 22) {
+        if (header) {
             if (colorPicker != null) colorPicker.finish();
             setFocused((GuiEventListener)null);
             gesture = Gesture.PANEL; panelOriginX = px; panelOriginY = py; px=shellX;py=shellY;panelGrabX = e.x() - px; panelGrabY = e.y() - py; return true;
         }
         if (super.pixelMouseClicked(e, twice)) return true;
         if (toolbar && e.x() >= shellX && e.x() <= shellX + shellWidth && e.y() >= shellY && e.y() <= shellY + shellHeight) return true;
+        if (e.button() != 0 && e.button() != 1) return false;
         e = new MouseButtonEvent(hudCoordinate(e.x()), hudCoordinate(e.y()), e.buttonInfo());
+        if (e.button() == 0) setFocused((GuiEventListener) null);
+        CanvasHit hit = canvasHit(e.x(), e.y());
+        if (hit == null) return false;
+        selected = hit.element();
         if (e.button() == 1) {
-            for (Element element : Element.values()) if (visible(element) && bounds(element).contains(e.x(), e.y())) {
-                selected = element; revealSelected();animateRows = expanded.add(element.name());
-                boolean opened = animateRows || !toolbar; toolbar = true; rebuildWidgets();
-                if (opened) UiSounds.cue(Cue.NAVIGATE);
-                column.children().stream().filter(w -> w instanceof HudEntry entry && entry.identity().equals(element.name()))
-                    .findFirst().ifPresent(w -> column.reveal(w.getY(), w.getBottom() + 22));
-                return true;
-            }
-            return false;
+            revealSelected();animateRows = expanded.add(selected.name());
+            boolean opened = animateRows || !toolbar; toolbar = true; rebuildWidgets();
+            if (opened) UiSounds.cue(Cue.NAVIGATE);
+            column.children().stream().filter(w -> w instanceof HudEntry entry && entry.identity().equals(selected.name()))
+                .findFirst().ifPresent(w -> column.reveal(w.getY(), w.getBottom() + 22));
+        } else if (hit.corner() >= 0) {
+            start(e, Gesture.RESIZE);
+            resizeCorner = hit.corner();
+            resizeGesture = new HudResize(widget(), origin, resizeCorner, startScale);
+        } else {
+            start(e, Gesture.MOVE);
         }
-        if (e.button() != 0) return false;
-        setFocused((GuiEventListener) null);
-        // Selection takes precedence when widgets overlap; the inspector can select either one.
-        for (Element element : hitOrder()) {
-            if (!visible(element)) continue;
-            HudBounds b = bounds(element);
-            for (int i=0;i<4;i++) if((element != Element.TOTEMS || Neon.config.totemFloating) && handle(b,i).contains(e.x(),e.y())) {
-                select(element);start(e,Gesture.RESIZE);resizeCorner=i;resizeGesture=new HudResize(widget(),origin,i,startScale);return true;
-            }
-            if (b.contains(e.x(), e.y())) { select(element); start(e, Gesture.MOVE); return true; }
-        }
-        return false;
+        return true;
     }
     private void start(MouseButtonEvent e, Gesture type) {
         dragSnap.clear();dragMoved=false;
@@ -500,22 +514,27 @@ public final class HudEditor extends PixelScreen {
         if (colorPicker != null && colorPicker.editingHex() && (e.key()==GLFW.GLFW_KEY_ESCAPE || e.key()==GLFW.GLFW_KEY_ENTER || e.key()==GLFW.GLFW_KEY_KP_ENTER)) return colorPicker.keyPressed(e);
         ExactSlider editing = editingSlider();
         if (editing != null) return editing.keyPressed(e);
+        if (e.key() == GLFW.GLFW_KEY_ESCAPE && gesture != Gesture.NONE) {
+            if (gesture == Gesture.PANEL) { px = panelOriginX; py = panelOriginY; }
+            else session.cancel();
+            rebuildWidgets(); return true;
+        }
+        if (e.key() == GLFW.GLFW_KEY_ESCAPE && hasPointerGesture()) { finishPointerGesture(); return true; }
         if(e.key()==GLFW.GLFW_KEY_F&&(e.modifiers()&GLFW.GLFW_MOD_CONTROL)!=0&&(colorPicker==null||!colorPicker.editingHex())){
             if(!toolbar||!searchOpen){toolbar=searchOpen=true;rebuildWidgets();}setFocused(search);search.moveCursorToEnd(false);search.setHighlightPos(0);return true;
         }
+        if (e.key() == GLFW.GLFW_KEY_ESCAPE && toolbar && searchOpen) {
+            if (!query.isEmpty()) search.setValue("");
+            else { searchOpen=false;setFocused((GuiEventListener)null);rebuildWidgets(); }
+            return true;
+        }
         if(search!=null&&search.isFocused()){
-            if(e.key()==GLFW.GLFW_KEY_ESCAPE){if(!query.isEmpty())search.setValue("");else{searchOpen=false;setFocused((GuiEventListener)null);rebuildWidgets();}return true;}
             if(e.key()==GLFW.GLFW_KEY_ENTER||e.key()==GLFW.GLFW_KEY_KP_ENTER||e.key()==GLFW.GLFW_KEY_DOWN){if(UiSearch.focusFirst(column))setFocused(column);return true;}
             // H, Tab, arrows, and the menu keys belong to the focused editor first.
             if(e.key()==GLFW.GLFW_KEY_Z&&(e.modifiers()&GLFW.GLFW_MOD_CONTROL)!=0)return true;
             return super.pixelKeyPressed(e);
         }
         if (e.key() == GLFW.GLFW_KEY_Z && (e.modifiers() & GLFW.GLFW_MOD_CONTROL) != 0) { session.undo(); rebuildWidgets(); return true; }
-        if (e.key() == GLFW.GLFW_KEY_ESCAPE && gesture != Gesture.NONE) {
-            if (gesture == Gesture.PANEL) { px = panelOriginX; py = panelOriginY; }
-            else session.cancel();
-            rebuildWidgets(); return true;
-        }
         if (colorPicker != null && e.key()==GLFW.GLFW_KEY_ESCAPE) { closeColor(true); return true; }
         if (colorPicker != null && (colorPicker.editingHex() || e.key()==GLFW.GLFW_KEY_TAB)) { colorMotion.snap(1);layoutColor();return super.pixelKeyPressed(e); }
         if (e.key() == GLFW.GLFW_KEY_H || e.key() == GLFW.GLFW_KEY_TAB) { closeColor(false); toolbar = !toolbar; rebuildWidgets(); return true; }

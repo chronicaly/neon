@@ -81,6 +81,37 @@ final class FpsHudSmoke {
         check(picker.getX()>shell.left() && picker.getRight()<shell.right() && named("Paste").getBottom()<shell.bottom(),"compact color actions fit inside the shared animated HUD border");
     }
     private HudBounds bounds() { return FpsHud.bounds(mc.getWindow().getWidth(), mc.getWindow().getHeight()); }
+    private void checkOverlap() throws Exception {
+        var coordinates = Neon.config.hud(HudKind.COORDINATES).placement;
+        int width = mc.getWindow().getWidth(), height = mc.getWindow().getHeight();
+        double oldX = coordinates.x, oldY = coordinates.y;
+        boolean wasVisible = coordinates.visible;
+        coordinates.visible = true;
+        var fps = bounds();
+        var card = HudWidgets.get(HudKind.COORDINATES);
+        card.bounds(width, height, true).move(coordinates, fps.x()-12, fps.y()-5, width, height);
+        var before = card.bounds(width, height, true);
+        double x = fps.x() + 2, y = fps.y() + 2;
+        check(before.contains(x, y) && fps.contains(x, y), "Coordinates overlaps FPS at the test pointer");
+        click(named("Coordinates"), 1);
+        check(PremiumSmoke.cursor(editor, x / PixelScreen.UI_SCALE, y / PixelScreen.UI_SCALE)
+            == com.mojang.blaze3d.platform.cursor.CursorTypes.RESIZE_ALL,
+            "the selected Coordinates body gets a move cursor over the FPS resize corner");
+        var right = mouse(x / editor.pixelScale(), y / editor.pixelScale(), 1);
+        editor.mouseClicked(right, false);editor.mouseReleased(right);
+        check(widgets(editor).stream().noneMatch(w -> w.getMessage().getString().equals("Smooth FPS")),
+            "right-clicking the overlap keeps the selected Coordinates fold");
+        var left = physical(x, y);
+        var end = new MouseButtonEvent((x + 48) / editor.pixelScale(), y / editor.pixelScale(), new MouseButtonInfo(0, GLFW.GLFW_MOD_ALT));
+        editor.mouseClicked(left, false);editor.mouseDragged(end, end.x() - left.x(), 0);editor.mouseReleased(end);
+        check(card.bounds(width, height, true).x() == before.x() + 48 && bounds().equals(fps),
+            "dragging the same overlap moves only Coordinates");
+        undo();
+        check(card.bounds(width, height, true).equals(before), "one Undo restores the overlapped widget");
+        click(named("Coordinates"), 1);
+        coordinates = Neon.config.hud(HudKind.COORDINATES).placement;
+        coordinates.visible = wasVisible;coordinates.x = oldX;coordinates.y = oldY;
+    }
     private void shot(String suffix) { Screenshot.grab(mc.gameDirectory, "neon-fps-" + scenario + "-" + suffix + ".png", mc.gameRenderer.mainRenderTarget(), 1, message -> {}); }
     private void setup() {
         Neon.config.resetHud(); Neon.config.fps.x = .75; Neon.config.fps.y = .3;
@@ -114,7 +145,7 @@ final class FpsHudSmoke {
                 check(editor.inspectorBounds().height()==Math.min(300,editor.canvasHeight()-editor.inspectorBounds().top()-8),"expanded HUD catalog retains a compact scrollable column");
                 check(widgets(editor).stream().filter(w->w.getClass().getSimpleName().equals("HudEntry")).count()==HudKind.values().length+4,"collapsed catalog contains every widget and General");
                 check(FpsHud.fontPixels() == 16 && bounds().height() == mc.font.lineHeight * 2 + 4, "Minecraft FPS font scales independently of GUI scale");
-                shot("collapsed"); click(named("FPS"), 1); next();
+                shot("collapsed"); checkOverlap(); click(named("FPS"), 1); next();
             }
             case 1 -> {
                 check(List.of("Smooth FPS", "Background", "Border", "Shadow").stream().allMatch(n -> named(n).active), "Unity FPS controls expand inline");
@@ -212,6 +243,17 @@ final class FpsHudSmoke {
             }
             case 8 -> {
                 fitsColor();shot("colors");
+                var fps = bounds();
+                var down = physical(fps.x() + fps.width() / 2d, fps.y() + fps.height() / 2d);
+                int cues = SoundAudit.cues.size();
+                editor.mouseClicked(down, false);
+                var drag = mouse(down.x()-35, down.y(), 0);
+                editor.mouseDragged(drag, -35, 0);editor.mouseReleased(drag);
+                check(bounds().equals(fps) && widgets(editor).stream().noneMatch(w -> w.getMessage().getString().equals("Color picker")),
+                    "clicking away from a color consumes the canvas gesture");
+                check(SoundAudit.cues.size() == cues + 1 && SoundAudit.cues.getLast().cue() == me.xchro.neon.core.UiSoundPolicy.Cue.BACK,
+                    "a canvas dismissal requests one back cue");
+                click(named("Border color"), 0);
                 click(named("Hex color"),0);var panel=editor.inspectorBounds();
                 var start=mouse(editor.guiCoordinate(panel.left()+24),editor.guiCoordinate(panel.top()+8),0);
                 var end=mouse(editor.guiCoordinate(panel.left()+48),editor.guiCoordinate(panel.top()+18),0);

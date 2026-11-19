@@ -29,7 +29,7 @@ main{max-width:1180px;margin:auto;padding:40px 24px 64px}h1{font-size:28px;line-
 <figure><a href="images/neon-search-settings-1.png"><img src="images/neon-search-settings-1.png" width="1280" height="800" alt="Minimum Settings search and the attached color controls"></a><figcaption>Minimum Settings view. Narrow color drawers temporarily replace the settings pane, restoring its scroll on dismissal.</figcaption></figure>
 
 <h2>Compact HUD column</h2>
-<p>All existing HUD widgets remain in the searchable expandable column. Only enabled widgets render or receive canvas input. A click reveals settings; a drag moves the widget without opening a fold. Keep invisible resize corners, six-pixel edge catches and Alt bypass. No canvas labels, handles or selection outlines.</p>
+<p>All existing HUD widgets remain in the searchable expandable column. Only enabled widgets render or receive canvas input. A click reveals settings. A drag moves the widget. Where widgets overlap, the cursor and both mouse buttons target the selected widget first. Keep invisible resize corners, six-pixel edge catches and Alt bypass. No canvas labels, handles or selection outlines.</p>
 <figure><a href="images/neon-search-hud-hidden-2.png"><img src="images/neon-search-hud-hidden-2.png" width="640" height="360" alt="HUD column on a small display with search hidden"></a><figcaption>The HUD column also starts without a search row. Ctrl+F opens search; Escape clears the query, then hides the empty field.</figcaption></figure>
 <figure><a href="images/neon-search-hud-color-2.png"><img src="images/neon-search-hud-color-2.png" width="640" height="360" alt="FPS HUD search and attached color drawer fitting a 640 by 360 display"></a><figcaption>640 × 360 display: FPS colors edit live in the compact attached drawer. Column and drawer share one animated outline. Tiny original/current chips, hex and Copy/Paste/Sync stay visible.</figcaption></figure>
 
@@ -42,8 +42,8 @@ main{max-width:1180px;margin:auto;padding:40px 24px 64px}h1{font-size:28px;line-
 <tr><td>Drawer / fold</td><td>340 / 150 ms settling targets; preserve position and velocity through reversals.</td></tr>
 <tr><td>Content / close</td><td>120 ms content crossfade; immediate gameplay release with an 80 ms render-only closing fade.</td></tr>
 <tr><td>Outline</td><td>One thin contour, localized traveling bloom, physical edge position preserved during geometry changes.</td></tr>
-<tr><td>Search</td><td>Hidden by default; Ctrl+F reveals and focuses, Enter/Down reveals first result without activating, Escape clears then hides the empty field and reclaims its row. Clearing restores scrolling; no configuration or Undo changes.</td></tr>
-<tr><td>Colors</td><td>168 logical-unit attached drawer, live HSV/opacity and Unity Copy/Paste/Sync. Escape/outside click retains edits.</td></tr>
+<tr><td>Search</td><td>Hidden by default; Ctrl+F reveals and focuses, Enter/Down reveals first result without activating, Escape from the field or a result clears the query, then hides the empty field and reclaims its row. Clearing restores scrolling; no configuration or Undo changes.</td></tr>
+<tr><td>Colors</td><td>168 logical-unit attached drawer, live HSV/opacity and Unity Copy/Paste/Sync. An outside click dismisses the drawer and keeps live edits. Another visible color row switches directly.</td></tr>
 <tr><td>Acknowledgement</td><td>Copied/Saved only after success, 900 ms hold and 120 ms return fade, stable geometry.</td></tr>
 </tbody>
 </table>

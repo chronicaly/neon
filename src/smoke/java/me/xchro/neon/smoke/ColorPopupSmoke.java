@@ -82,6 +82,18 @@ final class ColorPopupSmoke {
                 key(GLFW.GLFW_KEY_ESCAPE,0);check(widgets(menu).stream().noneMatch(w->w.getMessage().getString().equals("Color picker"))&&mc.gui.screen()==menu,"Escape dismisses only the popup");
                 click(widget("Accent"));click(widget("Accent").getX()+5,widget("Accent").getY()+7,1);check(widgets(menu).stream().noneMatch(w->w.getMessage().getString().equals("Color picker")),"right-clicking the selected color closes its popup");
                 click(widget("Accent"));click(5,5,0);check(widgets(menu).stream().noneMatch(w->w.getMessage().getString().equals("Color picker")),"outside click dismisses the popup");
+                click(widget("Accent"));
+                int cues = SoundAudit.cues.size();
+                click(widget("Visuals"));
+                check(widgets(menu).stream().anyMatch(w -> w.getMessage().getString().equals("Accent"))
+                    && widgets(menu).stream().noneMatch(w -> w.getMessage().getString().equals("Color picker")),
+                    "an outside click on Visuals dismisses only the color drawer");
+                check(SoundAudit.cues.size() == cues + 1
+                    && SoundAudit.cues.getLast().cue() == me.xchro.neon.core.UiSoundPolicy.Cue.BACK,
+                    "the dismissal has one back cue");
+                click(widget("Visuals"));
+                check(widgets(menu).stream().anyMatch(w -> w.getMessage().getString().equals("Freelook")),
+                    "the next click on Visuals navigates normally");
                 check(SoundAudit.neonEnables==sounds+1,"only the Sync toggle requests an enable cue during color interactions");
                 setup(true,2);next();
             }
@@ -94,7 +106,7 @@ final class ColorPopupSmoke {
                 mc.setLastInputType(InputType.KEYBOARD_TAB);click(widget("Saturation and brightness"));for(int i=0;i<20&&!widget("Paste").isFocused();i++)key(GLFW.GLFW_KEY_TAB,0);check(widget("Paste").isFocused(),"keyboard reaches all popup actions");
                 mc.getWindow().setWindowed(640,480);mc.resizeGui();next();
             }
-            case 4->{fits();check(Neon.config.theme.accent!=0,"viewport resize preserves an open, live picker");check(widgets(menu).stream().filter(w->w.getClass().getSimpleName().equals("UiScroll")).count()==1,"narrow display replaces details without hidden input targets");shot("small-display");key(GLFW.GLFW_KEY_ESCAPE,0);stage=9;age=0;}
+            case 4->{fits();check(Neon.config.theme.accent!=0,"viewport resize preserves an open, live picker");check(widgets(menu).stream().filter(w->w.getClass().getSimpleName().equals("UiScroll")).count()==1,"narrow display replaces details without hidden input targets");shot("small-display");click(widget("Combat"));stage=9;age=0;}
             case 9->{check(widgets(menu).stream().filter(w->w.getClass().getSimpleName().equals("UiScroll")).count()==2,"closing the narrow color drawer restores settings input");setup(false,3);stage=5;age=0;}
             case 5->{click(widget("Accent"));next();}
             case 6->{fits();check(popup().getWidth()==144,"GUI scale three retains the compact physical drawer size");shot("scale3");setupTheme(false);next();}
@@ -115,7 +127,18 @@ final class ColorPopupSmoke {
                 fits();shot("mention-default");int before=Neon.config.betterChat.mentionColor;
                 mc.keyboardHandler.setClipboard("#CC88EEFF");click(widget("Paste"));check(Neon.config.betterChat.mentionColor==0xffcc88ee,"mention color applies live in the attached drawer");
                 undo();check(Neon.config.betterChat.mentionColor==before,"mention color Undo preserves the open drawer");
-                key(GLFW.GLFW_KEY_ESCAPE,0);setupChat(true);next();
+                String originalConfig = ConfigStore.encode(Neon.config);
+                click(widget("Paste"));
+                String editedConfig = ConfigStore.encode(Neon.config);
+                check(!originalConfig.equals(editedConfig), "live color edit precedes dismissal");
+                var grid = widgets(menu).stream().filter(w -> w.getClass().getSimpleName().equals("UiScroll")).findFirst().orElseThrow();
+                ((AbstractScrollArea)grid).setScrollAmount(0);
+                click(widget("Freelook"));
+                check(widgets(menu).stream().noneMatch(w -> w.getMessage().getString().equals("Color picker"))
+                    && ConfigStore.encode(Neon.config).equals(editedConfig), "dismissing over a module keeps the live color and module state");
+                undo();
+                check(ConfigStore.encode(Neon.config).equals(originalConfig), "one Undo still restores the color");
+                setupChat(true);next();
             }
             case 13->{
                 fits();shot("mention-minimum");
